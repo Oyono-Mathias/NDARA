@@ -1,0 +1,49 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "A user in the Ndara Afrique system (Student, Expert, or CEO)",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "role": { "type": "string", "enum": ["student", "expert", "ceo"] },
+        "fullName": { "type": "string" },
+        "email": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "wallet": {
+          "type": "object",
+          "properties": {
+            "balance": { "type": "number", "description": "Achats balance" },
+            "affiliateBalance": { "type": "number", "description": "Gains de parrainage (10%)" },
+            "pendingBalance": { "type": "number", "description": "Séquestre anti-fraude de 14 jours" }
+          }
+        }
+      },
+      "required": ["uid", "role", "email"]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "A wallet transaction records a change in balances",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "type": { "type": "string", "enum": ["deposit", "purchase", "affiliate_payout", "escrow_release"] },
+        "amount": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "completed", "failed"] },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "amount", "type"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User profiles and triple-balance wallets"
+    },
+    "/users/{userId}/transactions/{transactionId}": {
+      "schema": { "$ref": "#/entities/Transaction" },
+      "description": "Wallet transactions for a user"
+    }
+  }
+}

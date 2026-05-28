@@ -1,0 +1,6 @@
+{
+  "name": "Ndara Afrique",
+  "description": "Infrastructure EdTech panafricaine d'élite. Bara ala, Tonga na ndara.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

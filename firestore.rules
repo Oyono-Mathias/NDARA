@@ -1,0 +1,78 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function incoming() {
+      return request.resource.data;
+    }
+    
+    function existing() {
+      return resource.data;
+    }
+    
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'role', 'email'])
+        && data.uid is string && data.uid.size() <= 128 && data.uid == request.auth.uid
+        && data.role is string && data.role in ['student', 'expert', 'ceo']
+        && data.email is string && data.email.size() <= 200
+        && (!('fullName' in data) || (data.fullName is string && data.fullName.size() <= 100))
+        && (!('createdAt' in data) || data.createdAt is string)
+        && (!('wallet' in data) || (
+            data.wallet is map
+            && (!('balance' in data.wallet) || data.wallet.balance is number)
+            && (!('affiliateBalance' in data.wallet) || data.wallet.affiliateBalance is number)
+            && (!('pendingBalance' in data.wallet) || data.wallet.pendingBalance is number)
+        ));
+    }
+
+    function isValidTransaction(data, parentUserId) {
+      return data.keys().hasAll(['userId', 'amount', 'type'])
+        && data.userId is string && data.userId == parentUserId
+        && data.amount is number
+        && data.type is string && data.type in ['deposit', 'purchase', 'affiliate_payout', 'escrow_release']
+        && (!('id' in data) || (data.id is string && data.id.size() <= 128))
+        && (!('status' in data) || (data.status is string && data.status in ['pending', 'completed', 'failed']))
+        && (!('timestamp' in data) || data.timestamp is string);
+    }
+
+    match /users/{userId} {
+      allow read: if isSignedIn() && request.auth.uid == userId;
+      allow create: if isSignedIn() 
+                    && isValidId(userId)
+                    && userId == request.auth.uid
+                    && isValidUser(incoming())
+                    && incoming().keys().size() <= 6;
+      allow update: if isSignedIn() 
+                    && isValidId(userId)
+                    && userId == request.auth.uid
+                    && isValidUser(incoming())
+                    && incoming().uid == existing().uid
+                    && incoming().email == existing().email;
+      
+      match /transactions/{transactionId} {
+        allow read: if isSignedIn() && request.auth.uid == userId;
+        allow list: if isSignedIn() && request.auth.uid == userId && resource.data.userId == request.auth.uid;
+        allow create: if isSignedIn()
+                      && isValidId(userId)
+                      && isValidId(transactionId)
+                      && request.auth.uid == userId
+                      && isValidTransaction(incoming(), userId)
+                      && incoming().type == 'deposit'
+                      && incoming().status == 'pending';
+        allow update: if false; 
+        allow delete: if false;
+      }
+    }
+  }
+}
