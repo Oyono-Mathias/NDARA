@@ -1,24 +1,48 @@
 import { useState, useMemo, useEffect } from 'react';
 import { BookOpen, Search, Compass, PlayCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { db } from '../firebase';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { useRole } from '../context/RoleContext';
 
 export function CoursesView() {
+  const { currentUser } = useRole();
   const [courses, setCourses] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('all');
 
   useEffect(() => {
-    // Simulate fetching data
-    setTimeout(() => {
-        setCourses([
-            { id: 1, title: 'Trading & Finance Décentralisée', progress: 65, image: 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&q=80&w=200&h=200', active: true },
-            { id: 2, title: 'Introduction à l\'AgriTech', progress: 0, image: 'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?auto=format&fit=crop&q=80&w=200&h=200', active: false },
-            { id: 3, title: 'Développement Web3 Blockchain', progress: 100, image: 'https://images.unsplash.com/photo-1639762681485-074b7f4aec63?auto=format&fit=crop&q=80&w=200&h=200', active: false },
-        ]);
-        setIsLoading(false);
-    }, 500);
-  }, []);
+    const fetchCourses = async () => {
+        if (!currentUser?.uid) {
+            setIsLoading(false);
+            return;
+        }
+        try {
+            const q = query(collection(db, 'enrollments'), where('studentId', '==', currentUser.uid));
+            const snap = await getDocs(q);
+            const courseIds = snap.docs.map(doc => doc.data().courseId);
+            const loadedCourses: any[] = [];
+            
+            for (const docSnap of snap.docs) {
+                 const data = docSnap.data();
+                 loadedCourses.push({
+                      id: data.courseId,
+                      title: data.courseTitle || 'Formation Ndara',
+                      progress: data.progress || 0,
+                      image: 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&q=80&w=200&h=200',
+                      active: data.progress > 0
+                 });
+            }
+            setCourses(loadedCourses);
+        } catch (e) {
+            console.error("Error fetching courses", e);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+    fetchCourses();
+  }, [currentUser?.uid]);
 
   const filteredResults = useMemo(() => {
     let list = [...courses];

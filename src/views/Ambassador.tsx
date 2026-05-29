@@ -17,10 +17,12 @@ import {
     Loader2
 } from "lucide-react";
 import { useState, useEffect } from "react";
-import { getFirestore, collection, query, where, orderBy, limit, onSnapshot, doc, updateDoc } from 'firebase/firestore';
-import { auth, db } from "../firebase";
+import { collection, query, where, orderBy, limit, onSnapshot, doc, updateDoc } from 'firebase/firestore';
+import { db } from "../firebase";
+import { useRole } from '../context/RoleContext';
 
 export function AmbassadorView() {
+    const { currentUser } = useRole();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isCopied, setIsCopied] = useState(false);
     const [leaderboard, setLeaderboard] = useState<any[]>([]);
@@ -28,62 +30,32 @@ export function AmbassadorView() {
     const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
     const [withdrawMethod, setWithdrawMethod] = useState<'orange' | 'mtn' | 'wave'>('orange');
     const [phoneValue, setPhoneValue] = useState('');
-    
-    // Simulate user state since there's no RoleContext
-    const [currentUser, setCurrentUser] = useState<any>({
-        uid: "mock-uid",
-        fullName: "KOUAME",
-        affiliateBalance: 15500,
-        pendingAffiliateBalance: 2500,
-        affiliateStats: {
-            clicks: 124,
-            registrations: 45,
-            sales: 12,
-            earnings: 15500
-        }
-    });
 
     useEffect(() => {
-        const unsubAuth = auth.onAuthStateChanged((user) => {
-            if (user) {
-                // For a real app we'd fetch the user doc here. Keeping mock if no user fetched for preview.
-                setCurrentUser((prev: any) => ({ ...prev, uid: user.uid, fullName: user.displayName || prev.fullName }));
-                
-                // Fetch actual leaderboard
-                const unsubLeader = onSnapshot(
-                    query(
-                        collection(db, 'users'),
-                        where('wallet.affiliateBalance', '>', 0), // Just a rough query to test
-                        orderBy('wallet.affiliateBalance', 'desc'),
-                        limit(5)
-                    ), 
-                    (snap) => {
-                        if (!snap.empty) {
-                            setLeaderboard(snap.docs.map(d => ({ uid: d.id, ...d.data() })));
-                        } else {
-                            // Fallback to mock leaderboard if db is empty
-                            setLeaderboard([
-                                { uid: '1', fullName: 'Marc A.', affiliateStats: { earnings: 45000, sales: 30 } },
-                                { uid: '2', fullName: 'Chloé S.', affiliateStats: { earnings: 32000, sales: 21 } },
-                                { uid: '3', fullName: 'Ibrahim K.', affiliateStats: { earnings: 18500, sales: 12 } },
-                            ]);
-                        }
-                        setLoadingData(false);
-                    }
-                );
-                return () => unsubLeader();
-            } else {
-                setLeaderboard([
-                    { uid: '1', fullName: 'Marc A.', affiliateStats: { earnings: 45000, sales: 30 } },
-                    { uid: '2', fullName: 'Chloé S.', affiliateStats: { earnings: 32000, sales: 21 } },
-                    { uid: '3', fullName: 'Ibrahim K.', affiliateStats: { earnings: 18500, sales: 12 } },
-                ]);
+        if (!currentUser?.uid) {
+            setLoadingData(false);
+            return;
+        }
+        
+        // Fetch actual leaderboard
+        const unsubLeader = onSnapshot(
+            query(
+                collection(db, 'users'),
+                where('affiliateBalance', '>', 0), // Adjust query
+                orderBy('affiliateBalance', 'desc'),
+                limit(5)
+            ), 
+            (snap) => {
+                if (!snap.empty) {
+                    setLeaderboard(snap.docs.map(d => ({ uid: d.id, ...d.data() })));
+                } else {
+                    setLeaderboard([]);
+                }
                 setLoadingData(false);
             }
-        });
-        
-        return () => unsubAuth();
-    }, []);
+        );
+        return () => unsubLeader();
+    }, [currentUser?.uid]);
 
     const shareUrl = `${window.location.origin}/search?aff=${currentUser?.uid}`;
 

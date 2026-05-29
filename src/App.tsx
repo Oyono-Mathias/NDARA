@@ -3,12 +3,16 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
-import { Bell } from "lucide-react";
+import { Landing } from "./views/Landing";
+import { AuthView } from "./views/Auth";
+import { BrowserRouter, Routes, Route, useNavigate, Link } from "react-router-dom";
+import { Bell, Menu } from "lucide-react";
 import { Navigation } from "./components/Navigation";
+import { Sidebar } from "./components/Sidebar";
 import { Dashboard } from "./views/Dashboard";
 import { SearchAndCatalog } from "./views/Search";
 import { WalletView } from "./views/Wallet";
+import { BourseView } from "./views/Bourse";
 import { ProfileView } from "./views/Profile";
 import { CoursesView } from "./views/Courses";
 import { CoursePlayer } from "./views/CoursePlayer";
@@ -20,18 +24,26 @@ import { AssignmentDetail } from "./views/AssignmentDetail";
 import { QuizView } from "./views/Quiz";
 import { ResultsView } from "./views/Results";
 import { PaymentsView } from "./views/Payments";
+import { EbooksView } from "./views/Ebooks";
 import { CheckoutView } from "./views/Checkout";
 import { AmbassadorView } from "./views/Ambassador";
 import { DirectoryView } from "./views/Directory";
 import { MessagesView } from "./views/Messages";
 import { AccountView } from "./views/Account";
 import { SupportView } from "./views/Support";
+import { NotificationsView } from "./views/Notifications";
 import { InstructorLayout } from "./views/instructor/InstructorLayout";
 import { StudentCourseRedirect } from "./views/StudentCourseRedirect";
-
 import { RedirectAssignments } from "./views/RedirectAssignments";
+import { RedirectWishlist } from "./views/RedirectWishlist";
+import { RedirectMesDevoirs } from "./views/RedirectMesDevoirs";
+import { RedirectMesFormations } from "./views/RedirectMesFormations";
+import { AdminLayout } from "./views/admin/AdminLayout";
+import { useState } from "react";
 
 function StudentLayout() {
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
   return (
     <div className="antialiased min-h-screen flex justify-center bg-black">
       {/* Mobile Container (Simulating Phone Screen on Desktop) */}
@@ -54,13 +66,16 @@ function StudentLayout() {
 
             {/* Right Actions */}
             <div className="flex items-center gap-4">
-              <button className="w-10 h-10 rounded-full glass-light flex items-center justify-center text-gray-400 hover:text-white transition card-hover relative">
+              <Link to="/student/notifications" className="w-10 h-10 rounded-full glass-light flex items-center justify-center text-gray-400 hover:text-white transition card-hover relative">
                 <Bell className="w-5 h-5" />
                 <span className="absolute top-2 right-2.5 w-2 h-2 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.8)]"></span>
+              </Link>
+              <button 
+                onClick={() => setIsSidebarOpen(true)}
+                className="w-10 h-10 rounded-full glass-light flex items-center justify-center text-white ring-2 ring-primary/50 shadow-[0_0_10px_rgba(16,185,129,0.2)] focus:outline-none hover:bg-white/10 transition"
+              >
+                <Menu className="w-5 h-5" />
               </button>
-              <div className="w-10 h-10 rounded-full bg-card border border-white/10 overflow-hidden ring-2 ring-primary/50 shadow-[0_0_10px_rgba(16,185,129,0.2)]">
-                <img src="https://i.pravatar.cc/150?img=11" alt="Profile" className="w-full h-full object-cover" />
-              </div>
             </div>
           </div>
         </header>
@@ -73,6 +88,7 @@ function StudentLayout() {
             <Route path="search" element={<SearchAndCatalog />} />
             <Route path="courses" element={<CoursesView />} />
             <Route path="wallet" element={<WalletView />} />
+            <Route path="bourse" element={<BourseView />} />
             <Route path="profile" element={<ProfileView />} />
             <Route path="course-redirect/:slug" element={<StudentCourseRedirect />} />
             <Route path="courses/:slug" element={<CoursePlayer />} />
@@ -80,6 +96,9 @@ function StudentLayout() {
             <Route path="mathias" element={<MathiasTutor />} />
             <Route path="certificates" element={<CertificatesView />} />
             <Route path="assignments" element={<RedirectAssignments />} />
+            <Route path="mes-devoirs" element={<RedirectMesDevoirs />} />
+            <Route path="mes-formations" element={<RedirectMesFormations />} />
+            <Route path="wishlist" element={<RedirectWishlist />} />
             <Route path="devoirs" element={<AssignmentsView />} />
             <Route path="devoirs/:id" element={<AssignmentDetail />} />
             <Route path="quiz/:id" element={<QuizView />} />
@@ -91,10 +110,13 @@ function StudentLayout() {
             <Route path="messages" element={<MessagesView />} />
             <Route path="account" element={<AccountView />} />
             <Route path="support" element={<SupportView />} />
+            <Route path="notifications" element={<NotificationsView />} />
+            <Route path="ebooks" element={<EbooksView />} />
           </Routes>
         </main>
 
         <Navigation />
+        <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
       </div>
     </div>
   );
@@ -120,10 +142,6 @@ function GenericPlaceholder({ title }: { title: string }) {
     </div>
   );
 }
-
-import { AdminLayout } from "./views/admin/AdminLayout";
-import { Landing } from "./views/Landing";
-import { AuthView } from "./views/Auth";
 
 export default function App() {
   return (

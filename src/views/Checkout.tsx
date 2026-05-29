@@ -20,6 +20,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useRole } from '../context/RoleContext';
 
 export function CheckoutView() {
   const params = useParams();
@@ -29,6 +30,7 @@ export function CheckoutView() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isAwaitingUssd, setIsAwaitingUssd] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const { currentUser: ctxUser, role } = useRole();
   const [currentUser, setCurrentUser] = useState<any>(null);
 
   const [errorModal, setErrorModal] = useState<{ isOpen: boolean; message: string; title: string }>({
@@ -45,27 +47,33 @@ export function CheckoutView() {
   const [courseLoading, setCourseLoading] = useState(true);
 
   useEffect(() => {
-    const unsubAuth = auth.onAuthStateChanged((user) => {
-        if (user) {
-            setCurrentUser(user);
-            // Mock fetching country code for now
-            setIsLoadingCountry(false);
-        } else {
-            setCurrentUser({ balance: 0, countryCode: 'SN', certifiedMobileNumbers: { 'SN_ORANGE': '+221770000000' } });
-            setIsLoadingCountry(false);
-        }
-    });
-
-    if (slug) {
-        // Fetch course
-        setTimeout(() => {
-            setCourse({ id: slug, title: slug === 'trading' ? 'Trading & Finance Décentralisée' : 'Formation ' + slug, price: 25000 });
-            setCourseLoading(false);
-        }, 500);
+    if (ctxUser) {
+        setCurrentUser(ctxUser);
+        setIsLoadingCountry(false);
+    } else {
+        setCurrentUser({ balance: 0, countryCode: 'SN', certifiedMobileNumbers: { 'SN_ORANGE': '+221770000000' } });
+        setIsLoadingCountry(false);
     }
 
-    return () => unsubAuth();
-  }, [slug]);
+    if (slug) {
+        const fetchCourse = async () => {
+             try {
+                const q = query(collection(db, 'courses'), where('slug', '==', slug));
+                const snap = await getDocs(q);
+                if (!snap.empty) {
+                    setCourse({ id: snap.docs[0].id, ...snap.docs[0].data() });
+                } else {
+                    setCourse({ id: slug, title: 'Formation ' + slug, price: 25000 });
+                }
+             } catch (e) {
+                console.error("Error fetching course", e);
+             } finally {
+                setCourseLoading(false);
+             }
+        };
+        fetchCourse();
+    }
+  }, [slug, ctxUser]);
 
   useEffect(() => {
       // Mock payment methods

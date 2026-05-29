@@ -1,69 +1,67 @@
-import { MessageCircle, Send, Plus, Search } from "lucide-react";
+import { Suspense } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { ChatList } from '../components/chat/ChatList';
+import { ChatRoom } from '../components/chat/ChatRoom';
+import { useIsMobile } from '../hooks/use-mobile';
+import { useRole } from '../context/RoleContext';
+import { Loader2 } from 'lucide-react';
+
+function MessagesPageContent() {
+    const [searchParams] = useSearchParams();
+    const { isUserLoading } = useRole();
+    const chatId = searchParams.get('chatId');
+    const isMobile = useIsMobile();
+
+    if (isUserLoading) {
+        return (
+            <div className="h-screen flex items-center justify-center bg-slate-950">
+                <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
+            </div>
+        );
+    }
+
+    // SUR MOBILE : On affiche soit la liste, soit la salle, jamais les deux.
+    if (isMobile) {
+        return (
+            <div className="fixed inset-0 z-50 bg-slate-950 overflow-hidden">
+                {chatId ? <ChatRoom chatId={chatId} /> : <ChatList selectedChatId={null} />}
+            </div>
+        );
+    }
+
+    // SUR DESKTOP : Layout Split-Screen standard.
+    return (
+        <div className="grid grid-cols-1 lg:grid-cols-[350px_1fr] h-[calc(100vh-64px)] -m-6 overflow-hidden">
+            <aside className="border-r border-slate-800 bg-slate-900/20">
+                <ChatList selectedChatId={chatId} />
+            </aside>
+            <main className="bg-slate-950 flex flex-col relative">
+                {chatId ? (
+                    <ChatRoom chatId={chatId} />
+                ) : (
+                    <div className="flex-1 flex flex-col items-center justify-center text-slate-700 opacity-30 p-12 text-center animate-in fade-in duration-700">
+                        <div className="p-8 bg-slate-900/50 rounded-full mb-6">
+                            <svg className="h-24 w-24 text-slate-800" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                            </svg>
+                        </div>
+                        <h2 className="text-2xl font-black uppercase tracking-[0.3em] text-white">Messagerie</h2>
+                        <p className="mt-2 text-sm font-medium tracking-tight">Sélectionnez une discussion pour démarrer.</p>
+                    </div>
+                )}
+            </main>
+        </div>
+    );
+}
 
 export function MessagesView() {
-  return (
-    <div className="h-[calc(100vh-160px)] flex flex-col animate-in fade-in duration-500">
-      <div className="flex items-center justify-between mb-4 shrink-0">
-        <h1 className="font-serif text-3xl text-white">Messagerie</h1>
-        <button className="w-10 h-10 rounded-full glass hover:bg-white/10 flex items-center justify-center text-white transition">
-           <Plus className="w-5 h-5" />
-        </button>
-      </div>
-
-       <div className="relative mb-6 shrink-0">
-          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-            <Search className="text-gray-500 w-4 h-4" />
-          </div>
-          <input 
-            type="text" 
-            placeholder="Rechercher une discussion..." 
-            className="w-full bg-card border border-white/5 rounded-2xl py-2.5 pl-10 pr-4 text-white text-sm focus:outline-none focus:border-primary/50 transition-all font-medium"
-          />
-        </div>
-
-      {/* Chat List */}
-      <div className="flex-1 overflow-y-auto hide-scrollbar space-y-2">
-        <div className="glass-light rounded-3xl p-4 flex items-center gap-4 cursor-pointer hover:bg-white/5 transition relative overflow-hidden group">
-            <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary"></div>
-            <div className="w-12 h-12 rounded-full overflow-hidden shrink-0">
-                <img src="https://i.pravatar.cc/150?img=12" alt="Avatar" className="w-full h-full object-cover" />
+    return (
+        <Suspense fallback={
+            <div className="h-screen bg-slate-950 flex items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
             </div>
-            <div className="flex-1">
-                <div className="flex items-center justify-between mb-1">
-                    <h3 className="font-bold text-white text-sm">Emmanuel (Expert)</h3>
-                    <span className="text-xs text-primary font-bold">14:02</span>
-                </div>
-                <p className="text-gray-400 text-xs line-clamp-1">Excellent travail sur ton dernier devoir. Continue comme ça !</p>
-            </div>
-            <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center text-background text-[10px] font-bold">1</div>
-        </div>
-
-        <div className="glass rounded-3xl p-4 flex items-center gap-4 cursor-pointer hover:bg-white/10 transition">
-            <div className="w-12 h-12 rounded-full overflow-hidden shrink-0">
-                <img src="https://i.pravatar.cc/150?img=33" alt="Avatar" className="w-full h-full object-cover" />
-            </div>
-            <div className="flex-1">
-                <div className="flex items-center justify-between mb-1">
-                    <h3 className="font-bold text-white text-sm group-hover:text-primary">Promo #4 - FinTech</h3>
-                    <span className="text-xs text-gray-500 font-bold">Hier</span>
-                </div>
-                <p className="text-gray-400 text-xs line-clamp-1">Sylvie: Est-ce que quelqu'un a compris le concept de Merkle Tree ?</p>
-            </div>
-        </div>
-        
-         <div className="glass rounded-3xl p-4 flex items-center gap-4 cursor-pointer hover:bg-white/10 transition">
-            <div className="w-12 h-12 rounded-full overflow-hidden shrink-0">
-                <img src="https://i.pravatar.cc/150?img=59" alt="Avatar" className="w-full h-full object-cover opacity-50 grayscale" />
-            </div>
-            <div className="flex-1">
-                <div className="flex items-center justify-between mb-1">
-                    <h3 className="font-bold text-gray-400 text-sm">Support Technique</h3>
-                    <span className="text-xs text-gray-600 font-bold">22/05</span>
-                </div>
-                <p className="text-gray-500 text-xs line-clamp-1">Ticket #849 fermé.</p>
-            </div>
-        </div>
-      </div>
-    </div>
-  );
+        }>
+            <MessagesPageContent />
+        </Suspense>
+    );
 }

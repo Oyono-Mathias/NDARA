@@ -14,6 +14,8 @@ import {
     Cpu,
     Code
 } from 'lucide-react';
+import { collection, query, limit, onSnapshot } from 'firebase/firestore';
+import { db } from '../firebase';
 
 const CATEGORIES = [
     { id: 'all', name: "Tous", icon: Users },
@@ -22,14 +24,6 @@ const CATEGORIES = [
     { id: 'Trading', name: "Trading", icon: Coins, color: 'text-orange-400 bg-orange-400/10' },
     { id: 'Mécatronique', name: "MécaTech", icon: Cpu, color: 'text-purple-400 bg-purple-400/10' },
     { id: 'Développement Web', name: "Dév Web", icon: Code, color: 'text-pink-400 bg-pink-400/10' }
-];
-
-const mockUsers = [
-    { uid: '1', fullName: 'Emmanuel D.', interestDomain: 'FinTech', countryCode: 'CF', countryName: 'RCA', isOnline: true },
-    { uid: '2', fullName: 'Aminata S.', interestDomain: 'AgriTech', countryCode: 'SN', countryName: 'Sénégal', isOnline: false },
-    { uid: '3', fullName: 'Kouame O.', interestDomain: 'Trading', countryCode: 'CI', countryName: 'Côte d\'Ivoire', isOnline: true },
-    { uid: '4', fullName: 'Sylvie M.', interestDomain: 'Mécatronique', countryCode: 'CM', countryName: 'Cameroun', isOnline: true },
-    { uid: '5', fullName: 'Ousmane Fall', interestDomain: 'Développement Web', countryCode: 'ML', countryName: 'Mali', isOnline: false }
 ];
 
 export function DirectoryView() {
@@ -43,10 +37,16 @@ export function DirectoryView() {
 
     useEffect(() => {
         setIsLoadingData(true);
-        setTimeout(() => {
-            setClassmates(mockUsers);
+        const q = query(collection(db, 'users'), limit(50));
+        const unsubscribe = onSnapshot(q, (snap) => {
+            setClassmates(snap.docs.map(doc => ({ uid: doc.id, ...doc.data() })));
             setIsLoadingData(false);
-        }, 500);
+        }, (err) => {
+            console.error("Error fetching users:", err);
+            setIsLoadingData(false);
+        });
+
+        return () => unsubscribe();
     }, []);
 
     const filteredClassmates = useMemo(() => {
