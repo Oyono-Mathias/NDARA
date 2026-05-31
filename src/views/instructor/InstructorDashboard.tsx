@@ -1,91 +1,295 @@
-import { ArrowUpRight, ArrowDownRight, Users, BookOpen, GraduationCap, TrendingUp, BarChart3 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { useRole } from '../../context/RoleContext';
+import { 
+  collection, 
+  query, 
+  where, 
+  getFirestore, 
+  onSnapshot, 
+  orderBy,
+  limit
+} from 'firebase/firestore';
+import { useEffect, useState, useMemo } from 'react';
+import { 
+  Users, 
+  TrendingUp, 
+  ClipboardCheck, 
+  History,
+  Wallet,
+  ChartLine,
+  Percent,
+  Video,
+  Megaphone,
+} from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { format, subMonths, isSameMonth } from 'date-fns';
+import { fr } from 'date-fns/locale';
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 
 export function InstructorDashboard() {
-  return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-serif text-4xl text-white mb-2 leading-none">Cockpit</h1>
-          <p className="text-secondary text-sm font-bold uppercase tracking-wider">Radar de Croissance</p>
-        </div>
-        <div className="hidden md:flex gap-3 text-right">
-            <div>
-                <p className="text-gray-400 text-xs font-bold uppercase tracking-widest">Revenus Mois</p>
-                <p className="font-serif text-2xl text-white font-bold">1.2M <span className="text-sm text-gray-500">XAF</span></p>
-            </div>
-        </div>
-      </div>
+    const { currentUser: instructor, isUserLoading } = useRole();
+    const db = getFirestore();
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-         <MetricCard title="Revenus Live" value="+15%" icon={ArrowUpRight} trend="up" subtitle="vs Mois dernier" color="emerald" />
-         <MetricCard title="Étudiants Actifs" value="482" icon={Users} trend="up" subtitle="+12 cette semaine" color="secondary" />
-         <MetricCard title="Devoirs en attente" value="15" icon={GraduationCap} trend="down" subtitle="Action requise" color="destructive" />
-         <MetricCard title="Cours Actifs" value="4" icon={BookOpen} trend="neutral" subtitle="2 en révision" color="blue" />
-      </div>
+    const [payments, setPayments] = useState<any[]>([]);
+    const [courses, setCourses] = useState<any[]>([]);
+    const [enrollments, setEnrollments] = useState<any[]>([]);
+    const [pendingSubmissions, setPendingSubmissions] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="md:col-span-2 glass rounded-4xl p-6 relative overflow-hidden group border border-secondary/10">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-secondary/5 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none"></div>
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="font-serif text-xl font-bold text-white">Performances des Ventes</h2>
-            <button className="text-gray-400 hover:text-white transition bg-white/5 p-2 rounded-xl"><BarChart3 className="w-5 h-5"/></button>
-          </div>
-          <div className="h-64 flex flex-col items-center justify-center text-center space-y-4">
-             <div className="w-16 h-16 rounded-2xl bg-secondary/10 flex items-center justify-center text-secondary">
-                <TrendingUp className="w-8 h-8" />
-             </div>
-             <p className="text-gray-400 text-sm max-w-sm">
-               Visualisation des courbes de revenus et de conversion des tunnels de vente via le processeur transactionnel.
-             </p>
-          </div>
-        </div>
+    useEffect(() => {
+        if (!instructor?.uid) return;
 
-        <div className="space-y-4">
-          <h2 className="font-serif text-xl font-bold text-white">File de Correction</h2>
-          
-          <div className="glass-light rounded-3xl p-4 card-hover relative overflow-hidden group border-l-4 border-l-destructive/50">
-             <div className="absolute inset-0 bg-gradient-to-r from-destructive/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-             <p className="text-white font-bold text-sm mb-1 relative z-10">Projet Final - FinTech</p>
-             <p className="text-gray-400 text-xs mb-3 relative z-10">Par Emmanuel D. • Soumis il y a 2h</p>
-             <div className="flex items-center justify-between relative z-10">
-                 <span className="px-2 py-1 bg-destructive/10 text-destructive text-[10px] font-bold rounded-md border border-destructive/20 uppercase">Urgent</span>
-                 <Link to="/instructor/devoirs" className="text-secondary text-xs font-bold hover:underline transition">Corriger →</Link>
-             </div>
-          </div>
-          
-           <div className="glass-light rounded-3xl p-4 card-hover relative overflow-hidden group border-l-4 border-l-primary/50">
-             <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-             <p className="text-white font-bold text-sm mb-1 relative z-10">Quiz Analyse Crypto</p>
-             <p className="text-gray-400 text-xs mb-3 relative z-10">Par Aminata S. • Soumis il y a 5h</p>
-             <div className="flex items-center justify-between relative z-10">
-                 <span className="px-2 py-1 bg-primary/10 text-primary text-[10px] font-bold rounded-md border border-primary/20 uppercase">Nouveau</span>
-                 <Link to="/instructor/devoirs" className="text-secondary text-xs font-bold hover:underline transition">Voir →</Link>
-             </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
+        setIsLoading(true);
 
-function MetricCard({ title, value, icon: Icon, trend, subtitle, color }: any) {
-    const colorClasses = {
-        emerald: "text-primary bg-primary/10",
-        secondary: "text-secondary bg-secondary/10",
-        destructive: "text-destructive bg-destructive/10",
-        blue: "text-blue-400 bg-blue-500/10"
-    };
-    return (
-        <div className="glass rounded-3xl p-5 card-hover">
-            <div className="flex items-center justify-between mb-4">
-                <p className="text-gray-400 text-xs font-bold tracking-widest uppercase">{title}</p>
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${colorClasses[color as keyof typeof colorClasses]}`}>
-                    <Icon className="w-5 h-5" />
+        const unsubPayments = onSnapshot(
+            query(collection(db, 'payments'), where('instructorId', '==', instructor.uid), where('status', '==', 'Completed')),
+            (snap) => {
+                setPayments(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+            }
+        );
+
+        const unsubCourses = onSnapshot(
+            query(collection(db, 'courses'), where('instructorId', '==', instructor.uid)),
+            (snap) => {
+                setCourses(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+            }
+        );
+
+        const unsubEnrollments = onSnapshot(
+            query(collection(db, 'enrollments'), where('instructorId', '==', instructor.uid)),
+            (snap) => {
+                setEnrollments(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+            }
+        );
+
+        const unsubDevoirs = onSnapshot(
+            query(
+                collection(db, 'devoirs'), 
+                where('instructorId', '==', instructor.uid), 
+                where('status', '==', 'submitted'),
+                orderBy('submittedAt', 'desc'),
+                limit(5)
+            ),
+            (snap) => {
+                setPendingSubmissions(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+                setIsLoading(false);
+            },
+            (err) => {
+                console.error("Dashboard Fetch Error:", err);
+                setIsLoading(false);
+            }
+        );
+
+        return () => { 
+            unsubPayments(); 
+            unsubCourses(); 
+            unsubEnrollments();
+            unsubDevoirs(); 
+        };
+    }, [instructor?.uid, db]);
+
+    const analytics = useMemo(() => {
+        const totalRevenue = payments.reduce((acc, p) => acc + (p.amount || 0), 0);
+        const totalStudentsCount = Array.from(new Set(enrollments.map(e => e.studentId))).length;
+        
+        const completedCount = enrollments.filter(e => e.progress === 100).length;
+        const successRate = enrollments.length > 0 ? Math.round((completedCount / enrollments.length) * 100) : 100;
+
+        const now = new Date();
+        const chartData = [];
+        for (let i = 5; i >= 0; i--) {
+            const monthDate = subMonths(now, i);
+            const monthLabel = format(monthDate, 'MMM', { locale: fr });
+            const revenue = payments
+                .filter(p => isSameMonth((p.date as any)?.toDate?.() || new Date(0), monthDate))
+                .reduce((acc, p) => acc + (p.amount || 0), 0);
+            
+            chartData.push({ name: monthLabel, total: revenue });
+        }
+
+        return {
+            totalRevenue,
+            chartData,
+            totalStudentsCount,
+            successRate
+        };
+    }, [payments, enrollments]);
+
+    if (isUserLoading || isLoading) {
+        return (
+            <div className="flex flex-col gap-8 p-4 bg-[#0f172a] min-h-screen">
+                <div className="h-12 w-1/2 bg-slate-900 rounded-xl animate-pulse" />
+                <div className="grid grid-cols-1 gap-4">
+                    <div className="h-48 rounded-[2.5rem] bg-slate-900 animate-pulse" />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="h-28 rounded-[2rem] bg-slate-900 animate-pulse" />
+                    <div className="h-28 rounded-[2rem] bg-slate-900 animate-pulse" />
                 </div>
             </div>
-            <p className="font-serif text-3xl font-bold text-white mb-2 leading-none">{value}</p>
-            <p className="text-gray-500 text-xs font-medium">{subtitle}</p>
+        );
+    }
+
+    return (
+        <div className="flex flex-col gap-0 pb-32 bg-[#0f172a] min-h-screen relative overflow-hidden font-sans">
+            <div className="absolute inset-0 bg-noise opacity-5 pointer-events-none" />
+            
+            <main className="flex-1 overflow-y-auto pt-6 px-6 space-y-8 animate-in fade-in duration-700">
+
+                <div className="grid grid-cols-1 gap-4">
+                    <Link to="/instructor/revenus" className="block group active:scale-[0.98] transition-all">
+                        <div className="bg-gradient-to-br from-[#10b981] to-[#047857] rounded-[2.5rem] p-6 border-none shadow-2xl shadow-[#10b981]/20 relative overflow-hidden">
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-3xl -mr-10 -mt-10 group-hover:scale-110 transition-transform duration-700" />
+                            <div className="relative z-10">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
+                                        <ChartLine className="text-white h-4 w-4" />
+                                    </div>
+                                    <span className="text-emerald-100 text-[10px] font-black uppercase tracking-[0.2em]">Solde Disponible</span>
+                                </div>
+                                <h2 className="text-white font-black text-4xl mb-1 tracking-tight">
+                                    {analytics.totalRevenue.toLocaleString('fr-FR')} <span className="text-lg opacity-60">FCFA</span>
+                                </h2>
+                                <p className="text-emerald-200 text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5">
+                                    <TrendingUp size={14} /> Croissance live
+                                </p>
+                                
+                                <button className="mt-6 w-full flex items-center justify-center h-12 rounded-2xl bg-white text-[#047857] hover:bg-slate-50 font-black uppercase text-[10px] tracking-widest shadow-xl border-none transition-colors">
+                                    <Wallet className="mr-2 h-4 w-4" /> Demander un virement
+                                </button>
+                            </div>
+                        </div>
+                    </Link>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="bg-[#1e293b] rounded-[2rem] p-5 border border-[#10b981]/20 shadow-xl active:scale-[0.98] transition-all">
+                            <div className="flex items-center gap-3 mb-3">
+                                <div className="w-8 h-8 rounded-xl bg-blue-500/20 flex items-center justify-center text-blue-400">
+                                    <Users size={16} />
+                                </div>
+                                <span className="text-slate-500 text-[9px] font-black uppercase tracking-widest">Mes Ndara</span>
+                            </div>
+                            <p className="text-white font-black text-2xl leading-none">{analytics.totalStudentsCount}</p>
+                            <p className="text-slate-600 text-[8px] font-bold uppercase tracking-tighter mt-1.5">Étudiants actifs</p>
+                        </div>
+                        
+                        <div className="bg-[#1e293b] rounded-[2rem] p-5 border border-[#10b981]/20 shadow-xl active:scale-[0.98] transition-all">
+                            <div className="flex items-center gap-3 mb-3">
+                                <div className="w-8 h-8 rounded-xl bg-[#10b981]/20 flex items-center justify-center text-[#10b981]">
+                                    <Percent size={16} />
+                                </div>
+                                <span className="text-slate-500 text-[9px] font-black uppercase tracking-widest">Réussite</span>
+                            </div>
+                            <p className="text-white font-black text-2xl leading-none">{analytics.successRate}%</p>
+                            <p className="text-slate-600 text-[8px] font-bold uppercase tracking-tighter mt-1.5">Taux de complétion</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="bg-[#1e293b] rounded-[2.5rem] p-6 border border-white/5 shadow-2xl overflow-hidden">
+                    <div className="flex items-center justify-between mb-6">
+                        <h3 className="font-black text-white text-xs uppercase tracking-[0.2em]">Trésorerie</h3>
+                        <div className="bg-[#0f172a] px-3 py-1.5 rounded-full border border-white/10 text-[9px] font-black text-primary uppercase tracking-widest">
+                            6 MOIS
+                        </div>
+                    </div>
+                    <div className="h-48 w-full -ml-4">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart data={analytics.chartData}>
+                                <defs>
+                                    <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="0%" stopColor="#10b981" stopOpacity={0.4}/>
+                                        <stop offset="100%" stopColor="#10b981" stopOpacity={0}/>
+                                    </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="white" opacity={0.05} />
+                                <XAxis 
+                                    dataKey="name" 
+                                    axisLine={false} 
+                                    tickLine={false} 
+                                    tick={{fill: '#64748b', fontSize: 10, fontWeight: '900'}} 
+                                    dy={10}
+                                />
+                                <YAxis hide />
+                                <Tooltip 
+                                    contentStyle={{backgroundColor: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px', fontSize: '12px'}} 
+                                    itemStyle={{color: '#10b981', fontWeight: 'bold'}}
+                                />
+                                <Area 
+                                    type="monotone" 
+                                    dataKey="total" 
+                                    stroke="#10b981" 
+                                    strokeWidth={4} 
+                                    fill="url(#chartGradient)" 
+                                />
+                            </AreaChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+
+                <section className="space-y-4">
+                    <div className="flex items-center justify-between px-1">
+                        <h2 className="text-xs font-black uppercase tracking-[0.3em] text-slate-500 flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.5)]"></span>
+                            À Corriger
+                        </h2>
+                        <Link to="/instructor/devoirs" className="text-primary text-[10px] font-black uppercase tracking-widest hover:text-white transition">
+                            VOIR TOUT
+                        </Link>
+                    </div>
+
+                    <div className="grid gap-3">
+                        {pendingSubmissions.length > 0 ? (
+                            pendingSubmissions.map(sub => (
+                                <div key={sub.id} className="bg-[#1e293b] rounded-[2rem] p-4 border border-white/5 flex items-center gap-4 shadow-xl active:scale-[0.98] transition-all group">
+                                    <div className="h-12 w-12 rounded-full border-2 border-white/10 shadow-lg group-hover:border-primary/30 transition-colors overflow-hidden bg-slate-800 flex items-center justify-center font-bold uppercase text-slate-500">
+                                        {sub.studentAvatarUrl ? (
+                                            <img src={sub.studentAvatarUrl} className="w-full h-full object-cover" />
+                                        ) : (
+                                            sub.studentName?.charAt(0) || 'E'
+                                        )}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <h4 className="font-black text-white text-sm truncate uppercase tracking-tight">{sub.studentName}</h4>
+                                        <p className="text-slate-500 text-[10px] font-medium truncate italic">"{sub.assignmentTitle}"</p>
+                                        <p className="text-slate-600 text-[8px] font-black uppercase tracking-tighter mt-1 flex items-center gap-1">
+                                            <History size={10} /> Remis récemment
+                                        </p>
+                                    </div>
+                                    <Link to="/instructor/devoirs" className="h-10 flex items-center justify-center px-5 rounded-2xl bg-[#10b981] hover:bg-emerald-600 text-slate-950 font-black uppercase text-[10px] tracking-widest shadow-lg border-none transition-colors">
+                                        Noter
+                                    </Link>
+                                </div>
+                            ))
+                        ) : (
+                            <div className="py-12 text-center bg-slate-900/20 rounded-[2.5rem] border-2 border-dashed border-white/5 opacity-20">
+                                <ClipboardCheck className="h-10 w-10 mx-auto text-slate-700 mb-3" />
+                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-600">Tout est corrigé !</p>
+                            </div>
+                        )}
+                    </div>
+                </section>
+
+                <div className="grid grid-cols-2 gap-4 pb-12">
+                    <Link to="/instructor/courses/create" className="block group active:scale-95 transition-all">
+                        <div className="bg-[#1e293b] rounded-[2rem] p-6 border border-white/5 flex flex-col items-center justify-center gap-4 shadow-xl group-hover:border-[#10b981]/30">
+                            <div className="w-14 h-14 rounded-3xl bg-[#10b981]/10 flex items-center justify-center text-[#10b981] group-hover:bg-[#10b981] group-hover:text-slate-950 transition-all shadow-inner">
+                                <Video size={24} />
+                            </div>
+                            <span className="text-white text-[10px] font-black uppercase tracking-[0.2em]">Nouveau Cours</span>
+                        </div>
+                    </Link>
+                    
+                    <Link to="/instructor/annonces" className="block group active:scale-95 transition-all">
+                        <div className="bg-[#1e293b] rounded-[2rem] p-6 border border-white/5 flex flex-col items-center justify-center gap-4 shadow-xl group-hover:border-blue-500/30">
+                            <div className="w-14 h-14 rounded-3xl bg-blue-500/10 flex items-center justify-center text-blue-400 group-hover:bg-blue-500 group-hover:text-white transition-all shadow-inner">
+                                <Megaphone size={24} />
+                            </div>
+                            <span className="text-white text-[10px] font-black uppercase tracking-[0.2em]">Annonce</span>
+                        </div>
+                    </Link>
+                </div>
+
+            </main>
         </div>
-    )
+    );
 }

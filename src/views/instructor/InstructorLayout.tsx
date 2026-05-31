@@ -3,8 +3,20 @@ import { InstructorNavigation } from "../../components/InstructorNavigation";
 import { Bell } from "lucide-react";
 import { InstructorDashboard } from "./InstructorDashboard";
 import { InstructorCourses } from "./InstructorCourses";
+import { InstructorCourseCreate } from "./InstructorCourseCreate";
+import { InstructorCourseEdit } from "./InstructorCourseEdit";
 import { InstructorDevoirs } from "./InstructorDevoirs";
 import { InstructorWealth } from "./InstructorWealth";
+import { InstructorAnnouncements } from "./InstructorAnnouncements";
+import { InstructorAvis } from "./InstructorAvis";
+import { InstructorCoupons } from "./InstructorCoupons";
+import { InstructorCertificates } from "./InstructorCertificates";
+
+import { InstructorQna } from "./InstructorQna";
+import { InstructorQuiz } from "./InstructorQuiz";
+import { InstructorResources } from "./InstructorResources";
+
+import { InstructorSettings } from "./InstructorSettings";
 
 export function InstructorLayout() {
   return (
@@ -44,19 +56,21 @@ export function InstructorLayout() {
             <Route path="/" element={<InstructorDashboard />} />
             <Route path="dashboard" element={<InstructorDashboard />} />
             <Route path="courses" element={<InstructorCourses />} />
-            <Route path="courses/create" element={<GenericPlaceholder title="Usine à Savoir" subtitle="Initialisation de cours avec Mathias IA" />} />
-            <Route path="courses/edit/:id" element={<GenericPlaceholder title="Éditeur de Structure" subtitle="Drag-and-drop de modules, audit IA et ventes" />} />
-            <Route path="quiz" element={<GenericPlaceholder title="Labo Évaluation" subtitle="Liste et gestion des quiz" />} />
+            <Route path="courses/create" element={<InstructorCourseCreate />} />
+            <Route path="courses/edit/:id" element={<InstructorCourseEdit />} />
+            <Route path="quiz" element={<InstructorQuiz />} />
             <Route path="quiz/:id" element={<GenericPlaceholder title="Éditeur de Quiz" subtitle="Création de questions et aide IA" />} />
+            <Route path="qna" element={<InstructorQna />} />
+            <Route path="resources" element={<InstructorResources />} />
             <Route path="devoirs" element={<InstructorDevoirs />} />
             <Route path="devoirs/:id" element={<GenericPlaceholder title="Correcteur Mathias IA" subtitle="Aide à la notation et feedback" />} />
             <Route path="students" element={<GenericPlaceholder title="Base de Données Ndara" subtitle="Liste des élèves et progression live" />} />
             <Route path="revenus" element={<InstructorWealth />} />
-            <Route path="annonces" element={<GenericPlaceholder title="Radar Annonces" subtitle="Messages flash à la promotion" />} />
-            <Route path="coupons" element={<GenericPlaceholder title="Growth Hub" subtitle="Création de codes promos" />} />
-            <Route path="avis" element={<GenericPlaceholder title="Mur des Témoignages" subtitle="Modération des avis étoilés" />} />
-            <Route path="certificats" element={<GenericPlaceholder title="Registre des Diplômes" subtitle="Historique des certificats décernés" />} />
-            <Route path="settings" element={<GenericPlaceholder title="Réglages Academy" subtitle="Pilotage IA et notifications" />} />
+            <Route path="annonces" element={<InstructorAnnouncements />} />
+            <Route path="coupons" element={<InstructorCoupons />} />
+            <Route path="avis" element={<InstructorAvis />} />
+            <Route path="certificats" element={<InstructorCertificates />} />
+            <Route path="settings" element={<InstructorSettings />} />
           </Routes>
         </main>
       </div>

@@ -90,6 +90,7 @@ export function Sidebar({ isOpen, onClose }: { isOpen: boolean, onClose: () => v
                             <NavItem icon={BookOpen} label="MES COURS" to="/student/courses" current={location.pathname} onClick={onClose} />
                             <NavItem icon={Bot} label="TUTEUR MATHIAS" to="/student/mathias" badge="IA" current={location.pathname} onClick={onClose} />
                             <NavItem icon={ShoppingBag} label="MARCHÉ E-BOOK" to="/student/ebooks" badge="NEW" current={location.pathname} onClick={onClose} />
+                            <NavItem icon={LayoutGrid} label="OUTILS & TEMPLATES" to="/student/tools" badge="HOT" current={location.pathname} onClick={onClose} />
                         </div>
 
                         {/* COMM */}

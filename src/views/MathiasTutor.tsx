@@ -1,6 +1,14 @@
 import { Bot, Send, Sparkles, Paperclip, Mic } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
+import { useState, useEffect } from "react";
 
 export function MathiasTutor() {
+  const [searchParams] = useSearchParams();
+  const initialQuery = searchParams.get('query') || "";
+  const initialContext = searchParams.get('context') || "";
+
+  const [inputValue, setInputValue] = useState(initialQuery);
+
   return (
     <div className="h-[calc(100vh-160px)] flex flex-col animate-in fade-in duration-500 relative">
       <div className="flex items-center justify-between mb-6 shrink-0">
@@ -67,6 +75,8 @@ export function MathiasTutor() {
                   type="text" 
                   placeholder="Écrivez votre message..." 
                   className="flex-1 bg-transparent text-white text-sm focus:outline-none placeholder:text-gray-500"
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
               />
                <button className="w-10 h-10 rounded-full hover:bg-white/5 flex items-center justify-center text-gray-400 transition-colors shrink-0">
                   <Mic className="w-5 h-5" />

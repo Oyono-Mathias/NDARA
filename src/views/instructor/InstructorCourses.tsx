@@ -1,128 +1,163 @@
-import { Plus, Search, MoreVertical, Edit2, Play, Eye } from "lucide-react";
-import { Link } from "react-router-dom";
+import { useState, useMemo, useEffect } from 'react';
+import { useRole } from '../../context/RoleContext';
+import { getFirestore, collection, query, where, onSnapshot, doc, deleteDoc } from 'firebase/firestore';
+import { PlusCircle, Search, SlidersHorizontal, BookOpen, Trash2, Edit2, Play, Users } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { db } from '../../firebase';
 
 export function InstructorCourses() {
+  const { currentUser } = useRole();
+  const [courses, setCourses] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  useEffect(() => {
+    if (!currentUser?.uid) return;
+
+    setIsLoading(true);
+    const q = query(collection(db, 'courses'), where('instructorId', '==', currentUser.uid));
+
+    const unsubscribe = onSnapshot(q, (snap) => {
+      const courseData = snap.docs.map(doc => ({ id: doc.id, ...(doc.data() as any) }));
+      const sortedCourses = courseData.sort((a, b) => {
+          const dateA = (a.createdAt as any)?.toDate?.() || new Date(0);
+          const dateB = (b.createdAt as any)?.toDate?.() || new Date(0);
+          return dateB.getTime() - dateA.getTime();
+      });
+      setCourses(sortedCourses);
+      setIsLoading(false);
+    }, (error) => {
+        console.error("Error fetching instructor courses:", error);
+        setIsLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [currentUser?.uid]);
+
+  const filteredCourses = useMemo(() => {
+    return courses.filter(c => c.title.toLowerCase().includes(searchTerm.toLowerCase()));
+  }, [courses, searchTerm]);
+
+  const handleDeleteCourse = async (courseId: string) => {
+      if (window.confirm("Supprimer cette formation ? Cette action est irréversible.")) {
+          try {
+              await deleteDoc(doc(db, 'courses', courseId));
+              alert("Formation supprimée");
+          } catch (error) {
+              alert("Erreur lors de la suppression");
+          }
+      }
+  };
+
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="font-serif text-4xl text-white mb-2 leading-none">Catalogue</h1>
-          <p className="text-secondary text-sm font-bold uppercase tracking-wider">Usine à Savoir</p>
-        </div>
-        <Link 
-          to="/instructor/courses/create"
-          className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-secondary text-background font-bold text-sm shadow-[0_0_20px_rgba(204,119,34,0.4)] hover:shadow-[0_0_30px_rgba(204,119,34,0.6)] hover:bg-amber-600 transition-all cursor-pointer"
-        >
-          <Plus className="w-5 h-5" />
-          Importer un Chapitre
-        </Link>
-      </div>
+    <div className="flex flex-col gap-0 pb-40 min-h-full relative font-sans -m-4 md:-m-8 p-4 md:p-8">
+      <div className="grain-overlay opacity-[0.03] pointer-events-none" />
 
-      <div className="flex flex-col md:flex-row gap-4 mb-8">
-         <div className="flex-1 relative">
-          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-            <Search className="text-gray-500 w-5 h-5" />
-          </div>
-          <input 
-            type="text" 
-            placeholder="Rechercher une formation..." 
-            className="w-full bg-card border border-white/5 rounded-2xl py-3.5 pl-12 pr-4 text-white focus:outline-none focus:border-secondary/50 focus:ring-1 focus:ring-secondary/50 transition-all font-medium"
-          />
+      {/* --- HEADER IMMERSIF --- */}
+      <header className="z-10 bg-[#0f172a]/95 backdrop-blur-md rounded-3xl p-6 mb-8 border border-white/5">
+        <div className="flex items-center justify-between mb-6">
+            <h1 className="font-black text-2xl text-white tracking-tight uppercase">Mon Catalogue</h1>
+            <button className="w-10 h-10 rounded-full bg-[#1e293b] flex items-center justify-center text-slate-400 hover:text-white transition active:scale-90">
+                <SlidersHorizontal className="h-5 w-5" />
+            </button>
         </div>
-        <div className="flex gap-2">
-            <button className="px-5 py-3 rounded-full text-sm font-bold bg-white/10 text-white border border-white/10">Tous</button>
-            <button className="px-5 py-3 rounded-full text-sm font-bold bg-transparent text-gray-500 hover:text-white transition">En ligne</button>
-            <button className="px-5 py-3 rounded-full text-sm font-bold bg-transparent text-gray-500 hover:text-white transition">Examen</button>
-        </div>
-      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <CourseCard 
-            title="Trading & Finance Décentralisée"
-            status="En ligne"
-            revenue="850,000 XAF"
-            students="124"
-            image="1611974789855-9c2a0a7236a3"
-        />
-        <CourseCard 
-            title="Fondations du Mobile Money Africain"
-            status="En ligne"
-            revenue="340,000 XAF"
-            students="86"
-            image="1581091226825-a6a2a5aee158"
-        />
-        <CourseCard 
-            title="Souveraineté Numérique"
-            status="En examen"
-            revenue="-"
-            students="0"
-            image="1518770660439-4636190af475"
-            draft
-        />
+        {/* Search Bar */}
+        <div className="relative group">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 group-focus-within:text-primary transition-colors" />
+            <input 
+                type="text"
+                placeholder="Rechercher un cours..." 
+                className="w-full h-14 pl-12 pr-4 bg-[#1e293b] border border-white/5 rounded-[2rem] text-white placeholder:text-slate-600 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all shadow-xl"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+            />
+        </div>
+      </header>
+
+      {/* --- MAIN CONTENT --- */}
+      <main className="flex-1 space-y-6 animate-in fade-in duration-700">
+        
+        {isLoading ? (
+            <div className="space-y-6">
+                {[...Array(2)].map((_, i) => (
+                    <div key={i} className="space-y-4">
+                        <div className="aspect-video w-full rounded-[2.5rem] bg-slate-900 border border-white/5 animate-pulse" />
+                        <div className="h-4 w-3/4 bg-slate-900 animate-pulse rounded" />
+                    </div>
+                ))}
+            </div>
+        ) : filteredCourses.length > 0 ? (
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {filteredCourses.map(course => (
+                    <CourseCard 
+                        key={course.id} 
+                        course={course} 
+                        onDelete={() => handleDeleteCourse(course.id)}
+                    />
+                ))}
+            </div>
+        ) : (
+            <div className="flex flex-col items-center justify-center py-20 px-8 text-center bg-[#1e293b]/50 rounded-[3rem] border-2 border-dashed border-white/5 animate-in zoom-in duration-500">
+                <div className="p-8 bg-slate-800/50 rounded-full mb-6">
+                    <BookOpen className="h-16 w-16 text-slate-700" />
+                </div>
+                <h3 className="text-2xl font-black text-white uppercase tracking-tight">Catalogue vide</h3>
+                <p className="text-slate-500 text-sm mt-3 leading-relaxed max-w-[220px] mx-auto font-medium italic">
+                    "Le savoir se partage." <br/>Créez votre première formation pour inspirer la communauté.
+                </p>
+                <Link to="/instructor/courses/create" className="mt-8 flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-slate-950 rounded-[2rem] h-14 px-8 font-black uppercase text-xs tracking-widest shadow-xl shadow-primary/20 transition-all active:scale-95 group">
+                    <PlusCircle className="h-5 w-5" />
+                    Créer mon cours
+                </Link>
+            </div>
+        )}
+      </main>
+
+      {/* --- STICKY ACTION BUTTON --- */}
+      <div className="fixed bottom-0 md:bottom-auto md:right-8 md:top-8 left-0 right-0 p-6 md:p-0 md:w-auto bg-gradient-to-t from-[#0f172a] via-[#0f172a] to-transparent md:bg-transparent z-40">
+          <Link to="/instructor/courses/create" className="flex items-center justify-center w-full md:w-auto h-16 md:h-14 md:px-8 rounded-[2rem] bg-gradient-to-r from-primary to-emerald-600 text-slate-950 font-black uppercase text-sm md:text-xs tracking-widest shadow-[0_0_25px_rgba(16,185,129,0.4)] hover:scale-105 active:scale-95 transition-all gap-3">
+              <PlusCircle className="h-6 w-6 md:h-5 md:w-5" />
+              Nouvelle Formation
+          </Link>
       </div>
     </div>
   );
 }
 
-function CourseCard({ title, status, revenue, students, image, draft }: any) {
+function CourseCard({ course, onDelete }: any) {
+    const isDraft = course.status === 'Draft';
+    
     return (
-        <div className="glass rounded-3xl p-5 card-hover relative overflow-hidden group border border-white/5">
-            <div className={`absolute top-0 left-0 w-full h-1 ${draft ? 'bg-amber-500' : 'bg-primary'} opacity-50`}></div>
-            <div className="w-full h-40 rounded-2xl overflow-hidden bg-card mb-5 relative group-hover:shadow-[0_0_20px_rgba(204,119,34,0.15)] transition-all">
-               <img src={`https://images.unsplash.com/photo-${image}?auto=format&fit=crop&q=80&w=400&h=300`} alt="Course" className="w-full h-full object-cover opacity-80 group-hover:scale-105 transition-transform duration-700" />
+        <div className="bg-[#1e293b] rounded-[2.5rem] p-5 relative overflow-hidden group border border-white/5 hover:border-primary/30 transition-colors shadow-2xl">
+            <div className={`absolute top-0 left-0 w-full h-1 ${isDraft ? 'bg-amber-500' : 'bg-primary'} opacity-50`}></div>
+            <div className="w-full h-48 rounded-[2rem] overflow-hidden bg-slate-900 mb-5 relative group-hover:shadow-[0_0_20px_rgba(16,185,129,0.15)] transition-all">
+               <img src={`https://images.unsplash.com/photo-1516321497487-e288fb19713f?auto=format&fit=crop&q=80&w=400&h=300`} alt="Course" className="w-full h-full object-cover opacity-60 group-hover:scale-105 transition-transform duration-700" />
                <div className="absolute top-3 left-3">
-                   <span className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md backdrop-blur-md border border-white/10 ${draft ? 'bg-amber-500/20 text-amber-500' : 'bg-primary/20 text-primary'}`}>
-                       {status}
+                   <span className={`px-3 py-1 text-[10px] font-black uppercase tracking-wider rounded-lg backdrop-blur-md border border-white/10 ${isDraft ? 'bg-amber-500/20 text-amber-500' : 'bg-primary/20 text-primary'}`}>
+                       {course.status || 'Draft'}
                    </span>
                </div>
-               <div className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center border border-white/10 hover:bg-white/10 transition cursor-pointer">
-                   <MoreVertical className="w-4 h-4 text-white" />
-               </div>
+               
+               <button 
+                  onClick={onDelete}
+                  disabled={course.buyoutStatus === 'requested'}
+                  className="absolute top-3 right-3 w-10 h-10 rounded-xl bg-red-500/80 backdrop-blur-md flex items-center justify-center text-white hover:bg-red-600 transition disabled:opacity-30 active:scale-90"
+               >
+                   <Trash2 className="w-5 h-5" />
+               </button>
             </div>
             
-            <h3 className="font-serif text-lg font-bold text-white line-clamp-2 mb-4 h-14">{title}</h3>
+            <h3 className="font-black text-lg text-white line-clamp-2 mb-4 leading-tight uppercase tracking-tight">{course.title}</h3>
             
-            <div className="grid grid-cols-2 gap-4 mb-6">
-                <div>
-                    <p className="text-[10px] uppercase tracking-widest text-gray-500 font-bold mb-1">Généré</p>
-                    <p className="text-sm font-bold text-white">{revenue}</p>
-                </div>
-                <div>
-                    <p className="text-[10px] uppercase tracking-widest text-gray-500 font-bold mb-1">Étudiants</p>
-                    <p className="text-sm font-bold text-white flex items-center gap-1.5"><Users className="w-3 h-3 text-secondary"/> {students}</p>
-                </div>
-            </div>
-
             <div className="flex gap-2">
-                <Link to="/instructor/courses/edit/1" className="flex-1 glass-light py-2.5 rounded-xl text-center text-xs font-bold text-white hover:bg-white/10 transition flex items-center justify-center gap-2">
-                   <Edit2 className="w-3 h-3"/> Éditeur
+                <Link to={`/instructor/courses/edit/${course.id}`} className="flex-1 bg-white/5 py-3 rounded-2xl text-center text-[10px] uppercase tracking-widest font-black text-white hover:bg-white/10 transition flex items-center justify-center gap-2">
+                   <Edit2 className="w-4 h-4"/> Éditeur
                 </Link>
-                <button className="flex-1 bg-white/5 py-2.5 rounded-xl text-center text-xs font-bold text-gray-300 hover:text-white transition flex items-center justify-center gap-2">
-                   <Eye className="w-3 h-3"/> Aperçu
+                <button className="flex-1 bg-primary/10 py-3 rounded-2xl text-center text-[10px] uppercase tracking-widest font-black text-primary hover:bg-primary/20 transition flex items-center justify-center gap-2">
+                   <Play className="w-4 h-4"/> Aperçu
                 </button>
             </div>
         </div>
     );
-}
-
-function Users(props: any) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-      <circle cx="9" cy="7" r="4" />
-      <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-    </svg>
-  )
 }

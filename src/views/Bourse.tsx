@@ -217,7 +217,7 @@ export function BourseView() {
           {courses.map((c) => (
             <div key={c.id} className={`p-3.5 rounded-2xl border transition-all active:scale-[0.98] cursor-pointer
               ${c.isUp ? 'bg-gradient-to-br from-primary/10 to-transparent border-primary/20' : 'bg-gradient-to-br from-rose-500/10 to-transparent border-rose-500/20'}`}
-              onClick={() => navigate(`/student/courses/${c.id}`)}  
+              onClick={() => navigate(`/student/bourse/${c.id}`)}  
             >
               <div className="flex items-start justify-between mb-2">
                 <div className="flex items-center gap-3">
@@ -255,7 +255,7 @@ export function BourseView() {
                 </div>
                 <div className="flex gap-1.5">
                   <button 
-                    onClick={(e) => { e.stopPropagation(); navigate('/student/checkout'); }}
+                    onClick={(e) => { e.stopPropagation(); navigate(`/student/bourse/${c.id}`); }}
                     className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all ${
                        c.isUp 
                         ? 'bg-gradient-to-br from-emerald-600 to-primary text-white border-transparent' 

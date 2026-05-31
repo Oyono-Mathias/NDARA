@@ -180,7 +180,7 @@ export function EbooksView() {
               
               <div className="flex gap-3 overflow-x-auto hide-scrollbar pb-2 snap-x snap-mandatory -mx-3 px-3">
                 {featuredEbooks.map(ebook => (
-                  <div key={ebook.id} onClick={() => setActiveModal('detail')} className="min-w-[150px] shrink-0 rounded-2xl bg-gradient-to-br from-white/[0.06] to-white/[0.02] border border-white/[0.08] overflow-hidden snap-start cursor-pointer active:scale-95 transition-transform">
+                  <div key={ebook.id} onClick={() => navigate(`/student/ebooks/${ebook.id}`)} className="min-w-[150px] shrink-0 rounded-2xl bg-gradient-to-br from-white/[0.06] to-white/[0.02] border border-white/[0.08] overflow-hidden snap-start cursor-pointer active:scale-95 transition-transform">
                     <div className="w-full h-[160px] relative overflow-hidden flex items-center justify-center">
                        <div className={`absolute inset-0 bg-gradient-to-br ${ebook.gradient} flex flex-col items-center justify-center gap-1.5 p-4 text-center`}>
                          <div className="text-4xl opacity-90 drop-shadow-md">{ebook.icon}</div>
@@ -223,7 +223,7 @@ export function EbooksView() {
                     </div>
                  </div>
 
-                 <div className="flex gap-3 p-3 bg-white/[0.04] border border-white/[0.06] rounded-2xl cursor-pointer active:scale-[0.98] transition-all" onClick={() => setActiveModal('detail')}>
+                 <div className="flex gap-3 p-3 bg-white/[0.04] border border-white/[0.06] rounded-2xl cursor-pointer active:scale-[0.98] transition-all" onClick={() => navigate('/student/ebooks/trading-secrets')}>
                     <div className="w-[64px] h-[84px] shrink-0 rounded-xl relative overflow-hidden">
                       <div className="absolute inset-0 bg-gradient-to-br from-[#1a472a] to-[#2ecc71] flex items-center justify-center text-2xl opacity-90">📈</div>
                     </div>
