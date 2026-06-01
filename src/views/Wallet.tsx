@@ -228,7 +228,7 @@ export function WalletView() {
         body: JSON.stringify({
           studentId: userId,
           price: Number(sandboxCoursePrice),
-          courseId: "mock_course_" + Math.random().toString(36).substring(3, 8),
+          courseId: "sim_course_" + Math.random().toString(36).substring(3, 8),
           courseTitle: sandboxCourseTitle,
           sellerId: sandboxInstructorId
         })

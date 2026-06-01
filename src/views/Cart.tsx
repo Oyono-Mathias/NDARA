@@ -33,10 +33,7 @@ export function CartView() {
             });
             return () => unsubscribe();
         } else {
-            // Mock data for preview if no user
-            setItems([
-                { id: '1', courseId: 'trading', title: 'Trading & Finance Décentralisée', price: 25000, imageUrl: 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&q=80&w=200&h=200' }
-            ]);
+            setItems([]);
             setIsLoading(false);
         }
     });

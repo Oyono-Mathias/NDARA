@@ -1,13 +1,21 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronLeft, Search, Download, Star, ExternalLink, ChevronRight, DownloadCloud, FileCode2, LayoutTemplate, PenTool, Info } from "lucide-react";
-import { collection, onSnapshot, query, where, getFirestore } from "firebase/firestore";
+import { ChevronLeft, Search, Download, Star, ExternalLink, ChevronRight, DownloadCloud, FileCode2, LayoutTemplate, PenTool, Info, Loader2, CreditCard } from "lucide-react";
+import { collection, onSnapshot, query, where, getDocs } from "firebase/firestore";
 import { db } from "../firebase";
+import { useRole } from "../context/RoleContext";
 
 export function ToolsView() {
   const navigate = useNavigate();
+  const { currentUser } = useRole();
   const [filter, setFilter] = useState("all");
   const [featuredTools, setFeaturedTools] = useState<any[]>([]);
+
+  const [selectedTool, setSelectedTool] = useState<any>(null);
+  const [isBuyModalOpen, setIsBuyModalOpen] = useState(false);
+  const [hasPurchased, setHasPurchased] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   useEffect(() => {
     const pubQuery = query(collection(db, "tools"), where("status", "==", "Published"));
@@ -16,6 +24,65 @@ export function ToolsView() {
     });
     return () => unsub();
   }, []);
+
+  const openToolModal = async (tool: any) => {
+      setSelectedTool(tool);
+      setHasPurchased(false);
+      setIsBuyModalOpen(true);
+
+      if (currentUser?.uid) {
+          const q = query(collection(db, "purchases"), where("userId", "==", currentUser.uid), where("itemId", "==", tool.id));
+          const snap = await getDocs(q);
+          if (!snap.empty) {
+              setHasPurchased(true);
+          }
+      }
+  };
+
+  const handleBuy = async () => {
+    if (!currentUser?.uid || !selectedTool) return;
+    setIsProcessing(true);
+    
+    try {
+        const response = await fetch('/api/wallet/purchase', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                studentId: currentUser.uid,
+                price: selectedTool.price || 0,
+                courseId: selectedTool.id,
+                courseTitle: 'Outil: ' + selectedTool.title,
+                sellerId: selectedTool.authorId || 'admin'
+            })
+        });
+
+        const data = await response.json();
+        if (response.ok) {
+            const { setDoc, doc, collection } = await import("firebase/firestore");
+            await setDoc(doc(collection(db, 'purchases')), {
+                userId: currentUser.uid,
+                itemId: selectedTool.id,
+                title: selectedTool.title,
+                type: 'tool',
+                createdAt: new Date()
+            });
+
+            setHasPurchased(true);
+            setIsBuyModalOpen(false);
+            setShowSuccessModal(true);
+        } else {
+            alert(data.error || "Erreur lors de l'achat");
+        }
+    } catch (e: any) {
+        alert(e.message || "Erreur réseau");
+    } finally {
+        setIsProcessing(false);
+    }
+  };
+
+  const handleDownload = () => {
+      alert("Votre téléchargement du fichier a commencé !");
+  };
 
   const categories = [
     { id: "all", label: "Tout", icon: "🛠️" },
@@ -98,7 +165,7 @@ export function ToolsView() {
         
         <div className="flex gap-3 overflow-x-auto hide-scrollbar pb-2 snap-x snap-mandatory">
           {featuredTools.length > 0 ? featuredTools.map(tool => (
-            <div key={tool.id} className="min-w-[150px] shrink-0 rounded-2xl bg-gradient-to-br from-white/[0.06] to-white/[0.02] border border-white/[0.08] overflow-hidden snap-start cursor-pointer active:scale-95 transition-transform">
+            <div onClick={() => openToolModal(tool)} key={tool.id} className="min-w-[150px] shrink-0 rounded-2xl bg-gradient-to-br from-white/[0.06] to-white/[0.02] border border-white/[0.08] overflow-hidden snap-start cursor-pointer active:scale-95 transition-transform">
               <div className="w-full h-[120px] relative overflow-hidden flex items-center justify-center bg-slate-800">
                  <div className={`absolute inset-0 flex flex-col items-center justify-center gap-1.5 p-4 text-center`}>
                      <div className="text-4xl opacity-90 drop-shadow-md">{tool.icon || '🛠️'}</div>
@@ -134,7 +201,7 @@ export function ToolsView() {
         <h2 className="text-base font-bold text-white mb-3 mt-2">🔍 Toutes les ressources</h2>
         <div className="space-y-3">
           {featuredTools.length > 0 ? featuredTools.map(tool => (
-           <div key={tool.id} className="flex gap-3 p-3 bg-white/[0.04] border border-white/[0.06] rounded-2xl cursor-pointer active:scale-[0.98] transition-all">
+           <div onClick={() => openToolModal(tool)} key={tool.id} className="flex gap-3 p-3 bg-white/[0.04] border border-white/[0.06] rounded-2xl cursor-pointer active:scale-[0.98] transition-all">
               <div className="w-[72px] h-[72px] shrink-0 rounded-xl relative overflow-hidden bg-slate-800">
                 <div className="absolute inset-0 flex items-center justify-center text-3xl opacity-90">{tool.icon || '🛠️'}</div>
               </div>
@@ -164,6 +231,90 @@ export function ToolsView() {
         </div>
       </section>
 
+      {/* Buy Modal */}
+      {isBuyModalOpen && selectedTool && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-end justify-center animate-in fade-in duration-200" onClick={() => !isProcessing && setIsBuyModalOpen(false)}>
+          <div className="w-full max-w-sm bg-gradient-to-b from-[#1a1a2e] to-[#0f1225] p-5 rounded-t-3xl border-t border-white/10 animate-in slide-in-from-bottom duration-300" onClick={e => e.stopPropagation()}>
+            <div className="w-10 h-1 rounded-full bg-white/20 mx-auto mb-4"></div>
+            <div className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+               {selectedTool.icon} {selectedTool.title}
+            </div>
+
+            <p className="text-sm text-slate-300 mb-4">{selectedTool.description || "Un outil fantastique pour booster votre productivité."}</p>
+
+            <div className="p-3.5 bg-white/[0.04] rounded-xl mb-4 space-y-2">
+              <div className="flex justify-between text-xs">
+                <span className="text-slate-400">Auteur</span>
+                <span className="font-bold text-white">{selectedTool.author || 'Inconnu'}</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-slate-400">{hasPurchased ? "Statut" : "Prix"}</span>
+                <span className="font-bold text-white">{hasPurchased ? "Acheté" : `${selectedTool.price || 0} XOF`}</span>
+              </div>
+            </div>
+
+            {hasPurchased ? (
+               <button 
+               onClick={handleDownload}
+               className="w-full p-4 rounded-xl bg-gradient-to-br from-cyan-600 to-cyan-400 text-white font-bold text-[14px] mb-2 active:scale-95 transition-all flex items-center justify-center gap-2"
+             >
+               <Download className="w-5 h-5" /> Télécharger ({selectedTool.format || 'ZIP'})
+             </button>
+            ) : (
+                <button 
+                onClick={handleBuy}
+                disabled={isProcessing}
+                className="w-full p-4 rounded-xl bg-gradient-to-br from-emerald-600 to-emerald-400 text-white font-bold text-[14px] mb-2 active:scale-95 transition-all flex items-center justify-center gap-2"
+              >
+                {isProcessing ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" /> Traitement...</>
+                ) : (
+                  <><CreditCard className="w-5 h-5"/> Acheter {selectedTool.price || 0} XOF</>
+                )}
+              </button>
+            )}
+
+            <button 
+              onClick={() => setIsBuyModalOpen(false)}
+              disabled={isProcessing}
+              className="w-full p-3.5 rounded-xl bg-white/5 text-slate-400 font-semibold text-[13px] active:scale-95 transition-all disabled:opacity-50"
+            >
+              Fermer
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Success Modal */}
+      {showSuccessModal && selectedTool && (
+        <div className="fixed inset-0 z-50 bg-[#0a0a0f]/95 flex flex-col items-center justify-center p-6 animate-in fade-in duration-300">
+          <div className="w-24 h-24 rounded-full bg-cyan-500/20 flex items-center justify-center text-5xl mb-6 animate-in zoom-in duration-500 delay-100">
+            🎉
+          </div>
+          <h2 className="text-2xl font-black text-white mb-2">Achat réussi !</h2>
+          <p className="text-sm text-slate-400 text-center leading-relaxed mb-8 max-w-[280px]">
+             Vous pouvez maintenant utiliser <strong>{selectedTool.title}</strong>.
+          </p>
+          
+          <button 
+            onClick={() => {
+              setShowSuccessModal(false);
+              handleDownload();
+            }}
+            className="w-full max-w-xs p-4 rounded-xl bg-gradient-to-br from-cyan-600 to-cyan-400 text-white font-bold text-[15px] mb-3 active:scale-95 transition-transform"
+          >
+            Télécharger
+          </button>
+          <button 
+            onClick={() => {
+              setShowSuccessModal(false);
+            }}
+            className="w-full max-w-xs p-4 rounded-xl bg-white/5 text-slate-400 font-bold text-[15px] active:scale-95 transition-transform"
+          >
+            Retour
+          </button>
+        </div>
+      )}
     </div>
   );
 }

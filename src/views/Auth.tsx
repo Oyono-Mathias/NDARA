@@ -44,6 +44,17 @@ export function AuthView() {
       const userRef = doc(db, "users", user.uid);
       const userSnap = await getDoc(userRef);
       
+      let referredBy = null;
+      try {
+          const refDataStr = localStorage.getItem('ndara_referral');
+          if (refDataStr) {
+              const refData = JSON.parse(refDataStr);
+              if (refData.expiresAt > Date.now() && refData.instructorId) {
+                  referredBy = refData.instructorId;
+              }
+          }
+      } catch (e) {}
+
       if (!userSnap.exists()) {
         if (settings?.users?.allowRegistration === false) {
             await auth.signOut();
@@ -63,15 +74,32 @@ export function AuthView() {
           balance: 0,
           affiliateBalance: 0,
           pendingAffiliateBalance: 0,
+          referredBy: referredBy,
           affiliateStats: { clicks: 0, registrations: 0, sales: 0, earnings: 0 }
         });
+
+        // Track registration in the referrer profile if exists
+        // Though it shouldn't hold back the response too long; it could be done async but we just do it here
+        if (referredBy) {
+            const refDocRef = doc(db, "users", referredBy);
+            const refSnap = await getDoc(refDocRef);
+            if (refSnap.exists()) {
+                const affStats = refSnap.data().affiliateStats || { clicks: 0, registrations: 0, sales: 0, earnings: 0 };
+                affStats.registrations = (affStats.registrations || 0) + 1;
+                await setDoc(refDocRef, { affiliateStats: affStats }, { merge: true });
+            }
+        }
       }
 
       const userData = userSnap.exists() ? userSnap.data() : { role: 'student' };
       
-      if (userData.role === 'admin') navigate('/admin');
-      else if (userData.role === 'instructor') navigate('/instructor/dashboard');
-      else navigate('/student/dashboard');
+      if (userData.role === 'admin' || userData.role === 'ceo') {
+          navigate('/admin/dashboard');
+      } else if (userData.role === 'expert' || userData.role === 'instructor') {
+          navigate('/instructor/dashboard');
+      } else {
+          navigate('/student/dashboard');
+      }
 
     } catch (err: any) {
       console.error(err);
@@ -86,17 +114,41 @@ export function AuthView() {
     try {
         setLoading(true);
         setError(null);
-        await signInWithEmailAndPassword(auth, email, password);
-        const userRef = doc(db, "users", auth.currentUser!.uid);
+        const result = await signInWithEmailAndPassword(auth, email, password);
+        const user = result.user;
+        const userRef = doc(db, "users", user.uid);
         const userSnap = await getDoc(userRef);
         
-        const userData = userSnap.exists() ? userSnap.data() : { role: 'student' };
+        let userData: any;
+        if (!userSnap.exists()) {
+            userData = {
+              uid: user.uid,
+              email: user.email || email,
+              fullName: user.displayName || "Étudiant",
+              username: (user.displayName || 'user').replace(/\s/g, '_').toLowerCase() + Math.floor(1000 + Math.random() * 9000),
+              role: "student",
+              status: "active",
+              createdAt: serverTimestamp(),
+              profilePictureURL: user.photoURL || '',
+              balance: 0,
+              affiliateBalance: 0,
+              pendingAffiliateBalance: 0,
+              affiliateStats: { clicks: 0, registrations: 0, sales: 0, earnings: 0 }
+            };
+            await setDoc(userRef, userData);
+        } else {
+            userData = userSnap.data();
+        }
         
-        if (userData.role === 'admin') navigate('/admin');
-        else if (userData.role === 'instructor') navigate('/instructor/dashboard');
-        else navigate('/student/dashboard');
-    } catch (err) {
-        setError("Identifiants incorrects.");
+        if (userData.role === 'admin' || userData.role === 'ceo') {
+            navigate('/admin/dashboard');
+        } else if (userData.role === 'expert' || userData.role === 'instructor') {
+            navigate('/instructor/dashboard');
+        } else {
+            navigate('/student/dashboard');
+        }
+    } catch (err: any) {
+        setError(err.message || "Identifiants incorrects.");
     } finally {
         setLoading(false);
     }
@@ -118,6 +170,17 @@ export function AuthView() {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const authUser = userCredential.user;
         
+        let referredBy = null;
+        try {
+            const refDataStr = localStorage.getItem('ndara_referral');
+            if (refDataStr) {
+                const refData = JSON.parse(refDataStr);
+                if (refData.expiresAt > Date.now() && refData.instructorId) {
+                    referredBy = refData.instructorId;
+                }
+            }
+        } catch (e) {}
+
         const userRef = doc(db, "users", authUser.uid);
         await setDoc(userRef, {
             uid: authUser.uid,
@@ -130,8 +193,19 @@ export function AuthView() {
             balance: 0,
             affiliateBalance: 0,
             pendingAffiliateBalance: 0,
+            referredBy: referredBy,
             affiliateStats: { clicks: 0, registrations: 0, sales: 0, earnings: 0 }
         });
+
+        if (referredBy) {
+            const refDocRef = doc(db, "users", referredBy);
+            const refSnap = await getDoc(refDocRef);
+            if (refSnap.exists()) {
+                const affStats = refSnap.data().affiliateStats || { clicks: 0, registrations: 0, sales: 0, earnings: 0 };
+                affStats.registrations = (affStats.registrations || 0) + 1;
+                await setDoc(refDocRef, { affiliateStats: affStats }, { merge: true });
+            }
+        }
 
         navigate('/student/dashboard');
     } catch (err: any) {

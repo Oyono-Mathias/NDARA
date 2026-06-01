@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { BookOpen, Search, Compass, PlayCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { db } from '../firebase';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { useRole } from '../context/RoleContext';
 
 export function CoursesView() {
@@ -13,35 +13,32 @@ export function CoursesView() {
   const [activeTab, setActiveTab] = useState('all');
 
   useEffect(() => {
-    const fetchCourses = async () => {
-        if (!currentUser?.uid) {
-            setIsLoading(false);
-            return;
+    if (!currentUser?.uid) {
+        setIsLoading(false);
+        return;
+    }
+    const q = query(collection(db, 'enrollments'), where('studentId', '==', currentUser.uid));
+    const unsubscribe = onSnapshot(q, (snap) => {
+        const loadedCourses: any[] = [];
+        
+        for (const docSnap of snap.docs) {
+             const data = docSnap.data();
+             loadedCourses.push({
+                  id: data.courseId,
+                  title: data.courseTitle || 'Formation Ndara',
+                  progress: data.progress || 0,
+                  image: 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&q=80&w=200&h=200',
+                  active: data.progress > 0
+             });
         }
-        try {
-            const q = query(collection(db, 'enrollments'), where('studentId', '==', currentUser.uid));
-            const snap = await getDocs(q);
-            const courseIds = snap.docs.map(doc => doc.data().courseId);
-            const loadedCourses: any[] = [];
-            
-            for (const docSnap of snap.docs) {
-                 const data = docSnap.data();
-                 loadedCourses.push({
-                      id: data.courseId,
-                      title: data.courseTitle || 'Formation Ndara',
-                      progress: data.progress || 0,
-                      image: 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&q=80&w=200&h=200',
-                      active: data.progress > 0
-                 });
-            }
-            setCourses(loadedCourses);
-        } catch (e) {
-            console.error("Error fetching courses", e);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-    fetchCourses();
+        setCourses(loadedCourses);
+        setIsLoading(false);
+    }, (e) => {
+        console.error("Error fetching courses", e);
+        setIsLoading(false);
+    });
+
+    return () => unsubscribe();
   }, [currentUser?.uid]);
 
   const filteredResults = useMemo(() => {

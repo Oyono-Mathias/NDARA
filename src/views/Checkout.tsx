@@ -56,27 +56,24 @@ export function CheckoutView() {
     }
 
     if (slug) {
-        const fetchCourse = async () => {
-             try {
-                const q = query(collection(db, 'courses'), where('slug', '==', slug));
-                const snap = await getDocs(q);
-                if (!snap.empty) {
-                    setCourse({ id: snap.docs[0].id, ...snap.docs[0].data() });
-                } else {
-                    setCourse({ id: slug, title: 'Formation ' + slug, price: 25000 });
-                }
-             } catch (e) {
-                console.error("Error fetching course", e);
-             } finally {
-                setCourseLoading(false);
-             }
-        };
-        fetchCourse();
+        const q = query(collection(db, 'courses'), where('slug', '==', slug));
+        const unsubscribe = onSnapshot(q, (snap) => {
+            if (!snap.empty) {
+                setCourse({ id: snap.docs[0].id, ...snap.docs[0].data() });
+            } else {
+                setCourse({ id: slug, title: 'Formation ' + slug, price: 25000 });
+            }
+            setCourseLoading(false);
+        }, (e) => {
+            console.error("Error fetching course", e);
+            setCourseLoading(false);
+        });
+        return () => unsubscribe();
     }
   }, [slug, ctxUser]);
 
   useEffect(() => {
-      // Mock payment methods
+      // Local payment methods configuration
       setCountryData({
           currency: 'XAF',
           flagEmoji: '🇨🇲',

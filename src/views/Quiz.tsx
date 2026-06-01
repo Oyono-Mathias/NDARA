@@ -12,6 +12,7 @@ import {
   orderBy, 
   collectionGroup,
   where,
+  onSnapshot
 } from 'firebase/firestore';
 import { Loader2, Award, CheckCircle2, X } from 'lucide-react';
 import { cn } from '../lib/utils';
@@ -64,12 +65,13 @@ export function QuizView() {
         return;
     }
 
-    const fetchQuizAndQuestions = async () => {
+    let unsubscribeQuestions: (() => void) | undefined;
+    
+    const fetchQuizAndQuestions = () => {
       setIsQuizLoading(true);
-      try {
-        const quizQuery = query(collectionGroup(db, 'quizzes'), where('id', '==', quizId));
-        const quizSnap = await getDocs(quizQuery);
-        
+      const quizQuery = query(collectionGroup(db, 'quizzes'), where('id', '==', quizId));
+      
+      const unsubscribeQuiz = onSnapshot(quizQuery, (quizSnap) => {
         if (quizSnap.empty) {
           toast({ variant: 'destructive', title: "Quiz introuvable" });
           navigate(-1);
@@ -80,17 +82,29 @@ export function QuizView() {
         const data = { id: quizDoc.id, ...quizDoc.data() } as Quiz;
         setQuizData(data);
 
+        if (unsubscribeQuestions) unsubscribeQuestions();
+
         const questionsQuery = query(collection(quizDoc.ref, 'questions'), orderBy('order', 'asc'));
-        const questionsSnap = await getDocs(questionsQuery);
-        setQuestions(questionsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Question)));
-      } catch (e) {
+        unsubscribeQuestions = onSnapshot(questionsQuery, (questionsSnap) => {
+          setQuestions(questionsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Question)));
+          setIsQuizLoading(false);
+        }, (err) => {
+          console.error("Erreur chargement questions:", err);
+          setIsQuizLoading(false);
+        });
+      }, (e) => {
         console.error("Erreur chargement quiz:", e);
-      } finally {
         setIsQuizLoading(false);
-      }
+      });
+      
+      return unsubscribeQuiz;
     };
 
-    fetchQuizAndQuestions();
+    const unsubQuiz = fetchQuizAndQuestions();
+    return () => {
+       if (unsubQuiz) unsubQuiz();
+       if (unsubscribeQuestions) unsubscribeQuestions();
+    };
   }, [quizId, navigate, toast]);
 
   const handleAnswerSelect = (optionIndex: number) => {

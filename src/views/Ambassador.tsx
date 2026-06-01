@@ -68,7 +68,8 @@ export function AmbassadorView() {
         return () => unsubLeader();
     }, [currentUser?.uid]);
 
-    const shareUrl = `${window.location.origin}/search?aff=${currentUser?.uid}`;
+    const activeProfile = userProfile || currentUser;
+    const shareUrl = `${window.location.origin}/invite-short/${activeProfile?.username || currentUser?.uid || ''}`;
 
     const handleCopyLink = () => {
         navigator.clipboard.writeText(shareUrl);
@@ -76,7 +77,6 @@ export function AmbassadorView() {
         setTimeout(() => setIsCopied(false), 2000);
     };
 
-    const activeProfile = userProfile || currentUser;
     const balance = activeProfile?.affiliateBalance || 0;
 
     const handleWithdraw = async () => {

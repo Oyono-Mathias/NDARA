@@ -19,7 +19,7 @@ import {
     ArrowUpRight
 } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { db } from '../firebase';
+import { db, auth } from '../firebase';
 
 // Dummy implementation of I18N hooks for the purpose of the app
 function useTranslations(key: string) {
@@ -91,11 +91,14 @@ export function ProfileView() {
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
-    // await secureSignOut(); // Mock secure sign out
-    setTimeout(() => {
-        setIsLoggingOut(false);
+    try {
+        await auth.signOut();
         navigate('/');
-    }, 1000);
+    } catch (err) {
+        console.error(err);
+    } finally {
+        setIsLoggingOut(false);
+    }
   };
 
   const handleLanguageChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {

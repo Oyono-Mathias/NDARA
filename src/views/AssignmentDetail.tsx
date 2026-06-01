@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getFirestore, doc, collection, query, where, getDocs, setDoc, serverTimestamp, collectionGroup } from 'firebase/firestore';
+import { getFirestore, doc, collection, query, where, getDocs, setDoc, serverTimestamp, collectionGroup, onSnapshot } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { 
   ArrowLeft, 
@@ -37,59 +37,45 @@ export function AssignmentDetail() {
     const unsubAuth = auth.onAuthStateChanged((user) => {
         if (user) {
             setCurrentUser(user);
-            fetchAssignmentData(user);
+            setIsLoading(true);
+
+            // Recherche du devoir dans toutes les sous-collections assignments
+            const qAssign = query(collectionGroup(db, 'assignments'), where('__name__', '==', assignmentId));
+            const unsubAssign = onSnapshot(qAssign, (snap) => {
+                if (snap.empty) {
+                    navigate('/student/assignments');
+                    return;
+                }
+                const assignDoc = snap.docs[0];
+                setAssignment({ id: assignDoc.id, ...assignDoc.data() });
+            });
+
+            // Vérifier si l'étudiant a déjà rendu ce devoir
+            const qSub = query(collection(db, 'devoirs'), where('studentId', '==', user.uid), where('assignmentId', '==', assignmentId));
+            const unsubSub = onSnapshot(qSub, (subSnap) => {
+                if (!subSnap.empty) {
+                    setSubmission(subSnap.docs[0].data());
+                } else {
+                    setSubmission(null);
+                }
+                setIsLoading(false);
+            });
+
+            return () => {
+                unsubAssign();
+                unsubSub();
+            };
         } else {
             setCurrentUser(null);
-            // Mock data
-            setAssignment({
-                id: assignmentId,
-                title: 'Architecture Blockchain Privée',
-                courseTitle: 'FinTech Fondations',
-                courseId: 'trading',
-                description: 'Votre mission est de définir l\'architecture d\'une blockchain privée pour un consortium bancaire.',
-                dueDate: new Date(Date.now() + 86400000),
-                attachments: [
-                    { name: 'Cahier_des_charges_BDEAC.pdf', url: '#' }
-                ]
-            });
             setIsLoading(false);
         }
     });
-
-    const fetchAssignmentData = async (user: any) => {
-      setIsLoading(true);
-      try {
-        // Recherche du devoir dans toutes les sous-collections assignments
-        const q = query(collectionGroup(db, 'assignments'), where('__name__', '==', assignmentId));
-        const snap = await getDocs(q);
-
-        if (snap.empty) {
-          navigate('/student/assignments');
-          return;
-        }
-
-        const assignDoc = snap.docs[0];
-        const assignData = { id: assignDoc.id, ...assignDoc.data() };
-        setAssignment(assignData);
-
-        // Vérifier si l'étudiant a déjà rendu ce devoir
-        const subSnap = await getDocs(query(collection(db, 'devoirs'), where('studentId', '==', user.uid), where('assignmentId', '==', assignmentId)));
-        if (!subSnap.empty) {
-            setSubmission(subSnap.docs[0].data());
-        }
-
-      } catch (error) {
-        console.error("Error fetching assignment:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
 
     return () => unsubAuth();
   }, [assignmentId, navigate]);
 
   const handleFileUpload = (e: any) => {
-    // Mock upload
+    // Simulate processing upload
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -116,17 +102,7 @@ export function AssignmentDetail() {
 
     setIsSubmitting(true);
     
-    if (!currentUser) {
-        setTimeout(() => {
-            setIsSubmitting(false);
-            setSubmission({
-                status: 'submitted',
-                submittedAt: new Date(),
-                submissionContent: textWork
-            });
-        }, 1500);
-        return;
-    }
+    if (!currentUser) return;
 
     try {
       const subId = `${currentUser.uid}_${assignmentId}`;

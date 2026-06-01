@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { db } from "../firebase";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { collection, query, where, getDocs, onSnapshot } from "firebase/firestore";
 import { Play, Pause, Maximize, SkipForward, SkipBack, Settings, CheckCircle2, ListVideo, PlayCircle, Loader2, ArrowLeft } from "lucide-react";
 
 export function CoursePlayer() {
@@ -14,12 +14,13 @@ export function CoursePlayer() {
   useEffect(() => {
     if (!slug) return;
     const q = query(collection(db, "courses"), where("slug", "==", slug));
-    getDocs(q).then((snap) => {
+    const unsubscribe = onSnapshot(q, (snap) => {
       if (!snap.empty) {
         setCourse({ id: snap.docs[0].id, ...snap.docs[0].data() });
       }
       setLoading(false);
     });
+    return () => unsubscribe();
   }, [slug]);
 
   if (loading) {
