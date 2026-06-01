@@ -1,11 +1,22 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronLeft, Search, Download, Star, ExternalLink, ChevronRight, DownloadCloud, FileCode2, LayoutTemplate, PenTool } from "lucide-react";
+import { ChevronLeft, Search, Download, Star, ExternalLink, ChevronRight, DownloadCloud, FileCode2, LayoutTemplate, PenTool, Info } from "lucide-react";
+import { collection, onSnapshot, query, where, getFirestore } from "firebase/firestore";
+import { db } from "../firebase";
 
 export function ToolsView() {
   const navigate = useNavigate();
   const [filter, setFilter] = useState("all");
-  
+  const [featuredTools, setFeaturedTools] = useState<any[]>([]);
+
+  useEffect(() => {
+    const pubQuery = query(collection(db, "tools"), where("status", "==", "Published"));
+    const unsub = onSnapshot(pubQuery, (snap) => {
+      setFeaturedTools(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+    return () => unsub();
+  }, []);
+
   const categories = [
     { id: "all", label: "Tout", icon: "🛠️" },
     { id: "templates", label: "Templates UI", icon: "🎨" },
@@ -13,45 +24,6 @@ export function ToolsView() {
     { id: "notion", label: "Notion", icon: "📝" },
     { id: "excel", label: "Excel/Sheets", icon: "📊" },
     { id: "marketing", label: "Marketing", icon: "📢" }
-  ];
-
-  const featuredTools = [
-    {
-      id: "saas-dashboard",
-      title: "SaaS Dashboard UI Kit",
-      author: "DesignPro",
-      price: "15 000 F",
-      rating: 4.9,
-      badge: "HOT",
-      badgeClass: "bg-rose-500/80 text-white",
-      icon: "🎨",
-      gradient: "from-[#6c5ce7] to-[#a29bfe]",
-      downloads: "1.2k"
-    },
-    {
-      id: "startup-notion",
-      title: "Startup OS - Notion Template",
-      author: "NotionExpert",
-      price: "10 000 F",
-      rating: 4.8,
-      badge: "BESTSELLER",
-      badgeClass: "bg-orange-500/80 text-white",
-      icon: "📝",
-      gradient: "from-[#1e272e] to-[#485460]",
-      downloads: "3.4k"
-    },
-    {
-      id: "react-auth",
-      title: "React Auth Boilerplate",
-      author: "CodeMaster",
-      price: "Gratuit",
-      rating: 4.7,
-      badge: "FREE",
-      badgeClass: "bg-emerald-500/80 text-white",
-      icon: "💻",
-      gradient: "from-[#0984e3] to-[#74b9ff]",
-      downloads: "5.1k"
-    }
   ];
 
   return (
@@ -125,33 +97,35 @@ export function ToolsView() {
         </div>
         
         <div className="flex gap-3 overflow-x-auto hide-scrollbar pb-2 snap-x snap-mandatory">
-          {featuredTools.map(tool => (
+          {featuredTools.length > 0 ? featuredTools.map(tool => (
             <div key={tool.id} className="min-w-[150px] shrink-0 rounded-2xl bg-gradient-to-br from-white/[0.06] to-white/[0.02] border border-white/[0.08] overflow-hidden snap-start cursor-pointer active:scale-95 transition-transform">
-              <div className="w-full h-[120px] relative overflow-hidden flex items-center justify-center">
-                 <div className={`absolute inset-0 bg-gradient-to-br ${tool.gradient} flex flex-col items-center justify-center gap-1.5 p-4 text-center`}>
-                   <div className="text-4xl opacity-90 drop-shadow-md">{tool.icon}</div>
-                 </div>
-                 <div className={`absolute top-2 left-2 px-2 py-0.5 rounded-md text-[9px] font-bold ${tool.badgeClass}`}>
-                    {tool.badge}
+              <div className="w-full h-[120px] relative overflow-hidden flex items-center justify-center bg-slate-800">
+                 <div className={`absolute inset-0 flex flex-col items-center justify-center gap-1.5 p-4 text-center`}>
+                     <div className="text-4xl opacity-90 drop-shadow-md">{tool.icon || '🛠️'}</div>
                  </div>
               </div>
               <div className="p-3 bg-black/20">
                  <div className="text-xs font-bold text-white mb-1 line-clamp-2 leading-tight">{tool.title}</div>
-                 <div className="text-[10px] text-slate-400 mb-2">{tool.author}</div>
+                 <div className="text-[10px] text-slate-400 mb-2">{tool.author || 'Inconnu'}</div>
                  <div className="flex flex-col gap-1.5">
                     <div className="flex items-center justify-between">
-                       <span className={`text-[12px] font-bold ${tool.price === 'Gratuit' ? 'text-emerald-500' : 'text-cyan-400'}`}>{tool.price}</span>
+                       <span className={`text-[12px] font-bold text-cyan-400`}>{tool.price ? `${tool.price} F` : 'Gratuit'}</span>
                        <span className="flex items-center gap-1 text-[10px] font-semibold text-slate-400">
-                         <Download className="w-3 h-3 text-slate-500" /> {tool.downloads}
+                         <Download className="w-3 h-3 text-slate-500" /> {tool.downloads || 0}
                        </span>
                     </div>
                     <div className="flex items-center gap-1 text-[10px] font-semibold text-orange-400">
-                      <Star className="w-3 h-3 fill-orange-400 stroke-none" /> {tool.rating}
+                      <Star className="w-3 h-3 fill-orange-400 stroke-none" /> {tool.rating || 5.0}
                     </div>
                  </div>
               </div>
             </div>
-          ))}
+          )) : (
+            <div className="px-3 py-6 w-full text-center border rounded-2xl border-dashed border-white/10 opacity-70">
+              <Info className="w-8 h-8 text-slate-500 mx-auto mb-2" />
+              <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Aucun outil disponible</p>
+            </div>
+          )}
         </div>
       </section>
       
@@ -159,71 +133,34 @@ export function ToolsView() {
       <section className="px-1">
         <h2 className="text-base font-bold text-white mb-3 mt-2">🔍 Toutes les ressources</h2>
         <div className="space-y-3">
-           <div className="flex gap-3 p-3 bg-white/[0.04] border border-white/[0.06] rounded-2xl cursor-pointer active:scale-[0.98] transition-all">
-              <div className="w-[72px] h-[72px] shrink-0 rounded-xl relative overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-br from-[#2f3542] to-[#57606f] flex items-center justify-center text-3xl opacity-90">📝</div>
+          {featuredTools.length > 0 ? featuredTools.map(tool => (
+           <div key={tool.id} className="flex gap-3 p-3 bg-white/[0.04] border border-white/[0.06] rounded-2xl cursor-pointer active:scale-[0.98] transition-all">
+              <div className="w-[72px] h-[72px] shrink-0 rounded-xl relative overflow-hidden bg-slate-800">
+                <div className="absolute inset-0 flex items-center justify-center text-3xl opacity-90">{tool.icon || '🛠️'}</div>
               </div>
               <div className="flex-1 flex flex-col justify-center min-w-0">
                  <div className="flex justify-between items-start mb-0.5">
-                    <div className="bg-orange-500/20 text-orange-400 text-[9px] font-bold px-2 py-0.5 rounded-md w-fit">BESTSELLER</div>
-                    <span className="text-xs font-bold text-cyan-400">10 000 F</span>
+                    <div className="bg-orange-500/20 text-orange-400 text-[9px] font-bold px-2 py-0.5 rounded-md w-fit">TOOL</div>
+                    <span className="text-xs font-bold text-cyan-400">{tool.price ? `${tool.price} F` : 'Gratuit'}</span>
                  </div>
-                 <div className="text-[13px] font-bold text-white mb-1 truncate">Startup OS - Notion Template</div>
-                 <div className="text-[10px] text-slate-400 mb-1.5">NotionExpert</div>
+                 <div className="text-[13px] font-bold text-white mb-1 truncate">{tool.title}</div>
+                 <div className="text-[10px] text-slate-400 mb-1.5">{tool.author || 'Inconnu'}</div>
                  <div className="flex items-center justify-between mt-1">
                     <div className="flex items-center gap-2">
-                       <span className="px-2 py-0.5 bg-white/5 rounded text-[9px] font-medium text-slate-400">Workspace</span>
+                       <span className="px-2 py-0.5 bg-white/5 rounded text-[9px] font-medium text-slate-400">Outil</span>
                     </div>
                     <div className="flex items-center gap-1 text-[10px] font-bold text-orange-400">
-                      <Star className="w-3 h-3 fill-orange-400 stroke-none" /> 4.8
+                      <Star className="w-3 h-3 fill-orange-400 stroke-none" /> {tool.rating || 5.0}
                     </div>
                  </div>
               </div>
            </div>
-
-           <div className="flex gap-3 p-3 bg-white/[0.04] border border-white/[0.06] rounded-2xl cursor-pointer active:scale-[0.98] transition-all">
-              <div className="w-[72px] h-[72px] shrink-0 rounded-xl relative overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-br from-[#27ae60] to-[#2ecc71] flex items-center justify-center text-3xl opacity-90">📊</div>
-              </div>
-              <div className="flex-1 flex flex-col justify-center min-w-0">
-                 <div className="flex justify-between items-start mb-0.5">
-                    <div className="bg-emerald-500/20 text-emerald-500 text-[9px] font-bold px-2 py-0.5 rounded-md w-fit">GRATUIT</div>
-                    <span className="text-xs font-bold text-emerald-500">Gratuit</span>
-                 </div>
-                 <div className="text-[13px] font-bold text-white mb-1 truncate">Excel Finance Tracker Pro</div>
-                 <div className="text-[10px] text-slate-400 mb-1.5">FinanceTips</div>
-                 <div className="flex items-center justify-between mt-1">
-                    <div className="flex items-center gap-2">
-                       <span className="px-2 py-0.5 bg-white/5 rounded text-[9px] font-medium text-slate-400">Tableau Excel</span>
-                    </div>
-                    <div className="flex items-center gap-1 text-[10px] font-bold text-orange-400">
-                      <Star className="w-3 h-3 fill-orange-400 stroke-none" /> 4.6
-                    </div>
-                 </div>
-              </div>
-           </div>
-
-           <div className="flex gap-3 p-3 bg-white/[0.04] border border-white/[0.06] rounded-2xl cursor-pointer active:scale-[0.98] transition-all">
-              <div className="w-[72px] h-[72px] shrink-0 rounded-xl relative overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-br from-[#8e44ad] to-[#9b59b6] flex items-center justify-center text-3xl opacity-90">📢</div>
-              </div>
-              <div className="flex-1 flex flex-col justify-center min-w-0">
-                 <div className="flex justify-between items-start mb-0.5">
-                    <div className="bg-cyan-500/20 text-cyan-400 text-[9px] font-bold px-2 py-0.5 rounded-md w-fit">NOUVEAU</div>
-                    <span className="text-xs font-bold text-cyan-400">5 000 F</span>
-                 </div>
-                 <div className="text-[13px] font-bold text-white mb-1 truncate">30 Jours de Posts LinkedIn</div>
-                 <div className="text-[10px] text-slate-400 mb-1.5">SocialGuru</div>
-                 <div className="flex items-center justify-between mt-1">
-                    <div className="flex items-center gap-2">
-                       <span className="px-2 py-0.5 bg-white/5 rounded text-[9px] font-medium text-slate-400">Templates Texte</span>
-                    </div>
-                    <div className="flex items-center gap-1 font-bold text-slate-400 text-[10px]">
-                       <DownloadCloud className="w-3 h-3 text-slate-500 inline" /> N/A
-                    </div>
-                 </div>
-              </div>
-           </div>
+          )) : (
+            <div className="px-3 py-6 w-full text-center border rounded-2xl border-dashed border-white/10 opacity-70">
+              <Info className="w-8 h-8 text-slate-500 mx-auto mb-2" />
+              <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Aucun outil disponible</p>
+            </div>
+          )}
         </div>
       </section>
 

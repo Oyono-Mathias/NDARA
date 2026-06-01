@@ -51,7 +51,7 @@ service cloud.firestore {
       allow write: if isSignedIn() && userId == request.auth.uid;
       
       match /{subcollection}/{docId} {
-        allow read, write: if isSignedIn() && request.auth.uid == userId;
+        allow read, write: if isSignedIn() && (request.auth.uid == userId || userId == 'inst_mathias');
       }
     }
 
@@ -89,6 +89,27 @@ service cloud.firestore {
     }
     
     match /course_reviews/{reviewId} {
+      allow read, write: if isSignedIn();
+    }
+    
+    match /ebooks/{ebookId} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+
+    match /tools/{toolId} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+    match /settings/{docId} {
+      allow read: if true;
+    }
+
+    match /user_wishlist/{wishId} {
+      allow read, write: if isSignedIn();
+    }
+
+    match /course_coupons/{couponId} {
       allow read, write: if isSignedIn();
     }
   }

@@ -1,6 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronLeft, Search, Heart, ShoppingCart, ChevronRight, Star, BookOpen, X, Play, Edit, Trash2, PieChart, UploadCloud, Image as ImageIcon } from "lucide-react";
+import { ChevronLeft, Search, Heart, ShoppingCart, ChevronRight, Star, BookOpen, X, Play, Edit, Trash2, PieChart, UploadCloud, Image as ImageIcon, Info } from "lucide-react";
+import { collection, onSnapshot, query, where, orderBy, getFirestore } from "firebase/firestore";
+import { db } from "../firebase";
+import { useRole } from "../context/RoleContext";
 
 export function EbooksView() {
   const navigate = useNavigate();
@@ -19,48 +22,27 @@ export function EbooksView() {
     { id: "blockchain", label: "Blockchain", icon: "⛓️" }
   ];
 
-  const featuredEbooks = [
-    {
-      id: "python-complete",
-      title: "Python - Le Guide Complet",
-      author: "Dr. Alain Mbarga",
-      price: "8 000 F",
-      rating: 4.9,
-      badge: "BESTSELLER",
-      badgeClass: "bg-orange-500/80 text-white",
-      icon: "🐍",
-      gradient: "from-[#306998] to-[#FFD43B]"
-    },
-    {
-      id: "trading-secrets",
-      title: "Trading - Les Secrets Revealed",
-      author: "Prof. Jean Talla",
-      price: "12 000 F",
-      rating: 4.8,
-      badge: "HOT",
-      badgeClass: "bg-rose-500/80 text-white",
-      icon: "📈",
-      gradient: "from-[#1a472a] to-[#2ecc71]"
-    },
-    {
-      id: "startup-101",
-      title: "Startup 101 - Lancer son business",
-      author: "Paul Fotso",
-      price: "Gratuit",
-      rating: 4.6,
-      badge: "GRATUIT",
-      badgeClass: "bg-emerald-500/80 text-white",
-      icon: "🚀",
-      gradient: "from-[#e17055] to-[#fdcb6e]"
-    }
-  ];
+  const [featuredEbooks, setFeaturedEbooks] = useState<any[]>([]);
+  const [mySalesEbooks, setMySalesEbooks] = useState<any[]>([]);
+  const { currentUser } = useRole();
 
-  const mySalesEbooks = [
-    { id: 1, title: "Python pour Débutants", price: "8 000 F", sales: 12, revenue: 96000, rating: 4.9, icon: "🐍", gradient: "from-[#306998] to-[#FFD43B]" },
-    { id: 2, title: "Trading Avancé", price: "12 000 F", sales: 7, revenue: 84000, rating: 4.7, icon: "📈", gradient: "from-[#1a472a] to-[#2ecc71]" },
-    { id: 3, title: "Design UI/UX Moderne", price: "6 000 F", sales: 5, revenue: 30000, rating: 4.8, icon: "🎨", gradient: "from-[#6c5ce7] to-[#a29bfe]" },
-  ];
+  useEffect(() => {
+    const pubQuery = query(collection(db, "ebooks"), where("status", "==", "Published"));
+    const unsub = onSnapshot(pubQuery, (snap) => {
+      setFeaturedEbooks(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+    return () => unsub();
+  }, []);
 
+  useEffect(() => {
+    if (!currentUser?.uid) return;
+    const authorQuery = query(collection(db, "ebooks"), where("authorId", "==", currentUser.uid));
+    const unsub = onSnapshot(authorQuery, (snap) => {
+      setMySalesEbooks(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+    return () => unsub();
+  }, [currentUser]);
+  
   const openSalesDetail = (title: string, sales: number, revenue: number) => {
     setSelectedSales({title, sales, revenue});
     setActiveModal('sales');
@@ -179,28 +161,30 @@ export function EbooksView() {
               </div>
               
               <div className="flex gap-3 overflow-x-auto hide-scrollbar pb-2 snap-x snap-mandatory -mx-3 px-3">
-                {featuredEbooks.map(ebook => (
+                {featuredEbooks.length > 0 ? featuredEbooks.map(ebook => (
                   <div key={ebook.id} onClick={() => navigate(`/student/ebooks/${ebook.id}`)} className="min-w-[150px] shrink-0 rounded-2xl bg-gradient-to-br from-white/[0.06] to-white/[0.02] border border-white/[0.08] overflow-hidden snap-start cursor-pointer active:scale-95 transition-transform">
-                    <div className="w-full h-[160px] relative overflow-hidden flex items-center justify-center">
-                       <div className={`absolute inset-0 bg-gradient-to-br ${ebook.gradient} flex flex-col items-center justify-center gap-1.5 p-4 text-center`}>
-                         <div className="text-4xl opacity-90 drop-shadow-md">{ebook.icon}</div>
-                       </div>
-                       <div className={`absolute top-2 left-2 px-2 py-0.5 rounded-md text-[9px] font-bold ${ebook.badgeClass}`}>
-                          {ebook.badge}
+                    <div className="w-full h-[160px] relative overflow-hidden flex items-center justify-center bg-slate-800">
+                       <div className={`absolute inset-0 flex flex-col items-center justify-center gap-1.5 p-4 text-center`}>
+                         <div className="text-4xl opacity-90 drop-shadow-md">{ebook.icon || '📚'}</div>
                        </div>
                     </div>
                     <div className="p-3 bg-black/20">
                        <div className="text-[11px] font-bold text-white mb-1 line-clamp-2 leading-tight">{ebook.title}</div>
-                       <div className="text-[10px] text-slate-400 mb-2">{ebook.author}</div>
+                       <div className="text-[10px] text-slate-400 mb-2">{ebook.author || 'Inconnu'}</div>
                        <div className="flex items-center justify-between">
-                          <span className={`text-[13px] font-bold ${ebook.price === 'Gratuit' ? 'text-emerald-500' : 'text-emerald-400'}`}>{ebook.price}</span>
+                          <span className={`text-[13px] font-bold text-emerald-400`}>{ebook.price ? `${ebook.price} F` : 'Gratuit'}</span>
                           <span className="flex items-center gap-1 text-[10px] font-semibold text-orange-400">
-                            <Star className="w-3 h-3 fill-orange-400 stroke-none" /> {ebook.rating}
+                            <Star className="w-3 h-3 fill-orange-400 stroke-none" /> {ebook.rating || 5.0}
                           </span>
                        </div>
                     </div>
                   </div>
-                ))}
+                )) : (
+                  <div className="px-3 py-6 w-full text-center border rounded-2xl border-dashed border-white/10 opacity-70">
+                    <Info className="w-8 h-8 text-slate-500 mx-auto mb-2" />
+                    <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Aucun Ebook disponible</p>
+                  </div>
+                )}
               </div>
             </section>
             
@@ -208,35 +192,27 @@ export function EbooksView() {
             <section className="px-3">
               <h2 className="text-base font-bold text-white mb-3">📖 Tous les ebooks</h2>
               <div className="space-y-3">
-                 <div className="flex gap-3 p-3 bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 border border-emerald-500/20 rounded-2xl cursor-pointer active:scale-[0.98] transition-all" onClick={() => setActiveModal('reader')}>
-                    <div className="w-[64px] h-[84px] shrink-0 rounded-xl relative overflow-hidden">
-                      <div className="absolute inset-0 bg-gradient-to-br from-[#306998] to-[#FFD43B] flex items-center justify-center text-2xl opacity-90">🐍</div>
+                {featuredEbooks.length > 0 ? featuredEbooks.map(ebook => (
+                 <div key={ebook.id} className="flex gap-3 p-3 bg-white/[0.04] border border-white/[0.06] rounded-2xl cursor-pointer active:scale-[0.98] transition-all" onClick={() => navigate(`/student/ebooks/${ebook.id}`)}>
+                    <div className="w-[64px] h-[84px] shrink-0 rounded-xl relative overflow-hidden bg-slate-800">
+                      <div className={`absolute inset-0 flex items-center justify-center text-2xl opacity-90`}>{ebook.icon || '📚'}</div>
                     </div>
                     <div className="flex-1 flex flex-col justify-center min-w-0">
-                       <div className="bg-emerald-500/20 text-emerald-500 text-[9px] font-bold px-2 py-0.5 rounded-md w-fit mb-1">✓ ACHETÉ</div>
-                       <div className="text-[13px] font-bold text-white mb-0.5 truncate">Python - Le Guide Complet</div>
-                       <div className="text-[10px] text-slate-400 mb-1">Dr. Alain Mbarga</div>
-                       <div className="flex justify-between items-center mt-1 text-[10px] text-slate-400">
-                          <span className="flex items-center gap-1 text-emerald-500 font-bold"><Star className="w-3 h-3 fill-emerald-500 stroke-none"/> 4.9</span>
-                          <span>320 pages</span>
-                       </div>
-                    </div>
-                 </div>
-
-                 <div className="flex gap-3 p-3 bg-white/[0.04] border border-white/[0.06] rounded-2xl cursor-pointer active:scale-[0.98] transition-all" onClick={() => navigate('/student/ebooks/trading-secrets')}>
-                    <div className="w-[64px] h-[84px] shrink-0 rounded-xl relative overflow-hidden">
-                      <div className="absolute inset-0 bg-gradient-to-br from-[#1a472a] to-[#2ecc71] flex items-center justify-center text-2xl opacity-90">📈</div>
-                    </div>
-                    <div className="flex-1 flex flex-col justify-center min-w-0">
-                       <div className="bg-orange-500/20 text-orange-400 text-[9px] font-bold px-2 py-0.5 rounded-md w-fit mb-1">BESTSELLER</div>
-                       <div className="text-[13px] font-bold text-white mb-0.5 truncate">Trading - Les Secrets Revealed</div>
-                       <div className="text-[10px] text-slate-400 mb-1">Prof. Jean Talla</div>
+                       <div className="bg-orange-500/20 text-orange-400 text-[9px] font-bold px-2 py-0.5 rounded-md w-fit mb-1">EBOOK</div>
+                       <div className="text-[13px] font-bold text-white mb-0.5 truncate">{ebook.title}</div>
+                       <div className="text-[10px] text-slate-400 mb-1">{ebook.author || 'Inconnu'}</div>
                        <div className="flex items-center justify-between mt-1">
-                          <span className="flex items-center gap-1 text-[10px] font-bold text-orange-400"><Star className="w-3 h-3 fill-orange-400 stroke-none"/> 4.8</span>
-                          <span className="text-xs font-bold text-orange-400">12 000 F</span>
+                          <span className="flex items-center gap-1 text-[10px] font-bold text-orange-400"><Star className="w-3 h-3 fill-orange-400 stroke-none"/> {ebook.rating || 5.0}</span>
+                          <span className="text-xs font-bold text-emerald-400">{ebook.price ? `${ebook.price} F` : 'Gratuit'}</span>
                        </div>
                     </div>
                  </div>
+                )) : (
+                  <div className="px-3 py-6 w-full text-center border rounded-2xl border-dashed border-white/10 opacity-70">
+                    <BookOpen className="w-8 h-8 text-slate-500 mx-auto mb-2" />
+                    <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Aucun Ebook disponible</p>
+                  </div>
+                )}
               </div>
             </section>
           </div>
@@ -330,24 +306,29 @@ export function EbooksView() {
             </div>
 
             <div className="space-y-3">
-              {mySalesEbooks.map(ebook => (
+              {mySalesEbooks.length > 0 ? mySalesEbooks.map(ebook => (
                 <div key={ebook.id} className="flex gap-3 p-3 bg-white/[0.04] border border-white/[0.06] rounded-2xl cursor-pointer active:scale-[0.98] transition-all">
-                   <div className="w-[56px] h-[72px] shrink-0 rounded-xl relative overflow-hidden">
-                     <div className={`absolute inset-0 bg-gradient-to-br ${ebook.gradient} flex items-center justify-center text-2xl opacity-90`}>{ebook.icon}</div>
+                   <div className="w-[56px] h-[72px] shrink-0 rounded-xl relative overflow-hidden bg-slate-800">
+                     <div className={`absolute inset-0 flex items-center justify-center text-2xl opacity-90`}>{ebook.icon || '📚'}</div>
                    </div>
                    <div className="flex-1 min-w-0">
                       <div className="text-[13px] font-bold text-white mb-2 truncate">{ebook.title}</div>
                       <div className="flex items-center gap-3 text-[11px] font-semibold text-slate-400">
-                         <span>💰 {ebook.price}</span>
-                         <span>📈 {ebook.sales} ventes</span>
+                         <span>💰 {ebook.price ? `${ebook.price} F` : '0 F'}</span>
+                         <span>📈 {ebook.sales || 0} ventes</span>
                       </div>
                    </div>
                    <div className="flex flex-col gap-1.5 shrink-0 justify-center">
-                      <button onClick={() => openSalesDetail(ebook.title, ebook.sales, ebook.revenue)} className="px-3 py-1.5 rounded-lg bg-emerald-500/15 text-emerald-500 font-bold text-[10px] active:scale-95">Stats</button>
+                      <button onClick={() => openSalesDetail(ebook.title, ebook.sales || 0, ebook.revenue || 0)} className="px-3 py-1.5 rounded-lg bg-emerald-500/15 text-emerald-500 font-bold text-[10px] active:scale-95">Stats</button>
                       <button className="px-3 py-1.5 rounded-lg bg-white/5 text-slate-400 border border-white/10 font-bold text-[10px] active:scale-95">Éditer</button>
                    </div>
                 </div>
-              ))}
+              )) : (
+                <div className="px-3 py-8 w-full text-center border rounded-2xl border-dashed border-white/10 opacity-70">
+                  <BookOpen className="w-8 h-8 text-slate-500 mx-auto mb-2" />
+                  <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Vous n'avez rien publié pour le moment</p>
+                </div>
+              )}
             </div>
           </div>
         )}

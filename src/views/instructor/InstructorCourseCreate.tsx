@@ -44,6 +44,7 @@ export function InstructorCourseCreate() {
     if (!currentUser) return;
     try {
         const docRef = await addDoc(collection(db, 'courses'), {
+            ...data,
             title: data.title || "Nouvelle formation",
             instructorId: currentUser.uid,
             status: 'Draft',

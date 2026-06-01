@@ -1,4 +1,5 @@
-import { Routes, Route, useNavigate } from "react-router-dom";
+import { Routes, Route, useNavigate, Navigate } from "react-router-dom";
+import { useRole } from "../../context/RoleContext";
 import { AdminNavigation } from "../../components/AdminNavigation";
 import { ShieldAlert, Terminal, Lock } from "lucide-react";
 import { AdminDashboard } from "./AdminDashboard";
@@ -22,6 +23,18 @@ import { AdminSettings } from "./AdminSettings";
 import { AdminRoles } from "./AdminRoles";
 
 export function AdminLayout() {
+  const { isUserLoading, currentUser } = useRole();
+
+  if (isUserLoading) {
+    return <div className="h-screen w-full flex items-center justify-center bg-black text-green-500 font-mono">INITIALIZING SECURE LINK...</div>;
+  }
+
+  if (!currentUser) return <Navigate to="/auth" replace />;
+  // ceo / admin access only
+  if (currentUser?.role !== 'ceo' && currentUser?.role !== 'admin') {
+    return <Navigate to="/student/dashboard" replace />;
+  }
+
   return (
     <div className="antialiased min-h-screen flex bg-[#050505] text-green-500 font-mono selection:bg-green-500/30 selection:text-green-200">
       

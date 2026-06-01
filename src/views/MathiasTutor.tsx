@@ -1,6 +1,7 @@
 import { Bot, Send, Sparkles, Paperclip, Mic } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import { useState, useEffect } from "react";
+import { useRole } from "../context/RoleContext";
 
 export function MathiasTutor() {
   const [searchParams] = useSearchParams();
@@ -8,6 +9,7 @@ export function MathiasTutor() {
   const initialContext = searchParams.get('context') || "";
 
   const [inputValue, setInputValue] = useState(initialQuery);
+  const { currentUser } = useRole();
 
   return (
     <div className="h-[calc(100vh-160px)] flex flex-col animate-in fade-in duration-500 relative">
@@ -47,8 +49,12 @@ export function MathiasTutor() {
             <div className="bg-primary/20 backdrop-blur-md p-4 rounded-2xl rounded-tr-none border border-primary/30 shadow-[0_0_15px_rgba(16,185,129,0.2)]">
                 <p className="text-white text-sm leading-relaxed">Comment je sais si c'est vraiment une zone de sur-achat ou juste une tendance forte ?</p>
             </div>
-             <div className="w-8 h-8 rounded-full bg-card border border-white/10 overflow-hidden shrink-0 mt-1">
-                <img src="https://i.pravatar.cc/150?img=11" alt="Profile" className="w-full h-full object-cover" />
+             <div className="w-8 h-8 rounded-full bg-card border border-white/10 overflow-hidden shrink-0 mt-1 flex items-center justify-center">
+                {currentUser?.profilePictureURL ? (
+                    <img src={currentUser.profilePictureURL} alt="Profile" className="w-full h-full object-cover" />
+                ) : (
+                    <span className="text-white text-xs font-bold">{currentUser?.fullName?.substring(0, 2).toUpperCase() || 'MO'}</span>
+                )}
             </div>
         </div>
 

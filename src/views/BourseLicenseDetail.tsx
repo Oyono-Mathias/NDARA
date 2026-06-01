@@ -1,23 +1,66 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ChevronLeft, Share2, Heart, Star, Users, Award, Briefcase, TrendingUp, CheckCircle, Wallet, Phone, CircleDollarSign, Loader2 } from "lucide-react";
+import { doc, onSnapshot } from "firebase/firestore";
+import { db } from "../firebase";
+import { useRole } from "../context/RoleContext";
 
 export function BourseLicenseDetail() {
   const navigate = useNavigate();
   const { id } = useParams();
+  const { currentUser } = useRole();
   
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("wallet");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [userProfile, setUserProfile] = useState<any>(null);
+
+  useEffect(() => {
+    if (!currentUser?.uid) return;
+    const unsub = onSnapshot(doc(db, "users", currentUser.uid), (snap) => {
+      if (snap.exists()) {
+        setUserProfile(snap.data());
+      }
+    });
+    return () => unsub();
+  }, [currentUser?.uid]);
+
+  const userBalance = userProfile?.balance || 0;
   
-  const handlePurchase = () => {
+  const handlePurchase = async () => {
+    if (!currentUser?.uid) {
+      alert("Veuillez vous connecter pour acheter cette licence.");
+      return;
+    }
+
     setIsProcessing(true);
-    setTimeout(() => {
-      setIsProcessing(false);
+    try {
+      const response = await fetch("/api/wallet/purchase-license", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          buyerId: currentUser.uid,
+          price: 200000,
+          courseId: id || "trading-pro",
+          courseTitle: "Trading Pro",
+          sellerId: "inst_mbarga"
+        })
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Échec de l'achat de la licence.");
+      }
+
       setShowConfirmModal(false);
       setShowSuccessModal(true);
-    }, 1500);
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || "Une erreur est survenue lors du traitement.");
+    } finally {
+      setIsProcessing(false);
+    }
   };
   
   return (
@@ -240,7 +283,7 @@ export function BourseLicenseDetail() {
           </div>
           <div className="px-3 py-1.5 bg-white/5 rounded-lg">
             <div className="text-[10px] text-slate-400">Wallet</div>
-            <div className="text-[13px] font-bold text-emerald-500">485 000 F</div>
+            <div className="text-[13px] font-bold text-emerald-500">{userBalance.toLocaleString('fr-FR')} F</div>
           </div>
         </div>
         <button 
@@ -292,7 +335,7 @@ export function BourseLicenseDetail() {
                 <div className="text-2xl">💰</div>
                 <div className="flex-1">
                   <div className="text-[13px] font-bold text-white">Ndara Wallet</div>
-                  <div className="text-[10px] text-slate-400">Solde: 485 000 XOF</div>
+                  <div className="text-[10px] text-slate-400">Solde: {userBalance.toLocaleString('fr-FR')} XOF</div>
                 </div>
                 <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'wallet' ? 'border-emerald-500' : 'border-white/20'}`}>
                   {paymentMethod === 'wallet' && <div className="w-2.5 h-2.5 rounded-full bg-emerald-500"></div>}

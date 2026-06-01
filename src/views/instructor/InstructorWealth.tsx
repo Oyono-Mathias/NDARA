@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useRole } from '../../context/RoleContext';
-import { collection, query, where, onSnapshot, orderBy, limit, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, limit, addDoc, serverTimestamp, doc } from 'firebase/firestore';
 import { 
     Wallet, 
     ArrowUpRight, 
@@ -28,6 +28,7 @@ export function InstructorWealth() {
 
     const [payments, setPayments] = useState<any[]>([]);
     const [payoutRequests, setPayoutRequests] = useState<any[]>([]);
+    const [userProfile, setUserProfile] = useState<any>(null);
     const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
     const [withdrawMethod, setWithdrawMethod] = useState<'orange' | 'mtn' | 'wave'>('orange');
     const [withdrawAmount, setWithdrawAmount] = useState<string>('');
@@ -39,6 +40,13 @@ export function InstructorWealth() {
     useEffect(() => {
         if (!instructor?.uid) return;
         const instructorId = instructor.uid;
+
+        // Listen to the instructor's profile in real time to fetch current balance & affiliate balance
+        const unsubUser = onSnapshot(doc(db, 'users', instructorId), (snap) => {
+            if (snap.exists()) {
+                setUserProfile(snap.data());
+            }
+        });
 
         const unsubPayments = onSnapshot(
             query(collection(db, 'payments'), where('instructorId', '==', instructorId), where('status', '==', 'Completed')),
@@ -56,50 +64,65 @@ export function InstructorWealth() {
             }
         );
 
-        return () => { unsubPayments(); unsubPayouts(); };
+        return () => { unsubUser(); unsubPayments(); unsubPayouts(); };
     }, [instructor?.uid]);
 
     const stats = useMemo(() => {
+        const primaryBalance = userProfile?.balance || 0;
+        const ambassadorAvailable = userProfile?.affiliateBalance || 0;
+        const escrowBalance = userProfile?.pendingBalance || 0;
+        const availableBalance = primaryBalance + ambassadorAvailable;
         const totalSalesEarned = payments.reduce((acc, p) => acc + (p.amount || 0), 0);
-        const ambassadorAvailable = instructor?.affiliateBalance || 0;
-        const totalPayouts = payoutRequests.filter(p => p.status !== 'rejected').reduce((acc, p) => acc + (p.amount || 0), 0);
-        const availableBalance = (totalSalesEarned + ambassadorAvailable) - totalPayouts;
-        return { totalSalesEarned, ambassadorAvailable, availableBalance: Math.max(0, availableBalance) };
-    }, [payments, payoutRequests, instructor]);
+        
+        return { 
+            totalSalesEarned, 
+            ambassadorAvailable, 
+            availableBalance: Math.max(0, availableBalance),
+            escrowBalance,
+            primaryBalance
+        };
+    }, [payments, userProfile]);
 
     const handleRequestWithdrawal = async () => {
         if (!instructor) return;
         const amountNum = parseFloat(withdrawAmount);
         
         if (isNaN(amountNum) || amountNum < 5000) {
-            alert('error.payout_min_amount');
+            alert('Le montant minimum pour un retrait est de 5 000 FCFA.');
             return;
         }
         
         if (amountNum > stats.availableBalance) {
-            alert('error.insufficient_balance');
+            alert('Votre solde disponible est insuffisant.');
             return;
         }
 
         setIsSubmitting(true);
         try {
-            await addDoc(collection(db, 'payout_requests'), {
-                instructorId: instructor.uid,
-                amount: amountNum,
-                method: 'mobile_money',
-                provider: withdrawMethod,
-                phone: phoneValue,
-                requesterId: instructor.uid,
-                status: 'pending',
-                createdAt: serverTimestamp()
+            const response = await fetch('/api/wallet/request-payout', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userId: instructor.uid,
+                    amount: amountNum,
+                    provider: withdrawMethod,
+                    phone: phoneValue,
+                    method: 'mobile_money'
+                })
             });
 
-            alert('success.payout_requested');
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.error || 'Erreur lors de la communication sécurisée.');
+            }
+
+            alert('Demande de retrait enregistrée et fonds sécurisés sous séquestre d\'audit !');
             setIsWithdrawModalOpen(false);
             setWithdrawAmount('');
-        } catch (e) {
+            setPhoneValue('');
+        } catch (e: any) {
             console.error(e);
-            alert('error.generic');
+            alert(e.message || 'Erreur inconnue.');
         } finally {
             setIsSubmitting(false);
         }
@@ -165,6 +188,24 @@ export function InstructorWealth() {
                                 </div>
                                 <div className="flex items-center gap-3"><CreditCard className="text-white h-8 w-8 opacity-90" /></div>
                             </div>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div className="bg-slate-900 border border-white/5 rounded-3xl p-5 relative overflow-hidden">
+                            <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1.5">Cours Vendus</p>
+                            <h4 className="text-white font-black text-2xl tracking-tight">{stats.primaryBalance.toLocaleString('fr-FR')} <span className="text-xs font-bold text-slate-500 uppercase">F</span></h4>
+                            <p className="text-slate-600 text-[9px] font-medium tracking-wide mt-1">Fonds débloqués & disponibles</p>
+                        </div>
+                        <div className="bg-slate-900 border border-white/5 rounded-3xl p-5 relative overflow-hidden">
+                            <p className="text-[#10b981] text-[10px] font-black uppercase tracking-widest mb-1.5">Parrainages</p>
+                            <h4 className="text-[#10b981] font-black text-2xl tracking-tight">{stats.ambassadorAvailable.toLocaleString('fr-FR')} <span className="text-xs font-bold text-slate-500 uppercase">F</span></h4>
+                            <p className="text-slate-600 text-[9px] font-medium tracking-wide mt-1">Commissions disponibles</p>
+                        </div>
+                        <div className="bg-slate-900 border border-white/5 rounded-3xl p-5 relative overflow-hidden">
+                            <p className="text-amber-500 text-[10px] font-black uppercase tracking-widest mb-1.5">En Séquestre</p>
+                            <h4 className="text-amber-400 font-black text-2xl tracking-tight">{stats.escrowBalance.toLocaleString('fr-FR')} <span className="text-xs font-bold text-slate-500 uppercase">F</span></h4>
+                            <p className="text-slate-600 text-[9px] font-medium tracking-wide mt-1">Libération sous 14 jours</p>
                         </div>
                     </div>
 

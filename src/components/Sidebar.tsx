@@ -53,11 +53,11 @@ export function Sidebar({ isOpen, onClose }: { isOpen: boolean, onClose: () => v
                                     {currentUser?.profilePictureURL ? (
                                         <img src={currentUser.profilePictureURL} alt="Profile" className="w-full h-full object-cover" />
                                     ) : (
-                                        <span className="text-xl font-bold text-white">{currentUser?.fullName?.substring(0, 2).toUpperCase() || 'MO'}</span>
+                                        <span className="text-xl font-bold text-white">{currentUser?.fullName?.substring(0, 2).toUpperCase() || '👤'}</span>
                                     )}
                                 </div>
                                 <div>
-                                    <h3 className="font-black text-white uppercase tracking-tight text-lg">{currentUser?.fullName || 'MATHIAS OYONO'}</h3>
+                                    <h3 className="font-black text-white uppercase tracking-tight text-lg">{currentUser?.fullName || 'Utilisateur'}</h3>
                                     <p className="text-[10px] text-primary font-bold uppercase tracking-widest">ÉTUDIANT NDARA</p>
                                 </div>
                             </div>

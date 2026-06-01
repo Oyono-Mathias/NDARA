@@ -1,4 +1,5 @@
-import { Routes, Route, useNavigate } from "react-router-dom";
+import { Routes, Route, useNavigate, Navigate } from "react-router-dom";
+import { useRole } from "../../context/RoleContext";
 import { InstructorNavigation } from "../../components/InstructorNavigation";
 import { Bell } from "lucide-react";
 import { InstructorDashboard } from "./InstructorDashboard";
@@ -17,8 +18,18 @@ import { InstructorQuiz } from "./InstructorQuiz";
 import { InstructorResources } from "./InstructorResources";
 
 import { InstructorSettings } from "./InstructorSettings";
+import { InstructorStudents } from "./InstructorStudents";
 
 export function InstructorLayout() {
+  const { isUserLoading, currentUser } = useRole();
+
+  if (isUserLoading) {
+    return <div className="h-screen w-full flex items-center justify-center bg-black text-white">Loading...</div>;
+  }
+
+  if (!currentUser) return <Navigate to="/auth" replace />;
+  if (currentUser?.role !== 'expert') return <Navigate to="/student/dashboard" replace />;
+
   return (
     <div className="antialiased min-h-screen flex bg-black">
       
@@ -64,7 +75,7 @@ export function InstructorLayout() {
             <Route path="resources" element={<InstructorResources />} />
             <Route path="devoirs" element={<InstructorDevoirs />} />
             <Route path="devoirs/:id" element={<GenericPlaceholder title="Correcteur Mathias IA" subtitle="Aide à la notation et feedback" />} />
-            <Route path="students" element={<GenericPlaceholder title="Base de Données Ndara" subtitle="Liste des élèves et progression live" />} />
+            <Route path="students" element={<InstructorStudents />} />
             <Route path="revenus" element={<InstructorWealth />} />
             <Route path="annonces" element={<InstructorAnnouncements />} />
             <Route path="coupons" element={<InstructorCoupons />} />

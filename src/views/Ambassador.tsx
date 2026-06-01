@@ -30,6 +30,17 @@ export function AmbassadorView() {
     const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
     const [withdrawMethod, setWithdrawMethod] = useState<'orange' | 'mtn' | 'wave'>('orange');
     const [phoneValue, setPhoneValue] = useState('');
+    const [userProfile, setUserProfile] = useState<any>(null);
+
+    useEffect(() => {
+        if (!currentUser?.uid) return;
+        const unsubUser = onSnapshot(doc(db, "users", currentUser.uid), (snap) => {
+            if (snap.exists()) {
+                setUserProfile(snap.data());
+            }
+        });
+        return () => unsubUser();
+    }, [currentUser?.uid]);
 
     useEffect(() => {
         if (!currentUser?.uid) {
@@ -65,8 +76,11 @@ export function AmbassadorView() {
         setTimeout(() => setIsCopied(false), 2000);
     };
 
+    const activeProfile = userProfile || currentUser;
+    const balance = activeProfile?.affiliateBalance || 0;
+
     const handleWithdraw = async () => {
-        const balance = currentUser?.affiliateBalance || 0;
+        if (!currentUser?.uid) return;
         if (balance < 5000) {
             alert("Le retrait minimum est de 5 000 XOF.");
             return;
@@ -78,17 +92,35 @@ export function AmbassadorView() {
 
         setIsSubmitting(true);
         try {
-            await new Promise(resolve => setTimeout(resolve, 1500));
-            alert("Demande envoyée ! Votre virement sera traité sous 48h.");
+            const response = await fetch("/api/wallet/request-payout", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    userId: currentUser.uid,
+                    amount: balance, // complete withdraw of affiliate balance
+                    provider: withdrawMethod,
+                    phone: phoneValue,
+                    method: 'mobile_money'
+                })
+            });
+
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.error || "Échec de l'envoi de la demande.");
+            }
+
+            alert("Demande envoyée ! Votre virement sera traité sous 48h par nos vérificateurs.");
             setIsWithdrawModalOpen(false);
-        } catch (e) {
-            alert("Erreur technique");
+            setPhoneValue("");
+        } catch (e: any) {
+            console.error(e);
+            alert(e.message || "Erreur technique lors du retrait.");
         } finally {
             setIsSubmitting(false);
         }
     };
 
-    const stats = currentUser?.affiliateStats || { clicks: 0, registrations: 0, sales: 0, earnings: 0 };
+    const stats = activeProfile?.affiliateStats || { clicks: 0, registrations: 0, sales: 0, earnings: 0 };
 
     return (
         <div className="flex flex-col gap-8 pb-32 min-h-screen relative overflow-hidden bg-black -mt-32 max-w-md mx-auto z-10 w-full pt-20">
@@ -126,7 +158,7 @@ export function AmbassadorView() {
                             <div>
                                 <p className="text-emerald-100 text-[10px] font-black uppercase tracking-[0.25em] mb-1">Gains Disponibles</p>
                                 <div className="flex items-baseline gap-2">
-                                    <h2 className="text-5xl font-black text-white leading-none">{(currentUser?.affiliateBalance || 0).toLocaleString('fr-FR')}</h2>
+                                    <h2 className="text-5xl font-black text-white leading-none">{(activeProfile?.affiliateBalance || 0).toLocaleString('fr-FR')}</h2>
                                     <span className="text-sm font-bold text-white/70 uppercase">XAF</span>
                                 </div>
                             </div>
@@ -254,7 +286,7 @@ export function AmbassadorView() {
                         <div className="p-8 pt-4 space-y-6">
                             <div className="bg-black rounded-3xl p-5 border border-white/5 text-center">
                                 <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-1">Montant transférable</p>
-                                <p className="text-3xl font-black text-primary">{(currentUser?.affiliateBalance || 0).toLocaleString('fr-FR')} XAF</p>
+                                <p className="text-3xl font-black text-primary">{(activeProfile?.affiliateBalance || 0).toLocaleString('fr-FR')} XAF</p>
                             </div>
 
                             <div className="space-y-3">
@@ -287,7 +319,7 @@ export function AmbassadorView() {
                             </button>
                             <button 
                                 onClick={handleWithdraw}
-                                disabled={isSubmitting || (currentUser?.affiliateBalance || 0) < 5000}
+                                disabled={isSubmitting || (activeProfile?.affiliateBalance || 0) < 5000}
                                 className="flex-[2] h-14 rounded-[2rem] bg-primary hover:bg-primary/90 text-black font-black uppercase text-[10px] tracking-widest shadow-xl flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                             >
                                 {isSubmitting ? <Loader2 className="animate-spin mr-2 h-4 w-4"/> : <Check className="mr-2 h-4 w-4" />}

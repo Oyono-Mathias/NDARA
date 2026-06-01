@@ -1,8 +1,164 @@
-export function ContentManager({ courseId }: any) {
+import { useState, useEffect } from 'react';
+import { db } from '../../../firebase';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { Plus, Video, Trash2, GripVertical, Loader2 } from 'lucide-react';
+
+export function ContentManager({ courseId }: { courseId: string }) {
+    const [content, setContent] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+
+    useEffect(() => {
+        getDoc(doc(db, 'courses', courseId)).then(snap => {
+            if (snap.exists()) {
+                setContent(snap.data().content || []);
+            }
+            setLoading(false);
+        });
+    }, [courseId]);
+
+    const handleAddModule = () => {
+        setContent([...content, { 
+            id: 'mod_' + Date.now(), 
+            title: 'Nouveau Module', 
+            lessons: [] 
+        }]);
+    };
+
+    const handleAddLesson = (moduleIndex: number) => {
+        const newContent = [...content];
+        newContent[moduleIndex].lessons.push({
+            id: 'les_' + Date.now(),
+            title: 'Nouvelle Vidéo',
+            videoUrl: '',
+            duration: '00:00'
+        });
+        setContent(newContent);
+    };
+
+    const updateModuleTitle = (moduleIndex: number, title: string) => {
+        const newContent = [...content];
+        newContent[moduleIndex].title = title;
+        setContent(newContent);
+    };
+
+    const updateLesson = (moduleIndex: number, lessonIndex: number, field: string, value: string) => {
+        const newContent = [...content];
+        newContent[moduleIndex].lessons[lessonIndex][field] = value;
+        setContent(newContent);
+    };
+
+    const removeModule = (moduleIndex: number) => {
+        const newContent = [...content];
+        newContent.splice(moduleIndex, 1);
+        setContent(newContent);
+    };
+
+    const removeLesson = (moduleIndex: number, lessonIndex: number) => {
+        const newContent = [...content];
+        newContent[moduleIndex].lessons.splice(lessonIndex, 1);
+        setContent(newContent);
+    };
+
+    const saveContent = async () => {
+        setSaving(true);
+        try {
+            await updateDoc(doc(db, 'courses', courseId), { content });
+            alert('Programme sauvegardé !');
+        } catch (e) {
+            alert('Erreur lors de la sauvegarde.');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    if (loading) return <div className="p-10 flex justify-center"><Loader2 className="animate-spin text-primary w-8 h-8"/></div>;
+
     return (
-        <div className="p-4 bg-slate-900 border border-white/10 rounded-2xl text-white">
-            <h2 className="font-bold text-lg mb-2">Gestion du contenu</h2>
-            <p className="text-sm text-slate-400">Le gestionnaire de modules et chapitres pour le cours {courseId}.</p>
+        <div className="space-y-6">
+            <div className="flex justify-between items-center mb-6">
+                <div>
+                    <h2 className="font-bold text-lg text-white">Programme de formation</h2>
+                    <p className="text-sm text-slate-400">Gérez les modules et les leçons de ce cours.</p>
+                </div>
+                <button 
+                    onClick={saveContent}
+                    disabled={saving}
+                    className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-black px-6 py-2.5 rounded-xl font-bold uppercase text-[10px] tracking-widest transition-colors disabled:opacity-50"
+                >
+                    {saving ? <Loader2 className="w-4 h-4 animate-spin"/> : 'Sauvegarder'}
+                </button>
+            </div>
+
+            <div className="space-y-4">
+                {content.map((mod, modIdx) => (
+                    <div key={mod.id} className="bg-[#1e293b] border border-white/5 rounded-2xl p-4">
+                        <div className="flex items-center gap-3 mb-4">
+                            <GripVertical className="text-slate-500 w-5 h-5 cursor-grab" />
+                            <input 
+                                type="text"
+                                value={mod.title}
+                                onChange={(e) => updateModuleTitle(modIdx, e.target.value)}
+                                className="bg-black/50 border border-white/10 rounded-lg px-4 py-2 text-white font-bold flex-1 focus:border-primary outline-none"
+                                placeholder="Titre du module"
+                            />
+                            <button onClick={() => removeModule(modIdx)} className="p-2 text-slate-500 hover:text-red-500 transition-colors">
+                                <Trash2 className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        <div className="pl-8 space-y-3">
+                            {mod.lessons.map((les: any, lesIdx: number) => (
+                                <div key={les.id} className="flex items-start gap-3 bg-black/30 rounded-xl p-3 border border-white/5">
+                                    <Video className="w-5 h-5 text-slate-400 mt-2" />
+                                    <div className="flex-1 space-y-3">
+                                        <input 
+                                            type="text"
+                                            value={les.title}
+                                            onChange={(e) => updateLesson(modIdx, lesIdx, 'title', e.target.value)}
+                                            className="bg-black/50 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white w-full focus:border-primary outline-none"
+                                            placeholder="Titre de la leçon"
+                                        />
+                                        <div className="flex gap-3">
+                                            <input 
+                                                type="text"
+                                                value={les.videoUrl}
+                                                onChange={(e) => updateLesson(modIdx, lesIdx, 'videoUrl', e.target.value)}
+                                                className="bg-black/50 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-slate-300 flex-1 focus:border-primary outline-none"
+                                                placeholder="Lien vidéo (ex: URL VdoCipher ou MP4)"
+                                            />
+                                            <input 
+                                                type="text"
+                                                value={les.duration}
+                                                onChange={(e) => updateLesson(modIdx, lesIdx, 'duration', e.target.value)}
+                                                className="bg-black/50 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-slate-300 w-24 focus:border-primary outline-none"
+                                                placeholder="Durée (12:45)"
+                                            />
+                                        </div>
+                                    </div>
+                                    <button onClick={() => removeLesson(modIdx, lesIdx)} className="p-2 text-slate-500 hover:text-red-500 transition-colors">
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            ))}
+                            
+                            <button 
+                                onClick={() => handleAddLesson(modIdx)}
+                                className="flex items-center gap-2 text-primary hover:bg-primary/10 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-colors w-full border border-dashed border-primary/30"
+                            >
+                                <Plus className="w-4 h-4" /> Ajouter une leçon
+                            </button>
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            <button 
+                onClick={handleAddModule}
+                className="w-full flex items-center justify-center gap-2 bg-transparent border-2 border-dashed border-white/20 hover:border-white/40 text-slate-400 hover:text-white px-6 py-8 rounded-2xl font-bold uppercase text-[10px] tracking-widest transition-colors"
+            >
+                <Plus className="w-5 h-5" /> Ajouter un Module
+            </button>
         </div>
     );
 }

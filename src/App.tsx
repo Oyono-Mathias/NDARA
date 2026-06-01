@@ -53,7 +53,8 @@ import { InviteRedirectView } from "./views/InviteRedirectView";
 import { useState } from "react";
 
 function StudentLayout() {
-  const { isUserLoading } = useRole();
+  const { isUserLoading, currentUser } = useRole();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   if (isUserLoading) {
     return (
@@ -61,6 +62,10 @@ function StudentLayout() {
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
+  }
+
+  if (!currentUser) {
+    return <Navigate to="/auth" replace />;
   }
 
   return (
@@ -71,11 +76,16 @@ function StudentLayout() {
        
        <header className="w-full z-40 glass safe-top">
           <div className="flex items-center justify-between px-6 py-4 max-w-md mx-auto">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-primary to-teal-600 flex items-center justify-center text-white font-black text-sm shadow-[0_0_15px_rgba(16,185,129,0.3)]">
-                N
+            <div className="flex items-center gap-3">
+              <button onClick={() => setIsSidebarOpen(true)} className="p-2 -ml-2 text-white hover:bg-white/10 rounded-full transition-colors relative z-50">
+                <Menu className="w-6 h-6" />
+              </button>
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-primary to-teal-600 flex items-center justify-center text-white font-black text-sm shadow-[0_0_15px_rgba(16,185,129,0.3)]">
+                  N
+                </div>
+                <span className="font-serif font-bold text-lg tracking-tight text-white drop-shadow-md">NDARA</span>
               </div>
-              <span className="font-serif font-bold text-lg tracking-tight text-white drop-shadow-md">NDARA</span>
             </div>
             <div className="flex items-center gap-4">
               <Link to="/student/notifications" className="w-10 h-10 rounded-full glass-light flex items-center justify-center text-gray-400 hover:text-white transition card-hover relative">
@@ -126,6 +136,7 @@ function StudentLayout() {
        <div className="fixed bottom-0 w-full z-50">
           <Navigation />
        </div>
+       <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
     </div>
   );
 }
