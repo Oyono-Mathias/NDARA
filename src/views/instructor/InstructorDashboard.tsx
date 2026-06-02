@@ -79,7 +79,12 @@ export function InstructorDashboard() {
             }
         );
 
+        const timeout = setTimeout(() => {
+            setIsLoading(false);
+        }, 1500);
+
         return () => { 
+            clearTimeout(timeout);
             unsubPayments(); 
             unsubCourses(); 
             unsubEnrollments();
@@ -117,13 +122,13 @@ export function InstructorDashboard() {
     if (isUserLoading || isLoading) {
         return (
             <div className="flex flex-col gap-8 p-4 bg-[#0f172a] min-h-screen">
-                <div className="h-12 w-1/2 bg-slate-900 rounded-xl animate-pulse" />
+                <div className="h-12 w-1/2 bg-slate-800 rounded-xl animate-pulse" />
                 <div className="grid grid-cols-1 gap-4">
-                    <div className="h-48 rounded-[2.5rem] bg-slate-900 animate-pulse" />
+                    <div className="h-48 rounded-[2.5rem] bg-slate-800 animate-pulse" />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                    <div className="h-28 rounded-[2rem] bg-slate-900 animate-pulse" />
-                    <div className="h-28 rounded-[2rem] bg-slate-900 animate-pulse" />
+                    <div className="h-28 rounded-[2rem] bg-slate-800 animate-pulse" />
+                    <div className="h-28 rounded-[2rem] bg-slate-800 animate-pulse" />
                 </div>
             </div>
         );

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { X, Search, BookOpen, Wallet, LayoutGrid, Bot, TrendingUp, Users, MessageSquare, Award, Bookmark, User, Bell, LifeBuoy, LogOut, ArrowLeftRight, Heart, Medal, ShoppingBag } from 'lucide-react';
+import { X, Search, BookOpen, Wallet, LayoutGrid, Bot, TrendingUp, Users, MessageSquare, Award, Bookmark, User, Bell, LifeBuoy, LogOut, ArrowLeftRight, Heart, Medal, ShoppingBag, Folder, BadgeCheck, Tag, Megaphone, ClipboardCheck, FileQuestion, Star, Building, Settings } from 'lucide-react';
 import { useRole } from '../context/RoleContext';
 import { cn } from '../lib/utils';
 import { signOut } from 'firebase/auth';
@@ -22,6 +22,8 @@ export function Sidebar({ isOpen, onClose }: { isOpen: boolean, onClose: () => v
     };
 
     if (!isOpen) return null;
+
+    const isInstructorMode = location.pathname.startsWith('/instructor');
 
     return (
         <div className="absolute inset-0 z-[100] flex justify-start transition-opacity duration-300">
@@ -58,7 +60,7 @@ export function Sidebar({ isOpen, onClose }: { isOpen: boolean, onClose: () => v
                                 </div>
                                 <div>
                                     <h3 className="font-black text-white uppercase tracking-tight text-lg">{currentUser?.fullName || 'Utilisateur'}</h3>
-                                    <p className="text-[10px] text-primary font-bold uppercase tracking-widest">ÉTUDIANT NDARA</p>
+                                    <p className="text-[10px] text-primary font-bold uppercase tracking-widest">{isInstructorMode ? 'EXPERT NDARA' : 'ÉTUDIANT NDARA'}</p>
                                 </div>
                             </div>
                         </div>
@@ -66,56 +68,102 @@ export function Sidebar({ isOpen, onClose }: { isOpen: boolean, onClose: () => v
 
                     {/* Navigation Groups */}
                     <div className="px-4 space-y-8">
-                        {/* EXPERT MODE */}
-                        {role === 'admin' || role === 'instructor' ? (
-                            <div className="space-y-3">
-                                <p className="px-4 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">CHANGER DE MODE</p>
-                                <button 
-                                    onClick={() => navigate(role === 'admin' ? '/admin' : '/instructor')}
-                                    className="w-full h-12 rounded-2xl bg-white/5 flex items-center justify-center gap-3 text-slate-300 font-bold text-xs uppercase tracking-widest hover:bg-white/10 transition"
-                                >
-                                    <ArrowLeftRight size={16} />
-                                    EXPERT
-                                </button>
-                            </div>
-                        ) : null}
+                        {isInstructorMode ? (
+                            <>
+                                <div className="space-y-3">
+                                    <p className="px-4 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">CHANGER DE MODE</p>
+                                    <button 
+                                        onClick={() => { navigate('/student/dashboard'); onClose(); }}
+                                        className="w-full h-12 rounded-2xl bg-white/5 flex items-center justify-center gap-3 text-slate-300 font-bold text-xs uppercase tracking-widest hover:bg-white/10 transition"
+                                    >
+                                        <ArrowLeftRight size={16} />
+                                        ÉTUDIANT
+                                    </button>
+                                </div>
 
-                        {/* UNIV */}
-                        <div className="space-y-2">
-                            <p className="px-4 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2">VOTRE UNIVERS</p>
-                            <NavItem icon={LayoutGrid} label="TABLEAU DE BORD" to="/student/dashboard" current={location.pathname} onClick={onClose} />
-                            <NavItem icon={Search} label="CATALOGUE" to="/student/search" current={location.pathname} onClick={onClose} />
-                            <NavItem icon={Wallet} label="PORTEFEUILLE" to="/student/wallet" current={location.pathname} onClick={onClose} />
-                            <NavItem icon={TrendingUp} label="BOURSE" to="/student/bourse" badge="HOT" current={location.pathname} onClick={onClose} />
-                            <NavItem icon={BookOpen} label="MES COURS" to="/student/courses" current={location.pathname} onClick={onClose} />
-                            <NavItem icon={Bot} label="TUTEUR MATHIAS" to="/student/mathias" badge="IA" current={location.pathname} onClick={onClose} />
-                            <NavItem icon={ShoppingBag} label="MARCHÉ E-BOOK" to="/student/ebooks" badge="NEW" current={location.pathname} onClick={onClose} />
-                            <NavItem icon={LayoutGrid} label="OUTILS & TEMPLATES" to="/student/tools" badge="HOT" current={location.pathname} onClick={onClose} />
-                        </div>
+                                <div className="space-y-2">
+                                    <p className="px-4 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2">• GESTION</p>
+                                    <NavItem icon={LayoutGrid} label="COCKPIT DASHBOARD" to="/instructor/dashboard" current={location.pathname} onClick={onClose} />
+                                    <NavItem icon={BookOpen} label="CATALOGUE FORMATIONS" to="/instructor/courses" current={location.pathname} onClick={onClose} />
+                                    <NavItem icon={Folder} label="SUPPORTS & RESSOURCES" to="/instructor/resources" current={location.pathname} onClick={onClose} />
+                                </div>
 
-                        {/* COMM */}
-                        <div className="space-y-2">
-                            <p className="px-4 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2">RÉSEAU COMMUNAUTAIRE</p>
-                            <NavItem icon={TrendingUp} label="AMBASSADEUR" to="/student/ambassador" current={location.pathname} onClick={onClose} />
-                            <NavItem icon={Users} label="ANNUAIRE NDARA" to="/student/directory" current={location.pathname} onClick={onClose} />
-                            <NavItem icon={MessageSquare} label="MESSAGES" to="/student/messages" current={location.pathname} onClick={onClose} />
-                        </div>
+                                <div className="space-y-2">
+                                    <p className="px-4 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2">• CROISSANCE</p>
+                                    <NavItem icon={BadgeCheck} label="AMBASSADEUR ELITE" to="/instructor/ambassador" current={location.pathname} onClick={onClose} />
+                                    <NavItem icon={Tag} label="COUPONS & MARKETING" to="/instructor/coupons" current={location.pathname} onClick={onClose} />
+                                    <NavItem icon={Megaphone} label="RADAR ANNONCES" to="/instructor/annonces" current={location.pathname} onClick={onClose} />
+                                </div>
 
-                        {/* SUIVI */}
-                        <div className="space-y-2">
-                            <p className="px-4 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2">MON SUIVI</p>
-                            <NavItem icon={Medal} label="MES SCORES" to="/student/results" current={location.pathname} onClick={onClose} />
-                            <NavItem icon={Award} label="DIPLÔMES" to="/student/certificates" current={location.pathname} onClick={onClose} />
-                            <NavItem icon={Heart} label="MES FAVORIS" to="/student/wishlist" current={location.pathname} onClick={onClose} />
-                        </div>
+                                <div className="space-y-2">
+                                    <p className="px-4 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2">• PÉDAGOGIE</p>
+                                    <NavItem icon={ClipboardCheck} label="USINE DE CORRECTION" to="/instructor/devoirs" current={location.pathname} onClick={onClose} />
+                                    <NavItem icon={FileQuestion} label="ÉVALUATION (QUIZ)" to="/instructor/quiz" current={location.pathname} onClick={onClose} />
+                                    <NavItem icon={MessageSquare} label="INTERACTIONS Q&R" to="/instructor/qna" current={location.pathname} onClick={onClose} />
+                                    <NavItem icon={Star} label="AVIS & TÉMOIGNAGES" to="/instructor/avis" current={location.pathname} onClick={onClose} />
+                                </div>
 
-                        {/* ACCOUNT */}
-                        <div className="space-y-2">
-                            <p className="px-4 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2">MON COMPTE</p>
-                            <NavItem icon={User} label="PROFIL" to="/student/profile" current={location.pathname} onClick={onClose} />
-                            <NavItem icon={Bell} label="ALERTES" to="/student/notifications" current={location.pathname} onClick={onClose} />
-                            <NavItem icon={LifeBuoy} label="SUPPORT" to="/student/support" current={location.pathname} onClick={onClose} />
-                        </div>
+                                <div className="space-y-2">
+                                    <p className="px-4 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2">• RÉSULTATS</p>
+                                    <NavItem icon={Users} label="BASE ÉTUDIANTS" to="/instructor/students" current={location.pathname} onClick={onClose} />
+                                    <NavItem icon={Building} label="WEALTH MANAGEMENT" to="/instructor/revenus" current={location.pathname} onClick={onClose} />
+                                    <NavItem icon={Award} label="REGISTRE DIPLÔMES" to="/instructor/certificats" current={location.pathname} onClick={onClose} />
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                {/* EXPERT MODE */}
+                                {role === 'admin' || role === 'instructor' ? (
+                                    <div className="space-y-3">
+                                        <p className="px-4 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">CHANGER DE MODE</p>
+                                        <button 
+                                            onClick={() => { navigate(role === 'admin' ? '/admin' : '/instructor'); onClose(); }}
+                                            className="w-full h-12 rounded-2xl bg-white/5 flex items-center justify-center gap-3 text-slate-300 font-bold text-xs uppercase tracking-widest hover:bg-white/10 transition"
+                                        >
+                                            <ArrowLeftRight size={16} />
+                                            EXPERT
+                                        </button>
+                                    </div>
+                                ) : null}
+
+                                {/* UNIV */}
+                                <div className="space-y-2">
+                                    <p className="px-4 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2">VOTRE UNIVERS</p>
+                                    <NavItem icon={LayoutGrid} label="TABLEAU DE BORD" to="/student/dashboard" current={location.pathname} onClick={onClose} />
+                                    <NavItem icon={Search} label="CATALOGUE" to="/student/search" current={location.pathname} onClick={onClose} />
+                                    <NavItem icon={Wallet} label="PORTEFEUILLE" to="/student/wallet" current={location.pathname} onClick={onClose} />
+                                    <NavItem icon={TrendingUp} label="BOURSE" to="/student/bourse" badge="HOT" current={location.pathname} onClick={onClose} />
+                                    <NavItem icon={BookOpen} label="MES COURS" to="/student/courses" current={location.pathname} onClick={onClose} />
+                                    <NavItem icon={Bot} label="TUTEUR MATHIAS" to="/student/mathias" badge="IA" current={location.pathname} onClick={onClose} />
+                                    <NavItem icon={ShoppingBag} label="MARCHÉ E-BOOK" to="/student/ebooks" badge="NEW" current={location.pathname} onClick={onClose} />
+                                    <NavItem icon={LayoutGrid} label="OUTILS & TEMPLATES" to="/student/tools" badge="HOT" current={location.pathname} onClick={onClose} />
+                                </div>
+
+                                {/* COMM */}
+                                <div className="space-y-2">
+                                    <p className="px-4 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2">RÉSEAU COMMUNAUTAIRE</p>
+                                    <NavItem icon={TrendingUp} label="AMBASSADEUR" to="/student/ambassador" current={location.pathname} onClick={onClose} />
+                                    <NavItem icon={Users} label="ANNUAIRE NDARA" to="/student/directory" current={location.pathname} onClick={onClose} />
+                                    <NavItem icon={MessageSquare} label="MESSAGES" to="/student/messages" current={location.pathname} onClick={onClose} />
+                                </div>
+
+                                {/* SUIVI */}
+                                <div className="space-y-2">
+                                    <p className="px-4 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2">MON SUIVI</p>
+                                    <NavItem icon={Medal} label="MES SCORES" to="/student/results" current={location.pathname} onClick={onClose} />
+                                    <NavItem icon={Award} label="DIPLÔMES" to="/student/certificates" current={location.pathname} onClick={onClose} />
+                                    <NavItem icon={Heart} label="MES FAVORIS" to="/student/wishlist" current={location.pathname} onClick={onClose} />
+                                </div>
+
+                                {/* ACCOUNT */}
+                                <div className="space-y-2">
+                                    <p className="px-4 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2">MON COMPTE</p>
+                                    <NavItem icon={User} label="PROFIL" to="/student/profile" current={location.pathname} onClick={onClose} />
+                                    <NavItem icon={Bell} label="ALERTES" to="/student/notifications" current={location.pathname} onClick={onClose} />
+                                    <NavItem icon={LifeBuoy} label="SUPPORT" to="/student/support" current={location.pathname} onClick={onClose} />
+                                </div>
+                            </>
+                        )}
                     </div>
                 </div>
 

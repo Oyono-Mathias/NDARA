@@ -1,50 +1,81 @@
 import React from 'react';
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, BookOpen, ClipboardCheck, Users, Banknote, Megaphone, Tag, MessageSquare, Award, Settings } from "lucide-react";
+import { LayoutDashboard, BookOpen, Folder, BadgeCheck, Tag, Megaphone, ClipboardCheck, FileQuestion, MessageSquare, Star, Users, Building, Award, Settings, ArrowLeftRight } from "lucide-react";
 import { clsx } from "clsx";
+import { useRole } from "../context/RoleContext";
 
 export function InstructorNavigation() {
   const location = useLocation();
+  const { currentUser } = useRole();
 
   const links = [
     { to: "/instructor/dashboard", icon: LayoutDashboard, label: "COCKPIT" },
     { to: "/instructor/courses", icon: BookOpen, label: "CATALOGUE" },
     { to: "/instructor/devoirs", icon: ClipboardCheck, label: "CORRECTION" },
-    { to: "/instructor/revenus", icon: Banknote, label: "FINANCES" },
+    { to: "/instructor/revenus", icon: Building, label: "WEALTH" },
   ];
 
   return (
     <>
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex flex-col w-64 h-screen border-r border-white/5 bg-background/80 backdrop-blur-xl z-40 sticky top-0">
-        <div className="p-6 flex items-center gap-2">
-           <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-secondary to-amber-600 flex items-center justify-center text-background font-black text-sm shadow-[0_0_15px_rgba(204,119,34,0.3)]">
-              E
+        <div className="p-6 mb-4">
+           <div className="bg-slate-900 border border-white/5 rounded-3xl p-4 flex flex-col gap-2 relative overflow-hidden">
+               <div className="absolute top-0 right-0 w-24 h-24 bg-secondary/10 rounded-full blur-xl -mr-10 -mt-10" />
+               <div className="flex items-center gap-3 relative z-10 w-full overflow-hidden">
+                   <div className="w-12 h-12 rounded-full border border-secondary/30 bg-gradient-to-tr from-secondary to-amber-600 flex items-center justify-center text-background font-black text-lg overflow-hidden shrink-0 shadow-[0_0_15px_rgba(204,119,34,0.3)]">
+                       {currentUser?.profilePictureURL ? (
+                           <img src={currentUser.profilePictureURL} alt="Profile" className="w-full h-full object-cover" />
+                       ) : (
+                           <span>{currentUser?.fullName?.substring(0, 2).toUpperCase() || 'MO'}</span>
+                       )}
+                   </div>
+                   <div className="overflow-hidden w-full">
+                       <h3 className="font-black text-white uppercase tracking-tight text-sm truncate w-full">{currentUser?.fullName || 'MATHIAS OYONO'}</h3>
+                       <p className="text-[9px] text-secondary font-bold uppercase tracking-widest truncate w-full flex items-center gap-1">
+                          <BadgeCheck className="w-3 h-3 shrink-0" />
+                          EXPERT NDARA
+                       </p>
+                   </div>
+               </div>
            </div>
-           <span className="font-serif font-bold text-lg tracking-tight text-white drop-shadow-md">EXPERT</span>
         </div>
         
         <div className="flex-1 overflow-y-auto hide-scrollbar px-4 space-y-2 pb-6">
-          <div className="text-xs font-bold text-gray-500 tracking-widest uppercase mb-3 ml-2 mt-4">Pilotage</div>
-          <SideLink to="/instructor/dashboard" icon={LayoutDashboard} label="Cockpit" current={location.pathname} />
-          <SideLink to="/instructor/revenus" icon={Banknote} label="Wealth Management" current={location.pathname} />
+          <div className="space-y-3 mb-6">
+              <p className="ml-2 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mt-4">CHANGER DE MODE</p>
+              <Link 
+                  to="/student/dashboard"
+                  className="w-full h-12 rounded-2xl bg-white/5 flex items-center justify-center gap-3 text-slate-300 font-bold text-xs uppercase tracking-widest hover:bg-white/10 transition"
+              >
+                  <ArrowLeftRight size={16} />
+                  ÉTUDIANT
+              </Link>
+          </div>
+
+          <div className="text-[10px] font-black text-slate-500 tracking-[0.2em] uppercase mb-3 ml-2 mt-4">• GESTION</div>
+          <SideLink to="/instructor/dashboard" icon={LayoutDashboard} label="COCKPIT DASHBOARD" current={location.pathname} />
+          <SideLink to="/instructor/courses" icon={BookOpen} label="CATALOGUE FORMATIONS" current={location.pathname} />
+          <SideLink to="/instructor/resources" icon={Folder} label="SUPPORTS & RESSOURCES" current={location.pathname} />
           
-          <div className="text-xs font-bold text-gray-500 tracking-widest uppercase mb-3 ml-2 mt-8">Production</div>
-          <SideLink to="/instructor/courses" icon={BookOpen} label="Usine à Savoir" current={location.pathname} />
-          <SideLink to="/instructor/quiz" icon={ClipboardCheck} label="Labo Évaluation" current={location.pathname} />
-          <SideLink to="/instructor/devoirs" icon={ClipboardCheck} label="Usine de Correction" current={location.pathname} />
+          <div className="text-[10px] font-black text-slate-500 tracking-[0.2em] uppercase mb-3 ml-2 mt-8">• CROISSANCE</div>
+          <SideLink to="/instructor/ambassador" icon={BadgeCheck} label="AMBASSADEUR ELITE" current={location.pathname} />
+          <SideLink to="/instructor/coupons" icon={Tag} label="COUPONS & MARKETING" current={location.pathname} />
+          <SideLink to="/instructor/annonces" icon={Megaphone} label="RADAR ANNONCES" current={location.pathname} />
           
-          <div className="text-xs font-bold text-gray-500 tracking-widest uppercase mb-3 ml-2 mt-8">Communauté</div>
-          <SideLink to="/instructor/students" icon={Users} label="Base Ndara" current={location.pathname} />
-          <SideLink to="/instructor/annonces" icon={Megaphone} label="Radar Annonces" current={location.pathname} />
-          <SideLink to="/instructor/avis" icon={MessageSquare} label="Avis & Témoignages" current={location.pathname} />
+          <div className="text-[10px] font-black text-slate-500 tracking-[0.2em] uppercase mb-3 ml-2 mt-8">• PÉDAGOGIE</div>
+          <SideLink to="/instructor/devoirs" icon={ClipboardCheck} label="USINE DE CORRECTION" current={location.pathname} />
+          <SideLink to="/instructor/quiz" icon={FileQuestion} label="ÉVALUATION (QUIZ)" current={location.pathname} />
+          <SideLink to="/instructor/qna" icon={MessageSquare} label="INTERACTIONS Q&R" current={location.pathname} />
+          <SideLink to="/instructor/avis" icon={Star} label="AVIS & TÉMOIGNAGES" current={location.pathname} />
           
-          <div className="text-xs font-bold text-gray-500 tracking-widest uppercase mb-3 ml-2 mt-8">Croissance</div>
-          <SideLink to="/instructor/coupons" icon={Tag} label="Growth Hub" current={location.pathname} />
-          <SideLink to="/instructor/certificats" icon={Award} label="Registre Diplômes" current={location.pathname} />
+          <div className="text-[10px] font-black text-slate-500 tracking-[0.2em] uppercase mb-3 ml-2 mt-8">• RÉSULTATS</div>
+          <SideLink to="/instructor/students" icon={Users} label="BASE ÉTUDIANTS" current={location.pathname} />
+          <SideLink to="/instructor/revenus" icon={Building} label="WEALTH MANAGEMENT" current={location.pathname} />
+          <SideLink to="/instructor/certificats" icon={Award} label="REGISTRE DIPLÔMES" current={location.pathname} />
           
-          <div className="text-xs font-bold text-gray-500 tracking-widest uppercase mb-3 ml-2 mt-8">Système</div>
-          <SideLink to="/instructor/settings" icon={Settings} label="Réglages Academy" current={location.pathname} />
+          <div className="text-[10px] font-black text-slate-500 tracking-[0.2em] uppercase mb-3 ml-2 mt-8">• SYSTÈME</div>
+          <SideLink to="/instructor/settings" icon={Settings} label="RÉGLAGES ACADEMY" current={location.pathname} />
         </div>
       </aside>
 
@@ -71,7 +102,7 @@ function SideLink({ to, icon: Icon, label, current }: { to: string, icon: any, l
       )}
     >
       <Icon className={clsx("w-5 h-5", isActive ? "text-secondary" : "text-gray-500 group-hover:text-gray-300")} />
-      <span className="text-sm font-bold">{label}</span>
+      <span className="text-xs font-bold tracking-widest">{label}</span>
     </Link>
   );
 }
@@ -91,3 +122,4 @@ function MobileNavLink({ to, icon: Icon, label, current }: { to: string, icon: a
     </Link>
   );
 }
+

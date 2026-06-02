@@ -114,14 +114,39 @@ export function CheckoutView() {
 
     if (activeMethod.provider === 'wallet') {
         setIsProcessing(true);
-        setTimeout(() => {
-            setIsProcessing(false);
-            if ((currentUser?.balance || 0) >= course.price) {
+        try {
+            const response = await fetch('/api/wallet/purchase', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    studentId: currentUser.uid,
+                    price: course.price || 0,
+                    courseId: course.id,
+                    courseTitle: course.title,
+                    sellerId: course.instructorId || 'admin'
+                })
+            });
+
+            const data = await response.json();
+            if (response.ok) {
+                // Enregistrer formellement l'enrollment côté client (ou le backend devrait le faire)
+                const { setDoc, doc, collection } = await import("firebase/firestore");
+                await setDoc(doc(collection(db, 'enrollments')), {
+                    studentId: currentUser.uid,
+                    courseId: course.id,
+                    enrolledAt: new Date(),
+                    progress: 0,
+                    instructorId: course.instructorId || 'admin'
+                });
                 setIsSuccess(true);
             } else {
-                setErrorModal({ isOpen: true, title: 'Fonds insuffisants', message: 'Votre solde est insuffisant.' });
+                setErrorModal({ isOpen: true, title: 'Erreur', message: data.error || "Erreur lors de l'achat" });
             }
-        }, 1500);
+        } catch(e: any) {
+             setErrorModal({ isOpen: true, title: 'Erreur Réseau', message: e.message || 'Impossible de joindre le serveur' });
+        } finally {
+             setIsProcessing(false);
+        }
 
     } else if (activeMethod.provider === 'mesomb') {
         if (!certifiedNumber) {

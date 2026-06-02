@@ -1,7 +1,9 @@
 import { Routes, Route, useNavigate, Navigate } from "react-router-dom";
 import { useRole } from "../../context/RoleContext";
 import { InstructorNavigation } from "../../components/InstructorNavigation";
-import { Bell } from "lucide-react";
+import { Bell, Menu } from "lucide-react";
+import { useState } from "react";
+import { Sidebar } from "../../components/Sidebar";
 import { InstructorDashboard } from "./InstructorDashboard";
 import { InstructorCourses } from "./InstructorCourses";
 import { InstructorCourseCreate } from "./InstructorCourseCreate";
@@ -22,13 +24,14 @@ import { InstructorStudents } from "./InstructorStudents";
 
 export function InstructorLayout() {
   const { isUserLoading, currentUser } = useRole();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   if (isUserLoading) {
     return <div className="h-screen w-full flex items-center justify-center bg-black text-white">Loading...</div>;
   }
 
   if (!currentUser) return <Navigate to="/auth" replace />;
-  if (currentUser?.role !== 'expert') return <Navigate to="/student/dashboard" replace />;
+  if (currentUser?.role !== 'expert' && currentUser?.role !== 'instructor') return <Navigate to="/student/dashboard" replace />;
 
   return (
     <div className="antialiased min-h-screen flex bg-black">
@@ -43,11 +46,16 @@ export function InstructorLayout() {
         {/* Mobile Header */}
         <header className="md:hidden fixed top-0 w-full z-40 glass safe-top">
           <div className="flex items-center justify-between px-6 py-4">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-secondary to-amber-600 flex items-center justify-center text-background font-black text-sm shadow-[0_0_15px_rgba(204,119,34,0.3)]">
-                E
+            <div className="flex items-center gap-3">
+              <button onClick={() => setIsSidebarOpen(true)} className="p-2 -ml-2 text-white hover:bg-white/10 rounded-full transition-colors relative z-50">
+                <Menu className="w-6 h-6" />
+              </button>
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-secondary to-amber-600 flex items-center justify-center text-background font-black text-sm shadow-[0_0_15px_rgba(204,119,34,0.3)]">
+                  E
+                </div>
+                <span className="font-serif font-bold text-lg tracking-tight text-white drop-shadow-md">EXPERT</span>
               </div>
-              <span className="font-serif font-bold text-lg tracking-tight text-white drop-shadow-md">EXPERT</span>
             </div>
             <div className="flex items-center gap-4">
               <button className="w-10 h-10 rounded-full glass-light flex items-center justify-center text-gray-400 hover:text-white transition card-hover relative">
@@ -55,7 +63,7 @@ export function InstructorLayout() {
                 <span className="absolute top-2 right-2.5 w-2 h-2 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.8)]"></span>
               </button>
               <div className="w-10 h-10 rounded-full bg-card border border-white/10 overflow-hidden ring-2 ring-secondary/50 shadow-[0_0_10px_rgba(204,119,34,0.2)]">
-                <img src="https://i.pravatar.cc/150?img=12" alt="Profile" className="w-full h-full object-cover" />
+                <img src={currentUser?.profilePictureURL || "https://i.pravatar.cc/150?img=12"} alt="Profile" className="w-full h-full object-cover" />
               </div>
             </div>
           </div>
@@ -77,6 +85,7 @@ export function InstructorLayout() {
             <Route path="devoirs/:id" element={<GenericPlaceholder title="Correcteur Mathias IA" subtitle="Aide à la notation et feedback" />} />
             <Route path="students" element={<InstructorStudents />} />
             <Route path="revenus" element={<InstructorWealth />} />
+            <Route path="ambassador" element={<GenericPlaceholder title="Ambassadeur Elite" subtitle="Programme de partenariat Premium" />} />
             <Route path="annonces" element={<InstructorAnnouncements />} />
             <Route path="coupons" element={<InstructorCoupons />} />
             <Route path="avis" element={<InstructorAvis />} />
@@ -85,6 +94,8 @@ export function InstructorLayout() {
           </Routes>
         </main>
       </div>
+
+      <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
     </div>
   );
 }
