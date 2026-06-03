@@ -104,6 +104,88 @@ Sois concis, clair, et encourageant.`;
     }
   });
 
+  app.post("/api/ai/grade-assignment", async (req, res) => {
+    try {
+      const { assignmentPrompt, studentSubmission, rubric } = req.body;
+      const { GoogleGenAI } = await import("@google/genai");
+      
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+         return res.status(500).json({ error: "GEMINI_API_KEY is not configured" });
+      }
+
+      const ai = new GoogleGenAI({ apiKey });
+      
+      const prompt = `En tant qu'assistant pédagogique expert, corrige la copie de cet étudiant.
+Énoncé du devoir : ${assignmentPrompt || 'Non fourni'}
+Barème/Critères : ${rubric || 'Non fourni'}
+Copie de l'étudiant : ${studentSubmission}
+
+Réponds obligatoirement en format JSON avec cette structure exacte :
+{
+  "suggestedGrade": "une note sur 20 (ex: 15)",
+  "strengths": ["point fort 1", "point fort 2"],
+  "improvements": ["axe d'amélioration 1", "axe d'amélioration 2"],
+  "feedbackDraft": "Un commentaire brouillon pour l'étudiant, constructif et bienveillant."
+}`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        config: {
+           responseMimeType: "application/json",
+           temperature: 0.3,
+        }
+      });
+
+      res.json(JSON.parse(response.text));
+    } catch (error: any) {
+      console.error("Gemini Grading Error:", error);
+      res.status(500).json({ error: "Erreur lors de la génération de la correction." });
+    }
+  });
+
+  app.post("/api/ai/auto-answer", async (req, res) => {
+    try {
+      const { studentQuestion, courseContext } = req.body;
+      const { GoogleGenAI } = await import("@google/genai");
+      
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+         return res.status(500).json({ error: "GEMINI_API_KEY is not configured" });
+      }
+
+      const ai = new GoogleGenAI({ apiKey });
+      
+      const systemInstruction = `Tu es Mathias IA, un agent de support académique de niveau 1.
+Ta mission est de répondre de façon instantanée et pédagogique aux questions des étudiants en te basant sur le contexte du cours fourni.
+Sois clair, encourageant et précis. Ne donne pas directement la réponse finale à un exercice, mais guide l'étudiant.`;
+
+      const prompt = `Contexte du cours : ${courseContext || 'Général'}
+Question de l'étudiant : ${studentQuestion}
+
+Réponds simplement au format JSON avec cette structure :
+{
+  "answer": "La réponse pédagogique complète."
+}`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        config: {
+           systemInstruction,
+           responseMimeType: "application/json",
+           temperature: 0.5,
+        }
+      });
+
+      res.json(JSON.parse(response.text));
+    } catch (error: any) {
+      console.error("Gemini Auto-Answer Error:", error);
+      res.status(500).json({ error: "Erreur lors de la génération de la réponse automatique." });
+    }
+  });
+
   app.post("/api/wallet/deposit", async (req, res) => {
     try {
       const { userId, amount, description } = req.body;

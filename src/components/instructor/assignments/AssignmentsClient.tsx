@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
-import { collection, query, where, getDocs, setDoc, doc, serverTimestamp, updateDoc, onSnapshot, collectionGroup } from 'firebase/firestore';
+import { collection, query, where, getDocs, setDoc, doc, serverTimestamp, updateDoc, onSnapshot, collectionGroup, limit } from 'firebase/firestore';
 import { db } from '../../../firebase';
 import { useRole } from '../../../context/RoleContext';
-import { ClipboardCheck, Plus, CheckCircle, FileText, X, Send, AlertCircle } from 'lucide-react';
+import { ClipboardCheck, Plus, CheckCircle, FileText, X, Send, AlertCircle, Loader2, CheckCircle2, Bot } from 'lucide-react';
 
 export function AssignmentsClient() {
     const { currentUser: instructor } = useRole();
@@ -12,6 +12,8 @@ export function AssignmentsClient() {
     
     // View state
     const [activeTab, setActiveTab] = useState<'create' | 'grade'>('grade');
+    const [isLoadingSubmissions, setIsLoadingSubmissions] = useState(true);
+    const [isGeneratingAI, setIsGeneratingAI] = useState(false);
     
     // Create state
     const [newTitle, setNewTitle] = useState("");
@@ -25,6 +27,7 @@ export function AssignmentsClient() {
     const [grade, setGrade] = useState("");
     const [feedback, setFeedback] = useState("");
     const [isGrading, setIsGrading] = useState(false);
+    const [gradeSuccess, setGradeSuccess] = useState(false);
 
     useEffect(() => {
         if (!instructor?.uid) return;
@@ -41,10 +44,22 @@ export function AssignmentsClient() {
              setAssignments(snap.docs.map(d => ({ id: d.id, ...d.data() })));
         });
 
-        // Fetch submissions
-        const qSubmissions = query(collection(db, 'devoirs'), where('instructorId', '==', instructor.uid));
+        // Fetch submissions (Limité à 100 pour préserver le billing)
+        const qSubmissions = query(
+            collection(db, 'devoirs'), 
+            where('instructorId', '==', instructor.uid),
+            limit(100)
+        );
         const unsubSubmissions = onSnapshot(qSubmissions, (snap) => {
-             setSubmissions(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+             // Tri côté client par date pour contourner l'erreur potentielle d'index composite Firebase manquant
+             const subs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+             subs.sort((a: any, b: any) => {
+                 const dA = a.createdAt?.toMillis?.() || 0;
+                 const dB = b.createdAt?.toMillis?.() || 0;
+                 return dB - dA;
+             });
+             setSubmissions(subs);
+             setIsLoadingSubmissions(false);
         });
 
         return () => {
@@ -81,9 +96,44 @@ export function AssignmentsClient() {
         }
     };
 
+    const handleAIGrade = async () => {
+        if (!selectedSubmission) return;
+        setIsGeneratingAI(true);
+        try {
+            const res = await fetch("/api/ai/grade-assignment", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    assignmentPrompt: selectedSubmission.assignmentTitle || selectedSubmission.title || "",
+                    studentSubmission: selectedSubmission.submissionContent || "Non fourni",
+                })
+            });
+            const data = await res.json();
+            if (data && !data.error) {
+                if (data.suggestedGrade) {
+                    const parsedGrade = parseFloat(String(data.suggestedGrade).replace(/[^\d.]/g, ''));
+                    if (!isNaN(parsedGrade)) setGrade(parsedGrade.toString());
+                }
+                if (data.feedbackDraft) {
+                    let draft = data.feedbackDraft + "\n\n";
+                    if (data.strengths?.length) draft += "Points forts : " + data.strengths.join(", ") + "\n";
+                    if (data.improvements?.length) draft += "Axes d'amélioration : " + data.improvements.join(", ");
+                    setFeedback(draft);
+                }
+            } else {
+                console.error("AI Generation Error:", data.error);
+            }
+        } catch (error) {
+            console.error("Error generating AI grading:", error);
+        } finally {
+            setIsGeneratingAI(false);
+        }
+    };
+
     const handleGrade = async () => {
         if (!selectedSubmission || !grade) return;
         setIsGrading(true);
+        setGradeSuccess(false);
         try {
             const ref = doc(db, 'devoirs', selectedSubmission.id);
             await updateDoc(ref, {
@@ -92,17 +142,22 @@ export function AssignmentsClient() {
                 feedback: feedback,
                 gradedAt: serverTimestamp()
             });
-            setSelectedSubmission(null);
-            setGrade("");
-            setFeedback("");
+            setGradeSuccess(true);
+            
+            setTimeout(() => {
+                setGradeSuccess(false);
+                setSelectedSubmission(null);
+                setGrade("");
+                setFeedback("");
+            }, 2000);
         } catch (error) {
-            console.error(error);
+            console.error("Error grading:", error);
         } finally {
             setIsGrading(false);
         }
     };
 
-    const pendingSubmissions = useMemo(() => submissions.filter(s => s.status === 'submitted'), [submissions]);
+    const pendingSubmissions = useMemo(() => submissions.filter(s => s.status === 'submitted' || !s.status), [submissions]);
     const gradedSubmissions = useMemo(() => submissions.filter(s => s.status === 'graded'), [submissions]);
 
     return (
@@ -165,7 +220,7 @@ export function AssignmentsClient() {
                             disabled={!selectedCourse || !newTitle || !newDescription || isCreating}
                             className="w-full h-14 bg-primary text-[#0f172a] font-black uppercase tracking-widest text-xs rounded-2xl flex items-center justify-center gap-2 hover:bg-emerald-400 disabled:opacity-50 transition"
                         >
-                            Publier l'exercice
+                            {isCreating ? <Loader2 className="w-5 h-5 animate-spin" /> : "Publier l'exercice"}
                         </button>
                     </div>
 
@@ -190,13 +245,23 @@ export function AssignmentsClient() {
             {activeTab === 'grade' && (
                 <div className="space-y-6">
                     {selectedSubmission ? (
-                        <div className="p-6 bg-[#1e293b] border border-white/5 rounded-[2rem] text-white shadow-2xl animate-in zoom-in-95 duration-300">
+                        <div className="relative p-6 bg-[#1e293b] border border-white/5 rounded-[2rem] text-white shadow-2xl animate-in zoom-in-95 duration-300">
+                            {/* Écran de succès */}
+                            {gradeSuccess && (
+                                <div className="absolute inset-0 z-20 bg-emerald-500/10 backdrop-blur-sm rounded-[2rem] flex flex-col items-center justify-center animate-in fade-in zoom-in duration-300 border border-emerald-500/50">
+                                    <div className="h-16 w-16 bg-emerald-500 text-white rounded-full flex items-center justify-center mb-4 shadow-[0_0_40px_rgba(16,185,129,0.5)]">
+                                        <CheckCircle2 className="h-8 w-8" />
+                                    </div>
+                                    <p className="text-emerald-400 font-black tracking-widest uppercase text-lg">Correction Publiée</p>
+                                </div>
+                            )}
+
                             <div className="flex justify-between items-center mb-6">
                                 <div>
-                                    <h3 className="font-black text-xl uppercase tracking-tight">{selectedSubmission.assignmentTitle}</h3>
-                                    <p className="text-primary font-bold text-xs uppercase tracking-widest mt-1">Étudiant: {selectedSubmission.studentName}</p>
+                                    <h3 className="font-black text-xl uppercase tracking-tight">{selectedSubmission.assignmentTitle || selectedSubmission.title}</h3>
+                                    <p className="text-primary font-bold text-xs uppercase tracking-widest mt-1">Étudiant: {selectedSubmission.studentName || selectedSubmission.studentId}</p>
                                 </div>
-                                <button onClick={() => setSelectedSubmission(null)} className="w-10 h-10 bg-slate-800 rounded-full flex items-center justify-center hover:bg-slate-700 transition tracking-tight">
+                                <button onClick={() => setSelectedSubmission(null)} className="w-10 h-10 bg-slate-800 rounded-full flex items-center justify-center hover:bg-slate-700 transition tracking-tight shrink-0">
                                     <X size={18} />
                                 </button>
                             </div>
@@ -206,14 +271,24 @@ export function AssignmentsClient() {
                                 <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">{selectedSubmission.submissionContent || "Fichier joint (non géré dans cet aperçu)"}</p>
                             </div>
 
-                            <div className="space-y-4">
-                                <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Évaluation</p>
-                                <div className="flex gap-4">
+                            <div className="space-y-4 relative z-10">
+                                <div className="flex justify-between items-center">
+                                    <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Évaluation</p>
+                                    <button 
+                                        onClick={handleAIGrade}
+                                        disabled={isGeneratingAI}
+                                        className="h-8 px-4 bg-primary/20 text-primary border border-primary/50 text-[10px] font-black uppercase tracking-widest rounded-full flex items-center justify-center gap-2 hover:bg-primary hover:text-black disabled:opacity-50 transition"
+                                    >
+                                        {isGeneratingAI ? <Loader2 className="h-3 w-3 animate-spin" /> : <Bot className="h-3 w-3" />}
+                                        {isGeneratingAI ? "Génération en cours..." : "Générer une correction IA (Mathias)"}
+                                    </button>
+                                </div>
+                                <div className="flex flex-col md:flex-row gap-4">
                                     <input 
                                         type="number"
                                         placeholder="Note /20"
                                         min="0" max="20"
-                                        className="w-32 bg-[#0f172a] border border-white/10 rounded-2xl p-4 text-center font-black text-xl text-white focus:ring-1 focus:ring-primary"
+                                        className="w-full md:w-32 bg-[#0f172a] border border-white/10 rounded-2xl p-4 text-center font-black text-xl text-white focus:ring-1 focus:ring-primary"
                                         value={grade}
                                         onChange={e => setGrade(e.target.value)}
                                     />
@@ -227,10 +302,10 @@ export function AssignmentsClient() {
                                 </div>
                                 <button 
                                     onClick={handleGrade}
-                                    disabled={!grade || isGrading}
+                                    disabled={!grade || isGrading || gradeSuccess}
                                     className="w-full h-14 bg-green-500 text-[#0f172a] font-black uppercase tracking-widest text-xs rounded-2xl flex items-center justify-center gap-2 hover:bg-green-400 disabled:opacity-50 transition"
                                 >
-                                    Valider la note <CheckCircle size={16} />
+                                    {isGrading ? <Loader2 className="h-5 w-5 animate-spin" /> : <>Valider la note <CheckCircle size={16} /></>}
                                 </button>
                             </div>
                         </div>
@@ -239,42 +314,50 @@ export function AssignmentsClient() {
                             {/* EN ATTENTE */}
                             <div className="space-y-4">
                                 <h3 className="font-bold text-slate-400 uppercase text-[10px] tracking-widest border-b border-white/5 pb-2">À Corriger ({pendingSubmissions.length})</h3>
-                                {pendingSubmissions.length === 0 ? (
+                                {isLoadingSubmissions ? (
+                                    <div className="flex justify-center py-6">
+                                        <Loader2 className="h-6 w-6 text-primary animate-spin" />
+                                    </div>
+                                ) : pendingSubmissions.length === 0 ? (
                                     <div className="p-8 text-center bg-slate-900/50 rounded-3xl border border-dashed border-white/10">
                                         <CheckCircle className="mx-auto h-8 w-8 text-emerald-500/50 mb-2" />
                                         <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">Tout est corrigé</p>
                                     </div>
                                 ) : (
-                                    pendingSubmissions.map(sub => (
-                                        <div key={sub.id} className="p-4 bg-[#1e293b] rounded-2xl border border-primary/20 hover:border-primary/50 cursor-pointer transition" onClick={() => setSelectedSubmission(sub)}>
-                                            <div className="flex justify-between items-start">
-                                                <div>
-                                                    <p className="font-bold text-white text-sm">{sub.assignmentTitle}</p>
-                                                    <p className="text-xs text-slate-400 mt-1">{sub.studentName}</p>
+                                    <div className="space-y-3">
+                                        {pendingSubmissions.map(sub => (
+                                            <div key={sub.id} className="p-4 bg-[#1e293b] rounded-2xl border border-primary/20 hover:border-primary/50 cursor-pointer transition animate-in slide-in-from-left-4" onClick={() => setSelectedSubmission(sub)}>
+                                                <div className="flex justify-between items-start">
+                                                    <div>
+                                                        <p className="font-bold text-white text-sm">{sub.assignmentTitle || sub.title}</p>
+                                                        <p className="text-xs text-slate-400 mt-1">{sub.studentName || sub.studentId}</p>
+                                                    </div>
+                                                    <span className="bg-primary/20 text-primary text-[10px] font-black uppercase px-2 py-1 rounded">Nouveau</span>
                                                 </div>
-                                                <span className="bg-primary/20 text-primary text-[10px] font-black uppercase px-2 py-1 rounded">Nouveau</span>
                                             </div>
-                                        </div>
-                                    ))
+                                        ))}
+                                    </div>
                                 )}
                             </div>
 
                             {/* DEJA CORRIGES */}
                             <div className="space-y-4">
                                 <h3 className="font-bold text-slate-400 uppercase text-[10px] tracking-widest border-b border-white/5 pb-2">Historique Corrigé ({gradedSubmissions.length})</h3>
-                                {gradedSubmissions.map(sub => (
-                                    <div key={sub.id} className="p-4 bg-slate-900 rounded-2xl border border-white/5 opacity-70">
-                                        <div className="flex justify-between items-start">
-                                            <div>
-                                                <p className="font-bold text-slate-300 text-sm">{sub.assignmentTitle}</p>
-                                                <p className="text-xs text-slate-500 mt-1">{sub.studentName}</p>
-                                            </div>
-                                            <div className="text-right">
-                                                <span className="text-green-500 font-black">{sub.grade}/20</span>
+                                <div className="space-y-3">
+                                    {gradedSubmissions.slice(0, 50).map(sub => (
+                                        <div key={sub.id} className="p-4 bg-slate-900 rounded-2xl border border-white/5 opacity-70">
+                                            <div className="flex justify-between items-start">
+                                                <div>
+                                                    <p className="font-bold text-slate-300 text-sm">{sub.assignmentTitle || sub.title}</p>
+                                                    <p className="text-xs text-slate-500 mt-1">{sub.studentName || sub.studentId}</p>
+                                                </div>
+                                                <div className="text-right flex items-center gap-2">
+                                                    <span className="text-green-500 font-black bg-green-500/10 px-2 py-1 rounded-md">{sub.grade}/20</span>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    ))}
+                                </div>
                             </div>
                         </div>
                     )}
@@ -283,4 +366,5 @@ export function AssignmentsClient() {
         </div>
     );
 }
+
 

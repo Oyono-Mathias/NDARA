@@ -1,8 +1,8 @@
 import { useNavigate } from "react-router-dom";
-import { Play, BookOpen, Award, ArrowRight, Bot, Sparkles, Search, CheckCircle2, ChevronRight, Flame, Loader2 } from "lucide-react";
+import { Play, BookOpen, Award, ArrowRight, Bot, Sparkles, Search, CheckCircle2, ChevronRight, Flame, Loader2, MessageCircleQuestion } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useRole } from "../context/RoleContext";
-import { collection, query, where, onSnapshot, getDocs, limit } from "firebase/firestore";
+import { collection, query, where, onSnapshot, getDocs, limit, getCountFromServer, orderBy } from "firebase/firestore";
 import { db } from "../firebase";
 
 export function Dashboard() {
@@ -11,51 +11,81 @@ export function Dashboard() {
   const [coursesCount, setCoursesCount] = useState({ total: 0, active: 0, completed: 0 });
   const [recentCourses, setRecentCourses] = useState<any[]>([]);
   const [recommendedCourses, setRecommendedCourses] = useState<any[]>([]);
+  const [notifications, setNotifications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!currentUser?.uid) return;
     
-    // Enrollments
-    const q = query(collection(db, 'enrollments'), where('studentId', '==', currentUser.uid));
-    const unsubscribe = onSnapshot(q, async (snap) => {
-        let total = snap.size;
-        let active = 0;
-        let completed = 0;
-        const enrolledCourseIds: string[] = [];
-        
-        snap.forEach(doc => {
-            const data = doc.data();
-            enrolledCourseIds.push(data.courseId);
-            if (data.progress === 100) completed++;
-            else if (data.progress > 0) active++;
-        });
-        setCoursesCount({ total, active, completed });
-        
-        // Fetch recent enrolled courses
-        if (enrolledCourseIds.length > 0) {
-            // For simplicity, just get all courses and filter, or just query first 2 if we have IDs
-            const coursesRef = collection(db, 'courses');
-            const recentSnap = await getDocs(coursesRef); // In prod, use 'in' query in chunks
-            const myRecent = recentSnap.docs
-                .filter(d => enrolledCourseIds.includes(d.id))
-                .slice(0, 2)
-                .map(d => ({ id: d.id, ...d.data() }));
-            setRecentCourses(myRecent);
-        }
-        
-        // Recommended (Any course not enrolled)
-        const coursesRef = collection(db, 'courses');
-        const allCoursesSnap = await getDocs(query(coursesRef, where('status', '==', 'Published'), limit(5)));
-        const recommended = allCoursesSnap.docs
-            .filter(d => !enrolledCourseIds.includes(d.id))
-            .map(d => ({ id: d.id, ...d.data() }));
-        
-        setRecommendedCourses(recommended.length > 0 ? recommended : allCoursesSnap.docs.map(d => ({id: d.id, ...d.data()})));
-        setLoading(false);
-    });
+    let isMounted = true;
     
-    return () => unsubscribe();
+    const fetchDashboardStats = async () => {
+        try {
+            // FinOps: Utilisation de getCountFromServer (1 read) pour les compteurs globaux
+            const enrollmentsRef = collection(db, 'enrollments');
+            const totalSnap = await getCountFromServer(query(enrollmentsRef, where('studentId', '==', currentUser.uid)));
+            const completedSnap = await getCountFromServer(query(enrollmentsRef, where('studentId', '==', currentUser.uid), where('progress', '==', 100)));
+            const activeSnap = await getCountFromServer(query(enrollmentsRef, where('studentId', '==', currentUser.uid), where('progress', '>', 0), where('progress', '<', 100)));
+            
+            if (isMounted) {
+                setCoursesCount({ 
+                    total: totalSnap.data().count, 
+                    active: activeSnap.data().count, 
+                    completed: completedSnap.data().count 
+                });
+            }
+
+            // Récupération de quelques cours (Limité à 2)
+            const enrolSnap = await getDocs(query(enrollmentsRef, where('studentId', '==', currentUser.uid), limit(2)));
+            const enrolledCourseIds = enrolSnap.docs.map(d => d.data().courseId);
+            
+            if (enrolledCourseIds.length > 0) {
+                 const coursesRef = collection(db, 'courses');
+                 // En prod, vous devriez utiliser 'in' sur ces IDs, mais pour éviter les erreurs d'Index/where-in avec tableaux vides, on fait 2 reads directs :
+                 const myRecentPromises = enrolledCourseIds.map(id => getDocs(query(coursesRef, where('__name__', '==', id))));
+                 const myRecentSnaps = await Promise.all(myRecentPromises);
+                 const myRecent = myRecentSnaps.map(snap => snap.docs.length > 0 ? { id: snap.docs[0].id, ...snap.docs[0].data() } : null).filter(Boolean);
+                 if (isMounted) setRecentCourses(myRecent);
+            }
+
+            // Recommended (Limité à 5)
+            const allCoursesSnap = await getDocs(query(collection(db, 'courses'), where('status', '==', 'Published'), limit(5)));
+            if (isMounted) {
+                 const recommended = allCoursesSnap.docs
+                     .filter(d => !enrolledCourseIds.includes(d.id))
+                     .map(d => ({ id: d.id, ...d.data() }));
+                 setRecommendedCourses(recommended.length > 0 ? recommended : allCoursesSnap.docs.map(d => ({id: d.id, ...d.data()})));
+                 setLoading(false);
+            }
+
+        } catch (error) {
+            console.error("Dashboard FinOps Error:", error);
+            if (isMounted) setLoading(false);
+        }
+    };
+    
+    fetchDashboardStats();
+    
+    // Temps Réel Hyper-Optimisé : Flux direct avec l'instructeur (QnA "Résolues" par exemple)
+    const unsubNotifications = onSnapshot(
+        query(
+            collection(db, 'course_qna'),
+            where('studentId', '==', currentUser.uid),
+            where('isAnswered', '==', true),
+            limit(3)
+        ), 
+        (snap) => {
+            if (isMounted) {
+                setNotifications(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+            }
+        },
+        (error) => console.log("Realtime QnA stream error (Index probably missing, graceful degradation)", error)
+    );
+
+    return () => {
+        isMounted = false;
+        unsubNotifications();
+    };
   }, [currentUser?.uid]);
 
   const days = [
@@ -224,6 +254,27 @@ export function Dashboard() {
             ))}
         </div>
       </section>
+
+      {/* Realtime Notifications Feed */}
+      {notifications.length > 0 && (
+          <section className="px-1 mb-8">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
+                  <MessageCircleQuestion className="w-4 h-4 text-emerald-400" /> Réponses récentes
+              </h2>
+            </div>
+            <div className="space-y-3">
+                {notifications.map((notif: any) => (
+                    <div key={notif.id} className="p-4 glass-light rounded-2xl border border-emerald-500/20 bg-emerald-500/5 animate-in fade-in slide-in-from-left-4">
+                        <div className="flex justify-between items-start mb-2">
+                            <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 bg-emerald-400/10 px-2 py-1 rounded">Instructeur a répondu</span>
+                        </div>
+                        <p className="text-sm text-slate-300 line-clamp-2">"{notif.answer || "Voir la réponse"}"</p>
+                    </div>
+                ))}
+            </div>
+          </section>
+      )}
 
       {/* Badges / Achievements */}
       <section className="mb-8">

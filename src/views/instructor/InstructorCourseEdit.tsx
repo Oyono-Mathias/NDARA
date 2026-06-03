@@ -3,7 +3,7 @@ import { CourseForm } from '../../components/instructor/CourseForm';
 import { ContentManager } from '../../components/instructor/course-content/ContentManager';
 import { CourseBuyoutTab } from '../../components/instructor/CourseBuyoutTab';
 import { db } from '../../firebase';
-import { doc, getFirestore, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, getFirestore, getDoc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { Loader2, ArrowLeft, Send, CheckCircle2, ShoppingCart, ShieldAlert } from 'lucide-react';
 import { useRole } from '../../context/RoleContext';
 import { Link, useParams } from 'react-router-dom';
@@ -19,28 +19,39 @@ export function InstructorCourseEdit() {
 
   useEffect(() => {
      if (!courseId) return;
-     getDoc(doc(db, 'courses', courseId)).then(snap => {
+     
+     const unsubscribe = onSnapshot(doc(db, 'courses', courseId), (snap) => {
          if (snap.exists()) {
              setCourse({ id: snap.id, ...snap.data() });
          } else {
              setError(true);
          }
          setIsLoading(false);
-     }).catch(e => {
-         console.error(e);
+     }, (err) => {
+         console.error(err);
          setError(true);
          setIsLoading(false);
      });
+
+     return () => unsubscribe();
   }, [courseId]);
+
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
   const handleUpdateCourse = async (data: any) => {
      if (!courseId) return;
+     setIsSaving(true);
+     setSaveSuccess(false);
      try {
          await updateDoc(doc(db, 'courses', courseId), data);
-         alert("Modifications enregistrées");
+         setSaveSuccess(true);
+         setTimeout(() => setSaveSuccess(false), 3000);
      } catch (e) {
          console.error("Error", e);
          alert("Erreur de sauvegarde");
+     } finally {
+         setIsSaving(false);
      }
   };
 
@@ -119,15 +130,15 @@ export function InstructorCourseEdit() {
             {isDraft && !isRequestedBuyout && (
                 <button 
                     onClick={handleSubmitForReview} 
-                    disabled={isSubmittingReview}
+                    disabled={isSubmittingReview || isSaving}
                     className="flex items-center justify-center h-12 px-8 rounded-xl bg-primary hover:bg-primary/90 text-slate-950 font-black uppercase text-xs tracking-widest shadow-xl shadow-primary/20 transition-all active:scale-95 disabled:opacity-50"
                 >
-                    {isSubmittingReview ? (
+                    {isSubmittingReview || isSaving ? (
                         <Loader2 className="h-4 w-4 animate-spin mr-2" />
                     ) : (
                         <Send className="h-4 w-4 mr-2" />
                     )}
-                    Soumettre pour validation
+                    {isSaving ? 'Sauvegarde...' : 'Soumettre pour validation'}
                 </button>
             )}
 
@@ -135,6 +146,13 @@ export function InstructorCourseEdit() {
                 <div className="flex items-center gap-2 text-green-500 bg-green-500/5 px-4 py-2 rounded-xl border border-green-500/20">
                     <CheckCircle2 className="h-5 w-5" />
                     <span className="text-xs font-bold uppercase tracking-widest">En ligne</span>
+                </div>
+            )}
+
+            {!isDraft && !isPublished && saveSuccess && (
+                 <div className="flex items-center gap-2 text-emerald-500 bg-emerald-500/5 px-4 py-2 rounded-xl border border-emerald-500/20">
+                    <CheckCircle2 className="h-5 w-5" />
+                    <span className="text-xs font-bold uppercase tracking-widest">Enregistré</span>
                 </div>
             )}
         </header>

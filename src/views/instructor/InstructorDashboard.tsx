@@ -6,9 +6,13 @@ import {
   getFirestore, 
   onSnapshot, 
   orderBy,
-  limit
+  limit,
+  getDocs,
+  getCountFromServer,
+  getAggregateFromServer,
+  sum
 } from 'firebase/firestore';
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import { 
   Users, 
   TrendingUp, 
@@ -29,38 +33,87 @@ export function InstructorDashboard() {
     const { currentUser: instructor, isUserLoading } = useRole();
     const db = getFirestore();
 
-    const [payments, setPayments] = useState<any[]>([]);
-    const [courses, setCourses] = useState<any[]>([]);
-    const [enrollments, setEnrollments] = useState<any[]>([]);
     const [pendingSubmissions, setPendingSubmissions] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+
+    const [analytics, setAnalytics] = useState({
+        totalRevenue: 0,
+        totalStudentsCount: 0,
+        successRate: 100,
+        chartData: [] as any[]
+    });
 
     useEffect(() => {
         if (!instructor?.uid) return;
 
+        let isMounted = true;
         setIsLoading(true);
 
-        const unsubPayments = onSnapshot(
-            query(collection(db, 'payments'), where('instructorId', '==', instructor.uid), where('status', '==', 'Completed')),
-            (snap) => {
-                setPayments(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-            }
-        );
+        const fetchAnalytics = async () => {
+            try {
+                // 1. Total Inscriptions et Taux de Complétion (< 2 reads total !)
+                const enrollmentsRef = collection(db, 'enrollments');
+                const totalStudentsSnap = await getCountFromServer(
+                    query(enrollmentsRef, where('instructorId', '==', instructor.uid))
+                );
+                const totalStudents = totalStudentsSnap.data().count;
 
-        const unsubCourses = onSnapshot(
-            query(collection(db, 'courses'), where('instructorId', '==', instructor.uid)),
-            (snap) => {
-                setCourses(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-            }
-        );
+                let successRate = 100;
+                if (totalStudents > 0) {
+                    const completedSnap = await getCountFromServer(
+                        query(enrollmentsRef, where('instructorId', '==', instructor.uid), where('progress', '==', 100))
+                    );
+                    successRate = Math.round((completedSnap.data().count / totalStudents) * 100);
+                }
 
-        const unsubEnrollments = onSnapshot(
-            query(collection(db, 'enrollments'), where('instructorId', '==', instructor.uid)),
-            (snap) => {
-                setEnrollments(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-            }
-        );
+                // 2. Chiffre d'Affaires Global (Server-side aggregation < 1 read)
+                const paymentsRef = collection(db, 'payments');
+                const revenueSnap = await getAggregateFromServer(
+                    query(paymentsRef, where('instructorId', '==', instructor.uid), where('status', '==', 'Completed')), 
+                    { totalRevenue: sum('amount') }
+                );
+                const totalRevenue = revenueSnap.data().totalRevenue || 0;
 
+                // 3. Construction des graphiques avec limite de sécurité (Derniers 200 paiements)
+                // Évite la facturation pour l'historique de toute une vie uniquement pour la mini-courbe "6 derniers mois"
+                const qChartPayments = query(
+                    paymentsRef, 
+                    where('instructorId', '==', instructor.uid), 
+                    where('status', '==', 'Completed'),
+                    orderBy('date', 'desc'),
+                    limit(200)
+                );
+                const recentPaymentsSnap = await getDocs(qChartPayments);
+                const recentPayments = recentPaymentsSnap.docs.map(d => d.data());
+
+                const now = new Date();
+                const chartData = [];
+                for (let i = 5; i >= 0; i--) {
+                    const monthDate = subMonths(now, i);
+                    const monthLabel = format(monthDate, 'MMM', { locale: fr });
+                    const monthRevenue = recentPayments
+                        .filter(p => isSameMonth((p.date as any)?.toDate?.() || new Date(0), monthDate))
+                        .reduce((acc, p) => acc + (p.amount || 0), 0);
+                    
+                    chartData.push({ name: monthLabel, total: monthRevenue });
+                }
+
+                if (isMounted) {
+                    setAnalytics({
+                        totalRevenue,
+                        totalStudentsCount: totalStudents,
+                        successRate,
+                        chartData
+                    });
+                }
+            } catch (error) {
+                console.error("Dashboard Analytics Fetch Error:", error);
+            }
+        };
+
+        fetchAnalytics();
+
+        // ONLY keep real-time for pending submissions (Limité aux 5 dernières demandes)
         const unsubDevoirs = onSnapshot(
             query(
                 collection(db, 'devoirs'), 
@@ -70,54 +123,22 @@ export function InstructorDashboard() {
                 limit(5)
             ),
             (snap) => {
-                setPendingSubmissions(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-                setIsLoading(false);
+                if (isMounted) {
+                    setPendingSubmissions(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+                    setIsLoading(false);
+                }
             },
             (err) => {
-                console.error("Dashboard Fetch Error:", err);
-                setIsLoading(false);
+                console.error("Dashboard Realtime Submissions Error:", err);
+                if (isMounted) setIsLoading(false);
             }
         );
 
-        const timeout = setTimeout(() => {
-            setIsLoading(false);
-        }, 1500);
-
         return () => { 
-            clearTimeout(timeout);
-            unsubPayments(); 
-            unsubCourses(); 
-            unsubEnrollments();
+            isMounted = false;
             unsubDevoirs(); 
         };
     }, [instructor?.uid, db]);
-
-    const analytics = useMemo(() => {
-        const totalRevenue = payments.reduce((acc, p) => acc + (p.amount || 0), 0);
-        const totalStudentsCount = Array.from(new Set(enrollments.map(e => e.studentId))).length;
-        
-        const completedCount = enrollments.filter(e => e.progress === 100).length;
-        const successRate = enrollments.length > 0 ? Math.round((completedCount / enrollments.length) * 100) : 100;
-
-        const now = new Date();
-        const chartData = [];
-        for (let i = 5; i >= 0; i--) {
-            const monthDate = subMonths(now, i);
-            const monthLabel = format(monthDate, 'MMM', { locale: fr });
-            const revenue = payments
-                .filter(p => isSameMonth((p.date as any)?.toDate?.() || new Date(0), monthDate))
-                .reduce((acc, p) => acc + (p.amount || 0), 0);
-            
-            chartData.push({ name: monthLabel, total: revenue });
-        }
-
-        return {
-            totalRevenue,
-            chartData,
-            totalStudentsCount,
-            successRate
-        };
-    }, [payments, enrollments]);
 
     if (isUserLoading || isLoading) {
         return (

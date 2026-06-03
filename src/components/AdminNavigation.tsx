@@ -1,121 +1,171 @@
 import React from 'react';
 import { Link, useLocation } from "react-router-dom";
 import { 
-  Terminal, ShieldAlert, Activity, Users, UserCheck, CheckCircle, 
-  Database, Globe2, Banknote, Receipt, Megaphone, HelpCircle, 
-  Eye, BookOpen, BellRing, Settings, Key, LayoutTemplate, 
-  SearchCheck, Power
+  LayoutDashboard, BarChart2, Activity,
+  Users, BookOpen, ShieldCheck, Radio, Globe,
+  Wallet, CreditCard, TrendingUp,
+  HelpCircle, MessageSquare, FileQuestion,
+  Image as ImageIcon, Images, Search,
+  Settings, KeyRound, History, LogOut
 } from "lucide-react";
 import { clsx } from "clsx";
+
+type NavRoute = {
+  label: string;
+  icon: any;
+  path: string;
+};
+
+type NavSection = {
+  title: string;
+  routes: NavRoute[];
+};
+
+const adminNavigationConfig: NavSection[] = [
+  {
+    title: "COCKPIT CEO",
+    routes: [
+      { label: "Tableau de Bord", icon: LayoutDashboard, path: "/admin" },
+      { label: "Analytics", icon: BarChart2, path: "/admin/analytics" },
+      { label: "IA & Monitoring", icon: Activity, path: "/admin/monitoring" },
+    ]
+  },
+  {
+    title: "OPÉRATIONS",
+    routes: [
+      { label: "Membres", icon: Users, path: "/admin/members" },
+      { label: "Catalogue", icon: BookOpen, path: "/admin/catalog" },
+      { label: "Modération", icon: ShieldCheck, path: "/admin/moderation" },
+      { label: "Diffusion Push", icon: Radio, path: "/admin/push" },
+      { label: "Pays & Devises", icon: Globe, path: "/admin/countries" },
+    ]
+  },
+  {
+    title: "FINANCES",
+    routes: [
+      { label: "Trésorerie", icon: Wallet, path: "/admin/treasury" },
+      { label: "Transactions", icon: CreditCard, path: "/admin/transactions" },
+      { label: "Growth Hub", icon: TrendingUp, path: "/admin/growth" },
+    ]
+  },
+  {
+    title: "SUPPORT",
+    routes: [
+      { label: "Centre d'Aide", icon: HelpCircle, path: "/admin/help" },
+      { label: "Modération Messagerie", icon: MessageSquare, path: "/admin/messages" },
+      { label: "FAQ & Base", icon: FileQuestion, path: "/admin/faq" },
+    ]
+  },
+  {
+    title: "INTERFACE",
+    routes: [
+      { label: "Carrousel Accueil", icon: ImageIcon, path: "/admin/carousel" },
+      { label: "Bibliothèque Visuels", icon: Images, path: "/admin/visuals" },
+      { label: "SEO & Social", icon: Search, path: "/admin/seo" },
+    ]
+  },
+  {
+    title: "SÉCURITÉ",
+    routes: [
+      { label: "Réglages Globaux", icon: Settings, path: "/admin/settings" },
+      { label: "Rôles & Accès", icon: KeyRound, path: "/admin/roles" },
+      { label: "Journal d'Audit", icon: History, path: "/admin/audit" },
+    ]
+  }
+];
 
 export function AdminNavigation() {
   const location = useLocation();
 
-  const links = [
-    { to: "/admin", icon: Terminal, label: "COMMAND CENTER" },
-    { to: "/admin/statistiques", icon: Activity, label: "ANALYTICS" },
-    { to: "/admin/monitoring", icon: ShieldAlert, label: "MONITORING" },
-    { to: "/admin/users", icon: Users, label: "MEMBERS" },
-  ];
-
   return (
     <>
       {/* Desktop Sidebar */}
-      <aside className="hidden md:flex flex-col w-72 h-screen border-r border-[#10B981]/20 bg-[#050505] z-50 sticky top-0 font-mono text-sm relative overflow-hidden">
-        {/* Decorative Grid Background */}
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(16,185,129,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(16,185,129,0.03)_1px,transparent_1px)] bg-[size:40px_40px] pointer-events-none"></div>
+      <aside className="hidden md:flex flex-col w-72 h-screen bg-[#090E17] border-r border-slate-800/50 z-50 sticky top-0 font-sans">
         
-        <div className="p-6 flex items-center justify-between border-b border-[#10B981]/10 bg-black/50 backdrop-blur-sm relative z-10">
-           <div className="flex items-center gap-3 w-full">
-               <div className="w-10 h-10 rounded-sm bg-black border border-[#10B981] flex items-center justify-center text-[#10B981] shadow-[0_0_15px_rgba(16,185,129,0.5)] relative overflow-hidden">
-                  <div className="absolute top-0 left-0 w-full h-[1px] bg-[#10B981] animate-scanline"></div>
-                  <Power className="w-5 h-5" />
-               </div>
-               <div className="flex-1">
-                   <h1 className="font-black text-[#10B981] tracking-widest text-lg leading-none">SYS.ADMIN</h1>
-                   <p className="text-[9px] text-[#10B981]/50 uppercase tracking-[0.2em] mt-0.5">Ndara Core <span className="animate-pulse text-[#10B981]">●</span></p>
-               </div>
-           </div>
-        </div>
-        
-        <div className="flex-1 overflow-y-auto hide-scrollbar p-4 space-y-1 pb-6 relative z-10 w-full">
-          <SectionTitle>STRATEGY_&_MONITORING</SectionTitle>
-          <SideLink to="/admin" icon={Terminal} label="Dashboard CEO" current={location.pathname} />
-          <SideLink to="/admin/statistiques" icon={Activity} label="Reporting Stratégique" current={location.pathname} />
-          <SideLink to="/admin/monitoring" icon={ShieldAlert} label="Monitoring IA & Sys." current={location.pathname} alert />
-
-          <SectionTitle>IDENTITY_&_ACCESS</SectionTitle>
-          <SideLink to="/admin/users" icon={Users} label="Base Membres" current={location.pathname} />
-          <SideLink to="/admin/instructors" icon={UserCheck} label="Audit Candidatures" current={location.pathname} alert />
-          <SideLink to="/admin/roles" icon={Key} label="Vault Permissions" current={location.pathname} />
-
-          <SectionTitle>CATALOG_&_OPERATIONS</SectionTitle>
-          <SideLink to="/admin/courses" icon={Database} label="Catalogue Maître" current={location.pathname} />
-          <SideLink to="/admin/moderation" icon={CheckCircle} label="File de Modération" current={location.pathname} alert />
-          <SideLink to="/admin/countries" icon={Globe2} label="Expansion & Gateways" current={location.pathname} />
-
-          <SectionTitle>FINANCE_&_TREASURY</SectionTitle>
-          <SideLink to="/admin/payouts" icon={Banknote} label="Trésorerie Centrale" current={location.pathname} alert />
-          <SideLink to="/admin/payments" icon={Receipt} label="Registre des Flux" current={location.pathname} />
-
-          <SectionTitle>COMMUNICATION_HUB</SectionTitle>
-          <SideLink to="/admin/support" icon={HelpCircle} label="Centre Support" current={location.pathname} alert />
-          <SideLink to="/admin/messages" icon={Eye} label="Surveillance Comms" current={location.pathname} />
-          <SideLink to="/admin/marketing" icon={Megaphone} label="Growth & WhatsApp" current={location.pathname} />
-          <SideLink to="/admin/notifications" icon={BellRing} label="Diffusion Push" current={location.pathname} />
+        {/* Header Profil */}
+        <div className="p-6 shrink-0">
+          <div className="flex items-center gap-3 mb-8">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500 flex items-center justify-center text-white font-black text-xl">
+              N
+            </div>
+            <h1 className="font-black text-white tracking-widest text-lg leading-none uppercase">
+              NDARA ADMIN
+            </h1>
+          </div>
           
-          <SectionTitle>SYSTEM_&_DATA</SectionTitle>
-          <SideLink to="/admin/faq" icon={BookOpen} label="Training IA Mathias" current={location.pathname} />
-          <SideLink to="/admin/carousel" icon={LayoutTemplate} label="Gestion Carrousel" current={location.pathname} />
-          <SideLink to="/admin/seo" icon={SearchCheck} label="Indexation & SEO" current={location.pathname} />
-          <SideLink to="/admin/settings" icon={Settings} label="Réglages Master" current={location.pathname} />
+          <div className="flex items-center gap-4 p-4 rounded-[1.25rem] bg-slate-800/40 border border-slate-700/50">
+            <div className="relative">
+              <img 
+                src="https://images.unsplash.com/photo-1599566150163-29194dcaad36?ixlib=rb-4.0.3&auto=format&fit=crop&w=100&q=80" 
+                alt="Profile" 
+                className="w-12 h-12 rounded-full object-cover border border-slate-600"
+              />
+              <div className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-500 border-2 border-[#090E17]"></div>
+            </div>
+            <div>
+              <h2 className="text-sm font-bold text-white leading-tight mb-1">OYONO MATHIAS</h2>
+              <p className="text-[10px] font-bold text-slate-400 tracking-widest uppercase">SUPER ADMINISTRATEUR</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Navigation Content */}
+        <div className="flex-1 overflow-y-auto px-4 pb-6 space-y-6 flex flex-col hide-scrollbar">
+          {adminNavigationConfig.map((section, idx) => (
+            <div key={idx}>
+              <h3 className="px-4 text-[10px] font-extrabold text-slate-500 tracking-[0.2em] uppercase mb-3">
+                {section.title}
+              </h3>
+              <div className="space-y-1">
+                {section.routes.map((route) => {
+                  const isActive = route.path === '/admin' ? location.pathname === route.path : location.pathname.startsWith(route.path);
+                  return (
+                    <Link
+                      key={route.path}
+                      to={route.path}
+                      className={clsx(
+                        "flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 group text-sm font-medium",
+                        isActive 
+                          ? "bg-slate-800/60 text-slate-200" 
+                          : "text-slate-400 hover:text-slate-300 hover:bg-slate-800/30"
+                      )}
+                    >
+                      <route.icon className={clsx(
+                        "w-4 h-4 shrink-0 transition-colors",
+                        isActive 
+                          ? "text-emerald-400" 
+                          : "text-slate-500 group-hover:text-slate-400"
+                      )} />
+                      {route.label}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Footer Action */}
+        <div className="p-4 shrink-0">
+          <Link 
+            to="/"
+            className="flex justify-center items-center gap-2 w-full p-4 rounded-xl bg-slate-800/40 border border-slate-700/50 text-slate-300 hover:text-white hover:bg-slate-800/60 transition-all text-[11px] font-bold uppercase tracking-widest"
+          >
+            <LogOut className="w-4 h-4" /> QUITTER LE MODE ADMIN
+          </Link>
         </div>
       </aside>
 
-      {/* Mobile Bottom Navigation - Cyberpunk Style */}
-      <nav className="md:hidden fixed bottom-0 w-full bg-[#050505] border-t border-[#10B981]/30 safe-bottom z-50">
-        <div className="flex justify-around items-center h-20 px-2">
-          {links.map((link) => (
-            <MobileNavLink key={link.to} to={link.to} icon={link.icon} label={link.label} current={location.pathname} />
-          ))}
+      {/* Mobile Bottom Navigation - Kept simple based on requirement */}
+      <nav className="md:hidden fixed bottom-0 w-full bg-[#090E17] border-t border-slate-800/50 safe-bottom z-50">
+        <div className="flex justify-around items-center h-16 px-2">
+           {/* Display only a few primary links for mobile */}
+           {adminNavigationConfig[0].routes.slice(0, 4).map((link) => (
+              <MobileNavLink key={link.path} to={link.path} icon={link.icon} label={link.label} current={location.pathname} />
+           ))}
         </div>
       </nav>
     </>
-  );
-}
-
-function SectionTitle({ children }: { children: React.ReactNode }) {
-    return (
-        <div className="text-[10px] font-black text-[#10B981]/40 tracking-[0.2em] uppercase mt-6 mb-2 ml-3 flex items-center gap-2">
-            <span className="w-2 h-px bg-[#10B981]/40"></span>
-            {children}
-        </div>
-    );
-}
-
-function SideLink({ to, icon: Icon, label, current, alert }: { to: string, icon: any, label: string, current: string, alert?: boolean }) {
-  // Use exact match for root '/admin', prefix match for others to keep active state on sub-routes
-  const isActive = to === '/admin' ? current === to : current.startsWith(to);
-  
-  return (
-    <Link 
-      to={to} 
-      className={clsx(
-        "flex items-center justify-between px-3 py-2.5 rounded-sm transition-all group relative overflow-hidden",
-        isActive ? "bg-[#10B981]/10 text-[#10B981] border-l-2 border-[#10B981]" : "text-gray-500 hover:text-[#10B981] hover:bg-[#10B981]/5 border-l-2 border-transparent"
-      )}
-    >
-      {isActive && (
-          <div className="absolute inset-0 bg-gradient-to-r from-[#10B981]/20 to-transparent opacity-50"></div>
-      )}
-      <div className="flex items-center gap-3 relative z-10 w-full">
-          <Icon className={clsx("w-4 h-4 shrink-0", isActive ? "text-[#10B981]" : "text-gray-600 group-hover:text-[#10B981]/70")} />
-          <span className="text-xs font-bold tracking-wide truncate">{label}</span>
-      </div>
-      {alert && (
-          <div className="w-1.5 h-1.5 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,1)] animate-pulse shrink-0 ml-2"></div>
-      )}
-    </Link>
   );
 }
 
@@ -125,13 +175,13 @@ function MobileNavLink({ to, icon: Icon, label, current }: { to: string, icon: a
     <Link 
       to={to} 
       className={clsx(
-        "flex flex-col items-center justify-center w-full h-full gap-1.5 transition-all group",
-        isActive ? "text-[#10B981] drop-shadow-[0_0_8px_rgba(16,185,129,0.5)]" : "text-gray-600 hover:text-gray-400"
+        "flex flex-col items-center justify-center w-full h-full gap-1 transition-colors",
+        isActive ? "text-emerald-400" : "text-slate-500 hover:text-slate-300"
       )}
     >
-      <Icon className={clsx("w-6 h-6 transition-transform duration-300", isActive ? "-translate-y-0.5" : "group-hover:scale-110")} />
-      <span className="text-[9px] font-mono font-bold tracking-widest">{label}</span>
-      {isActive && <div className="absolute bottom-1 w-8 h-0.5 bg-[#10B981] shadow-[0_0_5px_rgba(16,185,129,1)]"></div>}
+      <Icon className="w-5 h-5" />
+      <span className="text-[9px] font-bold tracking-wider truncate max-w-[60px] text-center">{label}</span>
     </Link>
   );
 }
+

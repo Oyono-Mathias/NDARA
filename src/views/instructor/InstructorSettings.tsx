@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRole } from '../../context/RoleContext';
 import { Link } from 'react-router-dom';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '../../firebase';
 
 import { 
@@ -32,21 +32,34 @@ export function InstructorSettings() {
   });
 
   useEffect(() => {
-    if (currentUser) {
-      setFormData({
-        aiAssistanceEnabled: currentUser.pedagogicalPreferences?.aiAssistanceEnabled ?? true,
-        aiInterventionLevel: currentUser.pedagogicalPreferences?.aiInterventionLevel || 'medium',
-        notifyEnrollment: currentUser.instructorNotificationPreferences?.newEnrollment ?? true,
-        notifyPayout: currentUser.instructorNotificationPreferences?.payoutUpdate ?? true,
-        mobileMoneyNumber: currentUser.payoutInfo?.mobileMoneyNumber || '',
-      });
-    }
-  }, [currentUser]);
+    if (!currentUser?.uid) return;
+    
+    // Set loading while fetching settings if desired, but we can just let it sync silently
+    const unsubscribe = onSnapshot(doc(db, 'users', currentUser.uid), (docSnap) => {
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            setFormData({
+                aiAssistanceEnabled: data.pedagogicalPreferences?.aiAssistanceEnabled ?? true,
+                aiInterventionLevel: data.pedagogicalPreferences?.aiInterventionLevel || 'medium',
+                notifyEnrollment: data.instructorNotificationPreferences?.newEnrollment ?? true,
+                notifyPayout: data.instructorNotificationPreferences?.payoutUpdate ?? true,
+                mobileMoneyNumber: data.payoutInfo?.mobileMoneyNumber || '',
+            });
+        }
+    }, (error) => {
+        console.error("Error listening to user settings:", error);
+    });
+
+    return () => unsubscribe();
+  }, [currentUser?.uid]);
+
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentUser) return;
     setIsSaving(true);
+    setSaveSuccess(false);
 
     try {
       const payload = {
@@ -67,7 +80,8 @@ export function InstructorSettings() {
       };
 
       await updateDoc(doc(db, 'users', currentUser.uid), payload);
-      alert("Réglages enregistrés !");
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
     } catch (e: any) {
       console.error(e);
       alert("Erreur: " + e.message);
@@ -241,9 +255,9 @@ export function InstructorSettings() {
                 <button 
                     type="submit" 
                     disabled={isSaving} 
-                    className="flex justify-center items-center gap-3 w-full h-16 md:h-14 rounded-[2.5rem] bg-gradient-to-r from-primary to-emerald-600 text-slate-950 font-black uppercase text-sm tracking-[0.15em] shadow-[0_0_25px_rgba(16,185,129,0.4)] active:scale-95 transition-all disabled:opacity-50 border-none"
+                    className={`flex justify-center items-center gap-3 w-full h-16 md:h-14 rounded-[2.5rem] ${saveSuccess ? 'bg-emerald-500 shadow-[0_0_25px_rgba(16,185,129,0.6)]' : 'bg-gradient-to-r from-primary to-emerald-600 shadow-[0_0_25px_rgba(16,185,129,0.4)]'} text-slate-950 font-black uppercase text-sm tracking-[0.15em] active:scale-95 transition-all disabled:opacity-50 border-none`}
                 >
-                    {isSaving ? <Loader2 className="h-6 w-6 animate-spin" /> : <><CheckCircle2 className="h-5 w-5" /> ENREGISTRER</>}
+                    {isSaving ? <Loader2 className="h-6 w-6 animate-spin" /> : <><CheckCircle2 className="h-5 w-5" /> {saveSuccess ? 'SAUVEGARDÉ !' : 'ENREGISTRER'}</>}
                 </button>
             </div>
         </form>
