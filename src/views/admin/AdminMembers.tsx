@@ -1,26 +1,166 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Users, Search, Filter, MoreVertical, X, 
   Eye, User, History, MessageSquare, Wallet, Landmark,
-  ShieldCheck, UserCog, Edit3, SquareUser, Ban 
+  ShieldCheck, UserCog, Edit3, SquareUser, Ban, Loader2,
+  Award, BookOpen, KeyRound, AlertTriangle, ChevronLeft, CheckCircle2, ShieldAlert
 } from 'lucide-react';
 import clsx from 'clsx';
-
-// Mock data
-const mockMembers = [
-  { id: 'usr_8f4x9v', name: 'Tabitha Yamete', email: 'tabitha@ndara.com', role: 'Étudiant', signup: '12 Mai 2026', status: 'Actif' },
-  { id: 'usr_2x7l1p', name: 'Jean Dupont', email: 'jean@ndara.com', role: 'Instructeur', signup: '10 Mai 2026', status: 'Actif' },
-  { id: 'usr_9p3k4m', name: 'Alice Mfomou', email: 'alice@ndara.com', role: 'Étudiant', signup: '08 Mai 2026', status: 'Suspendu' },
-];
+import { collection, query, onSnapshot, doc, updateDoc, increment, where, addDoc } from 'firebase/firestore';
+import { db } from '../../firebase';
 
 export function AdminMembers() {
   const [selectedMember, setSelectedMember] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [members, setMembers] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const filteredMembers = mockMembers.filter(m => 
-    m.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    m.email.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // New states for actions
+  const [activeDrawerDetail, setActiveDrawerDetail] = useState<'info' | 'certificates' | 'courses' | 'reports'>('info');
+  const [actionData, setActionData] = useState<any[]>([]);
+  const [isActionLoading, setIsActionLoading] = useState(false);
+  const [isResetPasswordConfirmOpen, setIsResetPasswordConfirmOpen] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    const q = query(collection(db, 'users'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const usersData: any[] = [];
+      snapshot.forEach((doc) => {
+        usersData.push({ id: doc.id, ...doc.data() });
+      });
+      setMembers(usersData);
+      setIsLoading(false);
+      // Update selected member if it is open and data has changed
+      setSelectedMember((prev: any) => {
+        if (prev) {
+          const updated = usersData.find(u => u.id === prev.id);
+          return updated || prev;
+        }
+        return prev;
+      });
+    }, (error) => {
+      console.error("Error fetching users: ", error);
+      setIsLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Reset drawer state when member changes
+  useEffect(() => {
+    setActiveDrawerDetail('info');
+    setIsResetPasswordConfirmOpen(false);
+    setActionData([]);
+  }, [selectedMember?.id]);
+
+  // Load sub-collection data dynamically
+  useEffect(() => {
+    if (!selectedMember || activeDrawerDetail === 'info') return;
+
+    setIsActionLoading(true);
+    setActionData([]);
+
+    let q;
+    if (activeDrawerDetail === 'certificates') {
+      q = query(collection(db, 'certificates'), where('userId', '==', selectedMember.id));
+    } else if (activeDrawerDetail === 'courses') {
+      if (selectedMember.role === 'instructor' || selectedMember.role === 'Instructeur') {
+        q = query(collection(db, 'courses'), where('instructorId', '==', selectedMember.id));
+      } else {
+        q = query(collection(db, 'enrollments'), where('userId', '==', selectedMember.id));
+      }
+    } else if (activeDrawerDetail === 'reports') {
+      q = query(collection(db, 'reports'), where('reportedUserId', '==', selectedMember.id));
+    }
+
+    if (!q) {
+      setIsActionLoading(false);
+      return;
+    }
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data: any[] = [];
+      snapshot.forEach(d => data.push({ id: d.id, ...d.data() }));
+      setActionData(data);
+      setIsActionLoading(false);
+    }, (error) => {
+      console.error("Erreur de récupération des détails:", error);
+      setIsActionLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [activeDrawerDetail, selectedMember?.id]);
+
+  const filteredMembers = members.filter(m => {
+    const nameStr = m.name || m.displayName || '';
+    const emailStr = m.email || '';
+    return nameStr.toLowerCase().includes(searchTerm.toLowerCase()) || 
+           emailStr.toLowerCase().includes(searchTerm.toLowerCase());
+  });
+
+  const handleUpdateRole = async (userId: string, currentRole: string) => {
+    const newRole = currentRole === 'student' ? 'instructor' : 'student';
+    try {
+      await updateDoc(doc(db, 'users', userId), { role: newRole });
+    } catch (error) {
+      console.error("Error updating role:", error);
+    }
+  };
+
+  const handleToggleBan = async (userId: string, isBanned: boolean) => {
+    try {
+      if (isBanned) {
+        await updateDoc(doc(db, 'users', userId), { status: 'Actif', isBanned: false });
+      } else {
+        await updateDoc(doc(db, 'users', userId), { status: 'Banned', isBanned: true });
+      }
+    } catch (error) {
+      console.error("Error toggling ban status:", error);
+    }
+  };
+
+  const handleWalletTransaction = async (userId: string, amount: number) => {
+    try {
+      await updateDoc(doc(db, 'users', userId), { walletBalance: increment(amount) });
+    } catch (error) {
+      console.error("Error updating wallet balance:", error);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!selectedMember) return;
+    try {
+      await addDoc(collection(db, 'auth_tasks'), {
+        action: 'reset_password',
+        email: selectedMember.email,
+        userId: selectedMember.id,
+        status: 'pending',
+        createdAt: new Date()
+      });
+      setIsResetPasswordConfirmOpen(false);
+      setToastMessage("Email de réinitialisation envoyé");
+      setTimeout(() => setToastMessage(null), 3000);
+    } catch (error) {
+      console.error("Erreur réinitialisation MDP:", error);
+    }
+  };
+
+  const handleRevokeCertificate = async (certId: string) => {
+    try {
+      await updateDoc(doc(db, 'certificates', certId), { status: 'Revoked' });
+    } catch (error) {
+      console.error("Erreur révocation certificat:", error);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex h-[80vh] items-center justify-center bg-[#090E17]">
+        <Loader2 className="w-12 h-12 animate-spin text-emerald-500" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-20 relative">
@@ -64,11 +204,15 @@ export function AdminMembers() {
                 <tr key={member.id} className="hover:bg-slate-800/50 transition-colors group">
                   <td className="p-4 pl-6">
                     <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center shrink-0 border border-slate-700 group-hover:border-emerald-500/30 transition-colors">
-                        <Users className="w-4 h-4 text-emerald-500" />
-                      </div>
+                      {member.avatar || member.photoURL ? (
+                         <img src={member.avatar || member.photoURL} alt="Avatar" className="w-10 h-10 rounded-xl object-cover border border-slate-700" />
+                      ) : (
+                        <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center shrink-0 border border-slate-700 group-hover:border-emerald-500/30 transition-colors">
+                          <Users className="w-4 h-4 text-emerald-500" />
+                        </div>
+                      )}
                       <div>
-                        <p className="font-bold text-white">{member.name}</p>
+                        <p className="font-bold text-white">{member.name || member.displayName || 'Utilisateur Anonyme'}</p>
                         <p className="text-[11px] text-slate-400 mt-0.5 font-medium">{member.email}</p>
                       </div>
                     </div>
@@ -76,23 +220,23 @@ export function AdminMembers() {
                   <td className="p-4">
                     <span className={clsx(
                       "inline-flex items-center justify-center text-[10px] font-bold px-2.5 py-1 rounded-md border uppercase tracking-widest",
-                      member.role === 'Instructeur' 
+                      (member.role === 'instructor' || member.role === 'Instructeur')
                         ? "text-blue-400 bg-blue-500/10 border-blue-500/20" 
                         : "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
                     )}>
-                      {member.role}
+                      {member.role || 'student'}
                     </span>
                   </td>
                   <td className="p-4 text-slate-400 text-xs font-medium">
-                    {member.signup}
+                    {member.signupDate || member.signup || 'N/A'}
                   </td>
                   <td className="p-4">
                     <div className="flex items-center gap-2">
                        <span className="relative flex h-2.5 w-2.5">
-                        {member.status === 'Actif' && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-20"></span>}
-                        <span className={clsx("relative inline-flex rounded-full h-2.5 w-2.5", member.status === 'Actif' ? "bg-emerald-500" : "bg-red-500")}></span>
+                        {!member.isBanned && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-20"></span>}
+                        <span className={clsx("relative inline-flex rounded-full h-2.5 w-2.5", !member.isBanned ? "bg-emerald-500" : "bg-red-500")}></span>
                       </span>
-                      <span className="text-xs font-bold text-slate-300">{member.status}</span>
+                      <span className="text-xs font-bold text-slate-300">{member.isBanned ? 'Banni' : (member.status || 'Actif')}</span>
                     </div>
                   </td>
                   <td className="p-4 pr-6 text-right">
@@ -134,72 +278,231 @@ export function AdminMembers() {
               {/* Close button (Desktop) */}
               <button 
                 onClick={() => setSelectedMember(null)}
-                className="hidden md:flex absolute top-4 right-4 w-8 h-8 items-center justify-center rounded-full bg-slate-800 text-slate-400 hover:text-white transition-colors"
+                className="hidden md:flex absolute top-4 right-4 w-8 h-8 items-center justify-center rounded-full bg-slate-800 text-slate-400 hover:text-white transition-colors z-50"
               >
                 <X className="w-4 h-4" />
               </button>
 
-              {/* Header (Profil cible) */}
-              <div className="flex items-center gap-4 mb-8">
-                <div className="w-14 h-14 rounded-full bg-slate-800 flex items-center justify-center border-2 border-slate-700">
-                    <User className="w-6 h-6 text-slate-400" />
+              {/* Toast Message */}
+              {toastMessage && (
+                <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-emerald-500 text-white px-4 py-2 rounded-xl text-xs font-bold tracking-widest flex items-center gap-2 shadow-lg z-50 animate-in slide-in-from-top fade-in whitespace-nowrap">
+                  <CheckCircle2 className="w-4 h-4" />
+                  {toastMessage}
                 </div>
-                <div>
-                    <h3 className="text-white font-black text-xl tracking-tight">{selectedMember.name}</h3>
-                    <p className="text-slate-500 font-mono text-[10px] mt-0.5 uppercase tracking-widest flex items-center gap-2">
-                        #{selectedMember.id.split('_')[1]}
-                        <span className="w-1 h-1 rounded-full bg-slate-600"></span>
-                        {selectedMember.role}
-                    </p>
-                </div>
-              </div>
+              )}
 
-              {/* Action Sections */}
-              <div className="space-y-6 pb-6 md:pb-2">
-                
-                {/* Section Info & Sécurité */}
-                <div className="space-y-1">
-                  <h4 className="text-[10px] font-black uppercase text-slate-600 tracking-widest pl-2 mb-3">Info & Sécurité</h4>
-                  <ActionButton icon={Eye} label="Détails & Soldes" />
-                  <ActionButton icon={User} label="Voir profil public" />
-                  <ActionButton icon={History} label="Logs Sécurité" />
-                </div>
+              {activeDrawerDetail === 'info' ? (
+                <>
+                  {/* Header (Profil cible) */}
+                  <div className="flex items-center gap-4 mb-8 pt-2">
+                    {selectedMember.avatar || selectedMember.photoURL ? (
+                      <img src={selectedMember.avatar || selectedMember.photoURL} alt="Avatar" className="w-14 h-14 rounded-full object-cover border-2 border-slate-700" />
+                    ) : (
+                      <div className="w-14 h-14 rounded-full bg-slate-800 flex items-center justify-center border-2 border-slate-700">
+                          <User className="w-6 h-6 text-slate-400" />
+                      </div>
+                    )}
+                    <div>
+                        <h3 className="text-white font-black text-xl tracking-tight">{selectedMember.name || selectedMember.displayName || 'Utilisateur Anonyme'}</h3>
+                        <p className="text-slate-500 font-mono text-[10px] mt-0.5 uppercase tracking-widest flex items-center gap-2">
+                            #{selectedMember.id.substring(0, 8)}
+                            <span className="w-1 h-1 rounded-full bg-slate-600"></span>
+                            {selectedMember.role || 'student'}
+                        </p>
+                        {selectedMember.walletBalance !== undefined && (
+                          <p className="text-emerald-400 font-mono text-[10px] mt-0.5 uppercase tracking-widest flex items-center gap-2">
+                            Solde: {selectedMember.walletBalance} XAF
+                          </p>
+                        )}
+                    </div>
+                  </div>
 
-                {/* Section Communication */}
-                <div className="space-y-1">
-                  <h4 className="text-[10px] font-black uppercase text-slate-600 tracking-widest pl-2 mb-3">Communication</h4>
-                  <ActionButton icon={MessageSquare} label="Envoyer message" />
-                </div>
+                  {/* Action Sections */}
+                  <div className="space-y-6 pb-6 md:pb-2">
+                    
+                    {/* Section Info & Sécurité */}
+                    <div className="space-y-1">
+                      <h4 className="text-[10px] font-black uppercase text-slate-600 tracking-widest pl-2 mb-3">Info & Sécurité</h4>
+                      <ActionButton icon={Eye} label="Détails & Soldes" />
+                      <ActionButton icon={User} label="Voir profil public" />
+                      <ActionButton icon={History} label="Logs Sécurité" />
+                    </div>
 
-                {/* Section Finances */}
-                <div className="space-y-1">
-                  <h4 className="text-[10px] font-black uppercase text-slate-600 tracking-widest pl-2 mb-3">Finances</h4>
-                  <ActionButton icon={Wallet} label="Recharger Wallet" iconColor="text-emerald-500" />
-                  <ActionButton icon={Landmark} label="Débiter Wallet" iconColor="text-amber-500" />
-                </div>
+                    {/* Section Communication */}
+                    <div className="space-y-1">
+                      <h4 className="text-[10px] font-black uppercase text-slate-600 tracking-widest pl-2 mb-3">Communication</h4>
+                      <ActionButton icon={MessageSquare} label="Envoyer message" />
+                    </div>
 
-                {/* Section Formation & Rôles */}
-                <div className="space-y-1">
-                  <h4 className="text-[10px] font-black uppercase text-slate-600 tracking-widest pl-2 mb-3">Formation & Rôles</h4>
-                  <ActionButton icon={ShieldCheck} label="Gérer l'accès & Droits" />
-                  <ActionButton icon={UserCog} label="Changer Rôle" />
-                  <ActionButton icon={Edit3} label="Modifier le profil" />
-                </div>
+                    {/* Section Finances */}
+                    <div className="space-y-1">
+                      <h4 className="text-[10px] font-black uppercase text-slate-600 tracking-widest pl-2 mb-3">Finances</h4>
+                      <ActionButton 
+                        icon={Wallet} 
+                        label="Recharger Wallet (+5000)" 
+                        iconColor="text-emerald-500" 
+                        onClick={() => handleWalletTransaction(selectedMember.id, 5000)}
+                      />
+                      <ActionButton 
+                        icon={Landmark} 
+                        label="Débiter Wallet (-5000)" 
+                        iconColor="text-amber-500" 
+                        onClick={() => handleWalletTransaction(selectedMember.id, -5000)}
+                      />
+                    </div>
 
-                {/* Section Restrictions (Critique Sécurité) */}
-                <div className="space-y-1 pt-6 border-t border-slate-800">
-                  <h4 className="text-[10px] font-black uppercase text-slate-600 tracking-widest pl-2 mb-3">Restrictions Système</h4>
-                  <ActionButton icon={SquareUser} label="Se connecter en tant que" iconColor="text-slate-400" />
-                  <ActionButton 
-                    icon={Ban} 
-                    label={selectedMember.status === 'Actif' ? "Suspendre le compte" : "Réactiver le compte"} 
-                    iconColor="text-red-500" 
-                    textColor="text-red-500" 
-                    hoverBg="hover:bg-red-500/10" 
-                  />
-                </div>
+                    {/* Section Formation & Rôles */}
+                    <div className="space-y-1">
+                      <h4 className="text-[10px] font-black uppercase text-slate-600 tracking-widest pl-2 mb-3">Formation & Rôles</h4>
+                      <ActionButton icon={ShieldCheck} label="Gérer l'accès & Droits" />
+                      <ActionButton 
+                        icon={UserCog} 
+                        label="Changer Rôle" 
+                        onClick={() => handleUpdateRole(selectedMember.id, selectedMember.role)}
+                      />
+                      <ActionButton icon={Edit3} label="Modifier le profil" />
+                      <ActionButton icon={Award} label="Voir les certificats" onClick={() => setActiveDrawerDetail('certificates')} />
+                      <ActionButton icon={BookOpen} label="Historique des cours" onClick={() => setActiveDrawerDetail('courses')} />
+                    </div>
 
-              </div>
+                    {/* Section Restrictions (Critique Sécurité) */}
+                    <div className="space-y-1 pt-6 border-t border-slate-800">
+                      <h4 className="text-[10px] font-black uppercase text-slate-600 tracking-widest pl-2 mb-3">Restrictions Système</h4>
+                      <ActionButton icon={SquareUser} label="Se connecter en tant que" iconColor="text-slate-400" />
+                      <ActionButton 
+                        icon={Ban} 
+                        label={selectedMember.isBanned ? "Réactiver le compte" : "Suspendre le compte"} 
+                        iconColor={selectedMember.isBanned ? "text-emerald-500" : "text-red-500"} 
+                        textColor={selectedMember.isBanned ? "text-emerald-500" : "text-red-500"} 
+                        hoverBg={selectedMember.isBanned ? "hover:bg-emerald-500/10" : "hover:bg-red-500/10"} 
+                        onClick={() => handleToggleBan(selectedMember.id, !!selectedMember.isBanned)}
+                      />
+                      <ActionButton icon={KeyRound} label="Réinitialiser le mot de passe" iconColor="text-orange-400" onClick={() => setIsResetPasswordConfirmOpen(true)} />
+                      <ActionButton icon={AlertTriangle} label="Signalements & avis" iconColor="text-yellow-500" onClick={() => setActiveDrawerDetail('reports')} />
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="flex flex-col h-full fade-in animate-in pb-6 md:pb-2 min-h-[300px]">
+                  <div className="flex items-center gap-4 mb-6">
+                    <button 
+                      onClick={() => setActiveDrawerDetail('info')}
+                      className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white transition-colors"
+                    >
+                      <ChevronLeft className="w-5 h-5" />
+                    </button>
+                    <h3 className="text-white font-black text-xl tracking-tight uppercase">
+                      {activeDrawerDetail === 'certificates' && "Certificats"}
+                      {activeDrawerDetail === 'courses' && "Historique"}
+                      {activeDrawerDetail === 'reports' && "Signalements"}
+                    </h3>
+                  </div>
+
+                  {isActionLoading ? (
+                    <div className="flex-1 flex items-center justify-center py-20">
+                      <Loader2 className="w-8 h-8 text-emerald-500 animate-spin" />
+                    </div>
+                  ) : actionData.length === 0 ? (
+                    <div className="flex-1 flex flex-col items-center justify-center py-16 text-center">
+                      <div className="w-16 h-16 rounded-3xl bg-slate-800/50 flex items-center justify-center mb-4">
+                        <Filter className="w-8 h-8 text-slate-500" />
+                      </div>
+                      <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Aucune donnée trouvée</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3 overflow-y-auto hide-scrollbar max-h-[50vh]">
+                      {activeDrawerDetail === 'certificates' && actionData.map(cert => (
+                        <div key={cert.id} className="p-4 bg-slate-800/30 border border-slate-700/50 rounded-2xl flex items-center justify-between group">
+                          <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 bg-slate-900 rounded-xl flex items-center justify-center border border-slate-700">
+                              <Award className="w-5 h-5 text-amber-500" />
+                            </div>
+                            <div>
+                              <p className="text-white font-bold text-sm tracking-tight">{cert.courseTitle || 'Formation Inconnue'}</p>
+                              <p className="text-slate-500 text-[10px] uppercase font-bold tracking-widest mt-0.5">
+                                {cert.issueDate?.toDate ? cert.issueDate.toDate().toLocaleDateString() : 'Date inconnue'}
+                              </p>
+                            </div>
+                          </div>
+                          {cert.status !== 'Revoked' ? (
+                            <button 
+                              onClick={() => handleRevokeCertificate(cert.id)}
+                              className="px-3 py-1.5 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-colors rounded-lg text-[10px] font-black uppercase tracking-widest whitespace-nowrap"
+                            >
+                              Révoquer
+                            </button>
+                          ) : (
+                            <span className="px-3 py-1.5 bg-slate-800 text-slate-500 rounded-lg text-[10px] font-black uppercase tracking-widest">
+                              Révoqué
+                            </span>
+                          )}
+                        </div>
+                      ))}
+
+                      {activeDrawerDetail === 'courses' && actionData.map(course => (
+                        <div key={course.id} className="p-4 bg-slate-800/30 border border-slate-700/50 rounded-2xl flex items-center gap-4">
+                          <div className="w-12 h-12 bg-slate-900 rounded-xl flex items-center justify-center border border-slate-700">
+                            <BookOpen className="w-5 h-5 text-blue-400" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-white font-bold text-sm tracking-tight line-clamp-1">{course.title || course.courseTitle || 'Cours'}</p>
+                            <div className="flex items-center gap-2 mt-1.5 w-full max-w-[200px]">
+                              <div className="h-1.5 flex-1 bg-slate-800 rounded-full overflow-hidden">
+                                <div className="h-full bg-blue-500 rounded-full" style={{ width: `${course.progress || (selectedMember.role === 'instructor' ? 100 : 0)}%` }}></div>
+                              </div>
+                              <span className="text-slate-500 text-[9px] font-bold">{course.progress || (selectedMember.role === 'instructor' ? 100 : 0)}%</span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+
+                      {activeDrawerDetail === 'reports' && actionData.map(report => (
+                        <div key={report.id} className="p-4 bg-red-500/5 border border-red-500/20 rounded-2xl flex items-start gap-4">
+                          <div className="w-10 h-10 bg-red-500/10 rounded-xl flex items-center justify-center border border-red-500/20 shrink-0">
+                            <ShieldAlert className="w-4 h-4 text-red-500" />
+                          </div>
+                          <div>
+                            <p className="text-white font-bold text-sm tracking-tight">{report.reason || 'Comportement Inapproprié'}</p>
+                            <p className="text-slate-400 text-xs mt-1 leading-snug">{report.details || 'Aucun détail fourni.'}</p>
+                            <p className="text-slate-500 text-[10px] uppercase font-bold tracking-widest mt-2 flex items-center gap-1.5">
+                              <User className="w-3 h-3" />
+                              Par {report.reporterName || report.reporterId || 'Anonyme'}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Password Reset Modal layer */}
+              {isResetPasswordConfirmOpen && (
+                <div className="absolute inset-0 z-50 bg-[#090E17]/95 backdrop-blur-md rounded-t-3xl md:rounded-3xl flex flex-col items-center justify-center p-6 animate-in fade-in zoom-in-95 duration-200">
+                  <div className="w-16 h-16 bg-orange-500/10 rounded-full flex items-center justify-center mb-6">
+                    <KeyRound className="w-8 h-8 text-orange-400" />
+                  </div>
+                  <h3 className="text-xl text-white font-black text-center tracking-tight mb-2">Réinitialiser le mot de passe ?</h3>
+                  <p className="text-slate-400 text-sm text-center mb-8 max-w-[280px]">
+                    Un lien de réinitialisation sera envoyé à <b>{selectedMember.email}</b>. Cette action est irréversible.
+                  </p>
+                  <div className="w-full space-y-3">
+                    <button 
+                      onClick={handleResetPassword}
+                      className="w-full py-4 bg-orange-500 hover:bg-orange-600 text-white font-black uppercase tracking-widest text-xs rounded-xl transition-colors shadow-lg shadow-orange-500/20"
+                    >
+                      Confirmer l'envoi
+                    </button>
+                    <button 
+                      onClick={() => setIsResetPasswordConfirmOpen(false)}
+                      className="w-full py-4 bg-transparent border border-slate-700 hover:bg-slate-800 text-slate-300 font-bold uppercase tracking-widest text-xs rounded-xl transition-colors"
+                    >
+                      Annuler
+                    </button>
+                  </div>
+                </div>
+              )}
+
           </div>
         </>
       )}
@@ -212,16 +515,21 @@ function ActionButton({
     label, 
     iconColor = "text-slate-400", 
     textColor = "text-slate-300",
-    hoverBg = "hover:bg-slate-800/50"
+    hoverBg = "hover:bg-slate-800/50",
+    onClick
 }: { 
     icon: any, 
     label: string, 
     iconColor?: string, 
     textColor?: string,
-    hoverBg?: string 
+    hoverBg?: string,
+    onClick?: () => void
 }) {
     return (
-        <button className={clsx("w-full flex items-center gap-4 px-4 py-3.5 rounded-xl transition-colors active:scale-[0.98]", hoverBg)}>
+        <button 
+          onClick={onClick}
+          className={clsx("w-full flex items-center gap-4 px-4 py-3.5 rounded-xl transition-colors active:scale-[0.98]", hoverBg)}
+        >
             <div className={clsx("w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-slate-800/50", hoverBg !== "hover:bg-slate-800/50" && hoverBg.replace("hover:", ""))}>
                <Icon className={clsx("w-4 h-4", iconColor)} />
             </div>
@@ -231,3 +539,5 @@ function ActionButton({
         </button>
     );
 }
+
+

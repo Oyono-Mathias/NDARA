@@ -35,6 +35,7 @@ const adminNavigationConfig: NavSection[] = [
     routes: [
       { label: "Membres", icon: Users, path: "/admin/members" },
       { label: "Catalogue", icon: BookOpen, path: "/admin/catalog" },
+      { label: "Communautés (Squads)", icon: Users, path: "/admin/squads" },
       { label: "Modération", icon: ShieldCheck, path: "/admin/moderation" },
       { label: "Diffusion Push", icon: Radio, path: "/admin/push" },
       { label: "Pays & Devises", icon: Globe, path: "/admin/countries" },

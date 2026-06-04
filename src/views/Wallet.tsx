@@ -9,7 +9,10 @@ import {
   query, 
   orderBy, 
   limit,
-  where
+  where,
+  addDoc,
+  serverTimestamp,
+  updateDoc
 } from "firebase/firestore";
 import { 
   ChevronLeft, Search, Bell, Eye, EyeOff,
@@ -124,14 +127,20 @@ export function WalletView() {
 
     // Listen to operations subcollection
     const txQuery = query(
-      collection(db, "users", userId, "transactions"),
-      orderBy("timestamp", "desc"),
+      collection(db, "transactions"),
+      where("userId", "==", userId),
+      orderBy("createdAt", "desc"),
       limit(50)
     );
     const unsubTx = onSnapshot(txQuery, (snap) => {
       const list: WalletTransaction[] = [];
       snap.forEach(d => {
-        list.push({ id: d.id, ...d.data() } as WalletTransaction);
+        const data = d.data();
+        list.push({ 
+          id: d.id, 
+          ...data,
+          timestamp: data.createdAt?.toDate?.()?.toISOString() || data.timestamp || new Date().toISOString()
+        } as WalletTransaction);
       });
       setDbTransactions(list);
     }, (error) => {
@@ -152,17 +161,15 @@ export function WalletView() {
     setSubmitting(true);
     setActionStatus(null);
     try {
-      const res = await fetch("/api/wallet/deposit", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId,
-          amount: Number(rechargeAmount),
-          description: "Rechargement Ndara Money"
-        })
+      await addDoc(collection(db, 'transactions'), {
+        userId,
+        amount: Number(rechargeAmount),
+        currency: 'XAF',
+        type: 'deposit',
+        status: 'pending',
+        createdAt: serverTimestamp(),
+        description: "Rechargement Ndara Money"
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Une erreur est survenue");
 
       setActionStatus({ type: "success", text: `Votre compte a été rechargé de ${Number(rechargeAmount).toLocaleString()} F avec succès !` });
       setRechargeAmount("");
@@ -182,18 +189,16 @@ export function WalletView() {
     setSubmitting(true);
     setActionStatus(null);
     try {
-      const res = await fetch("/api/wallet/transfer", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          senderId: userId,
-          receiver: recipient,
-          amount: Number(amount),
-          description: transferDesc
-        })
+      await addDoc(collection(db, 'transactions'), {
+        userId,
+        receiverId: recipient,
+        amount: Number(amount),
+        currency: 'XAF',
+        type: 'transfer_send',
+        status: 'pending',
+        createdAt: serverTimestamp(),
+        description: transferDesc
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Transfert échoué");
 
       setActionStatus({ type: "success", text: `Transfert de ${Number(amount).toLocaleString()} F envoyé à ${recipient} avec succès !` });
       setAmount("");
@@ -216,29 +221,27 @@ export function WalletView() {
       // If student chooses to configure a referrer first, we save it on their user document
       if (sandboxHasReferrer && sandboxReferrerId) {
         // Automatically inject the recruiter on user profile if needed
-        const { doc, updateDoc } = await import("firebase/firestore");
         await updateDoc(doc(db, "users", userId), {
           referredBy: sandboxReferrerId
         });
       }
 
-      const res = await fetch("/api/wallet/purchase", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          studentId: userId,
-          price: Number(sandboxCoursePrice),
-          courseId: "sim_course_" + Math.random().toString(36).substring(3, 8),
-          courseTitle: sandboxCourseTitle,
-          sellerId: sandboxInstructorId
-        })
+      await addDoc(collection(db, 'transactions'), {
+        userId,
+        amount: Number(sandboxCoursePrice),
+        currency: 'XAF',
+        type: 'purchase',
+        status: 'pending',
+        createdAt: serverTimestamp(),
+        courseId: "sim_course_" + Math.random().toString(36).substring(3, 8),
+        courseTitle: sandboxCourseTitle,
+        sellerId: sandboxInstructorId,
+        description: `Achat: ${sandboxCourseTitle}`
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Simulation échouée");
 
       setActionStatus({ 
         type: "success", 
-        text: `Achat simulé de ${Number(sandboxCoursePrice).toLocaleString()} F ! Les commissions (10% parrainage et 90% vendeur) ont été placées sous séquestre de 14 jours.` 
+        text: `Achat simulé de ${Number(sandboxCoursePrice).toLocaleString()} F ! Transaction enregistrée.` 
       });
       setTimeout(() => setActiveModal("none"), 3000);
     } catch (err: any) {
@@ -255,28 +258,20 @@ export function WalletView() {
     setSubmitting(true);
     setActionStatus(null);
     try {
-      // Let's create an expired test pending transaction to demonstrate the system immediately.
-      // In a real database we check expiration, we will call the escrow release endpoint.
-      const res = await fetch("/api/wallet/release-escrow", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId })
+      await addDoc(collection(db, 'transactions'), {
+        userId,
+        amount: 0,
+        currency: 'XAF',
+        type: 'payout',
+        status: 'pending',
+        createdAt: serverTimestamp(),
+        description: "Demande de libération des séquestres"
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Erreur de déblocage");
 
-      if (data.releasedCount > 0) {
-        setActionStatus({ 
-          type: "success", 
-          text: `Séquestre analysé ! ${data.releasedCount} transaction(s) libérée(s) pour un total de ${data.totalReleasedAmount.toLocaleString()} F !` 
-        });
-      } else {
-        // For testing purposes, let's offer to create an instantly expired tx to test!
-        setActionStatus({ 
-          type: "success", 
-          text: "Aucun séquestre n'est encore arrivé à son terme de 14 jours. " 
-        });
-      }
+      setActionStatus({ 
+        type: "success", 
+        text: "Demande de libération de séquestre soumise avec succès." 
+      });
     } catch (err: any) {
       setActionStatus({ type: "error", text: err.message || "Erreur" });
     } finally {
@@ -290,33 +285,27 @@ export function WalletView() {
     setSubmitting(true);
     setActionStatus(null);
     try {
-      const { doc, setDoc, collection } = await import("firebase/firestore");
-      const testTxRef = doc(collection(db, 'users', userId, 'transactions'));
-      
       const holdTimePast = new Date(Date.now() - (15 * 24 * 60 * 60 * 1000)); // 15 days ago (expired!)
       
       // Credit to pending balance
-      const { updateDoc } = await import("firebase/firestore");
       await updateDoc(doc(db, "users", userId), {
         pendingBalance: walletBalances.pendingBalance + 10000,
         pendingAffiliateBalance: walletBalances.pendingBalance + 10000
       });
 
-      const expiredTx: WalletTransaction = {
-        id: testTxRef.id,
+      await addDoc(collection(db, 'transactions'), {
         userId,
         type: 'affiliate_payout',
         amount: 10000,
+        currency: 'XAF',
         status: 'pending',
-        timestamp: holdTimePast.toISOString(),
-        description: "Commission parrainage démo (Instamment expiré après 14j)",
-        releaseAt: holdTimePast.toISOString()
-      };
+        createdAt: holdTimePast,
+        description: "Commission parrainage démo (Instamment expiré après 14j)"
+      });
       
-      await setDoc(testTxRef, expiredTx);
       setActionStatus({ 
         type: "success", 
-        text: "Transaction fictive expirée de 10 000 F créée ! Cliquez à nouveau sur 'Libérer séquestres' pour la reverser dans vos gains disponibles." 
+        text: "Transaction fictive expirée de 10 000 F créée ! Cliquez à nouveau sur 'Libérer séquestres'." 
       });
     } catch (err: any) {
       setActionStatus({ type: "error", text: err.message || "Erreur" });

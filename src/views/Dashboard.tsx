@@ -12,6 +12,8 @@ export function Dashboard() {
   const [recentCourses, setRecentCourses] = useState<any[]>([]);
   const [recommendedCourses, setRecommendedCourses] = useState<any[]>([]);
   const [notifications, setNotifications] = useState<any[]>([]);
+  const [avgProgress, setAvgProgress] = useState(0);
+  const [studentBadges, setStudentBadges] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -44,7 +46,13 @@ export function Dashboard() {
                  // En prod, vous devriez utiliser 'in' sur ces IDs, mais pour éviter les erreurs d'Index/where-in avec tableaux vides, on fait 2 reads directs :
                  const myRecentPromises = enrolledCourseIds.map(id => getDocs(query(coursesRef, where('__name__', '==', id))));
                  const myRecentSnaps = await Promise.all(myRecentPromises);
-                 const myRecent = myRecentSnaps.map(snap => snap.docs.length > 0 ? { id: snap.docs[0].id, ...snap.docs[0].data() } : null).filter(Boolean);
+                 // Fusion avec la progression
+                 const myRecent = myRecentSnaps.map((snap, i) => {
+                     if (snap.docs.length > 0) {
+                        return { id: snap.docs[0].id, ...snap.docs[0].data(), progress: enrolSnap.docs[i].data().progress || 0 }
+                     }
+                     return null;
+                 }).filter(Boolean);
                  if (isMounted) setRecentCourses(myRecent);
             }
 
@@ -82,24 +90,48 @@ export function Dashboard() {
         (error) => console.log("Realtime QnA stream error (Index probably missing, graceful degradation)", error)
     );
 
+    // Progression globale en temps réel
+    const unsubProgress = onSnapshot(
+        query(collection(db, 'enrollments'), where('studentId', '==', currentUser.uid)),
+        (snap) => {
+            let total = 0;
+            snap.forEach(d => { total += Number(d.data().progress) || 0; });
+            const avg = snap.size > 0 ? Math.round(total / snap.size) : 0;
+            if (isMounted) setAvgProgress(avg);
+        }
+    );
+
+    // Badges en temps réel
+    const unsubBadges = onSnapshot(
+        query(collection(db, 'student_badges'), where('userId', '==', currentUser.uid)),
+        (snap) => {
+            if (isMounted) {
+                setStudentBadges(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+            }
+        }
+    );
+
     return () => {
         isMounted = false;
         unsubNotifications();
+        unsubProgress();
+        unsubBadges();
     };
   }, [currentUser?.uid]);
 
-  const days = [
-    { label: 'Lun', status: 'completed', value: '✓' },
-    { label: 'Mar', status: 'completed', value: '✓' },
-    { label: 'Mer', status: 'completed', value: '✓' },
-    { label: 'Jeu', status: 'completed', value: '✓' },
-    { label: 'Ven', status: 'completed', value: '✓' },
-    { label: 'Sam', status: 'today', value: '6h' },
-    { label: 'Dim', status: 'upcoming', value: '-' },
-  ];
+
 
   if (loading) {
-    return <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
+    return (
+      <div className="space-y-6 px-1 pb-24 animate-pulse pt-4">
+        <div className="h-12 w-3/4 bg-white/5 rounded-lg mb-4"></div>
+        <div className="grid grid-cols-4 gap-3">
+          {[1,2,3,4].map(i => <div key={i} className="h-24 bg-white/5 rounded-2xl"></div>)}
+        </div>
+        <div className="h-32 bg-white/5 rounded-2xl w-full"></div>
+        <div className="h-48 bg-white/5 rounded-3xl w-full"></div>
+      </div>
+    );
   }
 
   return (
@@ -148,29 +180,20 @@ export function Dashboard() {
         </div>
       </section>
 
-      {/* Weekly Progress */}
+      {/* Overall Progress */}
       <section className="px-1">
         <div className="rounded-2xl p-5 border border-primary/20 bg-gradient-to-br from-primary/10 to-transparent">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-sm font-bold text-white">Progression hebdo</h2>
-            <span className="text-xs font-semibold text-primary">+12% vs sem. dernière</span>
+            <h2 className="text-sm font-bold text-white">Progression Globale</h2>
+            <span className="text-xs font-semibold text-primary">{avgProgress}% complété</span>
           </div>
-          <div className="flex justify-between items-center">
-            {days.map((day, i) => (
-              <div key={i} className="flex flex-col items-center gap-2 flex-1">
-                <span className={`text-[11px] font-semibold ${day.status === 'today' ? 'text-primary' : (day.status === 'completed' ? 'text-white' : 'text-slate-500')}`}>
-                  {day.label}
-                </span>
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold transition-all ${
-                  day.status === 'completed' ? 'bg-gradient-to-br from-emerald-600 to-primary text-white shadow-[0_2px_8px_rgba(16,185,129,0.4)]' : 
-                  day.status === 'today' ? 'border-2 border-primary bg-primary/20 text-primary' : 
-                  'bg-white/5 text-slate-500'
-                }`}>
-                  {day.value}
-                </div>
-              </div>
-            ))}
+          <div className="w-full bg-white/10 rounded-full h-3 mb-2 overflow-hidden border border-white/5">
+              <div 
+                  className="bg-gradient-to-r from-primary to-emerald-400 h-3 rounded-full transition-all duration-1000 ease-out"
+                  style={{ width: `${avgProgress}%` }}
+              ></div>
           </div>
+          <p className="text-[10px] text-gray-400">Basé sur la moyenne de tous vos cours en cours et terminés.</p>
         </div>
       </section>
 
@@ -283,21 +306,19 @@ export function Dashboard() {
         </div>
         
         <div className="flex gap-3 overflow-x-auto hide-scrollbar sm:px-2 px-1 snap-x snap-mandatory pb-4">
-            <div className="min-w-[130px] shrink-0 p-4 rounded-2xl bg-gradient-to-br from-amber-500/15 to-transparent border border-amber-500/20 text-center snap-start card-hover cursor-pointer">
-                <div className="text-3xl mb-2">🏅</div>
-                <h3 className="text-[11px] font-bold text-white mb-1">Bienvenue</h3>
-                <p className="text-[9px] text-gray-400">Inscrit sur Ndara</p>
-            </div>
-            <div className="min-w-[130px] shrink-0 p-4 rounded-2xl bg-gradient-to-br from-orange-500/15 to-transparent border border-orange-500/20 text-center snap-start card-hover cursor-pointer">
-                <div className="text-3xl mb-2">🔥</div>
-                <h3 className="text-[11px] font-bold text-white mb-1">Motivé</h3>
-                <p className="text-[9px] text-gray-400">Série de connexion</p>
-            </div>
-            <div className="min-w-[130px] shrink-0 p-4 rounded-2xl bg-white/5 border border-white/5 text-center snap-start opacity-70 card-hover cursor-pointer">
-                <div className="text-3xl mb-2 grayscale">🏆</div>
-                <h3 className="text-[11px] font-bold text-white mb-1">Premier cours</h3>
-                <p className="text-[9px] text-gray-400">Terminez un cours</p>
-            </div>
+            {studentBadges.length > 0 ? (
+                studentBadges.map(badge => (
+                    <div key={badge.id} className="min-w-[130px] shrink-0 p-4 rounded-2xl bg-gradient-to-br from-amber-500/15 to-transparent border border-amber-500/20 text-center snap-start card-hover cursor-pointer">
+                        <div className="text-3xl mb-2">{badge.icon || "🏅"}</div>
+                        <h3 className="text-[11px] font-bold text-white mb-1">{badge.title}</h3>
+                        <p className="text-[9px] text-gray-400">{badge.description}</p>
+                    </div>
+                ))
+            ) : (
+                <div className="text-center w-full py-4 text-xs text-slate-500">
+                    Complétez des cours pour gagner des badges !
+                </div>
+            )}
         </div>
       </section>
       

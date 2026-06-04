@@ -99,22 +99,15 @@ export function InstructorWealth() {
 
         setIsSubmitting(true);
         try {
-            const response = await fetch('/api/wallet/request-payout', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    userId: instructor.uid,
-                    amount: amountNum,
-                    provider: withdrawMethod,
-                    phone: phoneValue,
-                    method: 'mobile_money'
-                })
+            await addDoc(collection(db, 'payout_requests'), {
+                instructorId: instructor.uid,
+                amount: amountNum,
+                currency: 'XAF',
+                paymentMethod: withdrawMethod,
+                phone: phoneValue,
+                status: 'pending',
+                createdAt: serverTimestamp()
             });
-
-            const data = await response.json();
-            if (!response.ok) {
-                throw new Error(data.error || 'Erreur lors de la communication sécurisée.');
-            }
 
             alert('Demande de retrait enregistrée et fonds sécurisés sous séquestre d\'audit !');
             setIsWithdrawModalOpen(false);

@@ -50,6 +50,8 @@ import { ProfileRedirect } from "./views/ProfileRedirect";
 import { LegalView } from "./views/LegalView";
 import { LeaderboardView } from "./views/LeaderboardView";
 import { InviteRedirectView } from "./views/InviteRedirectView";
+import { StudentSquads } from "./views/StudentSquads";
+import { StudentSquadDetails } from "./views/StudentSquadDetails";
 import { useState } from "react";
 
 function StudentLayout() {
@@ -130,6 +132,8 @@ function StudentLayout() {
             <Route path="ebooks" element={<EbooksView />} />
             <Route path="ebooks/:id" element={<EbookDetail />} />
             <Route path="tools" element={<ToolsView />} />
+            <Route path="squads" element={<StudentSquads />} />
+            <Route path="squads/:squadId" element={<StudentSquadDetails />} />
           </Routes>
        </main>
        

@@ -1,13 +1,16 @@
 import { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { ChevronLeft, Share2, Heart, Star, Users, Award, Briefcase, TrendingUp, CheckCircle, Wallet, Phone, CircleDollarSign, Loader2 } from "lucide-react";
-import { doc, onSnapshot } from "firebase/firestore";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
+import { ChevronLeft, Share2, Heart, Star, Users, Award, Briefcase, TrendingUp, CheckCircle, Wallet, Phone, CircleDollarSign, Loader2, RefreshCw } from "lucide-react";
+import { doc, onSnapshot, runTransaction, serverTimestamp, collection } from "firebase/firestore";
 import { db } from "../firebase";
 import { useRole } from "../context/RoleContext";
 
 export function BourseLicenseDetail() {
   const navigate = useNavigate();
   const { id } = useParams();
+  const location = useLocation();
+  const orderId = new URLSearchParams(location.search).get('orderId');
+
   const { currentUser } = useRole();
   
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -15,6 +18,7 @@ export function BourseLicenseDetail() {
   const [paymentMethod, setPaymentMethod] = useState("wallet");
   const [isProcessing, setIsProcessing] = useState(false);
   const [userProfile, setUserProfile] = useState<any>(null);
+  const [orderData, setOrderData] = useState<any>(null);
 
   useEffect(() => {
     if (!currentUser?.uid) return;
@@ -26,38 +30,147 @@ export function BourseLicenseDetail() {
     return () => unsub();
   }, [currentUser?.uid]);
 
+  // Fetch optional order data if we arrived from an order link
+  useEffect(() => {
+    if (orderId) {
+      const unsubOrder = onSnapshot(doc(db, "market_orders", orderId), (snap) => {
+        if (snap.exists()) {
+          setOrderData({ id: snap.id, ...snap.data() });
+        }
+      });
+      return () => unsubOrder();
+    }
+  }, [orderId]);
+
   const userBalance = userProfile?.balance || 0;
+  
+  const priceToPay = orderData ? (orderData.price || 200000) : 200000;
+  const platformFee = priceToPay * 0.02; // 2% fee
+  const totalCost = priceToPay + platformFee;
+  const sellerContent = orderData ? orderData.sellerName : "Plateforme (Marché Primaire)";
   
   const handlePurchase = async () => {
     if (!currentUser?.uid) {
       alert("Veuillez vous connecter pour acheter cette licence.");
       return;
     }
+    
+    if (userBalance < totalCost) {
+      alert("Solde insuffisant dans votre portefeuille.");
+      return;
+    }
+
+    if (!id) {
+       alert("Aucun cours sélectionné.");
+       return;
+    }
 
     setIsProcessing(true);
     try {
-      const response = await fetch("/api/wallet/purchase-license", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          buyerId: currentUser.uid,
-          price: 200000,
-          courseId: id || "trading-pro",
-          courseTitle: "Trading Pro",
-          sellerId: "inst_mbarga"
-        })
-      });
+      await runTransaction(db, async (transaction) => {
+        const buyerRef = doc(db, "users", currentUser.uid);
+        const buyerDoc = await transaction.get(buyerRef);
+        
+        if (!buyerDoc.exists()) throw new Error("Acheteur introuvable.");
+        
+        const currentBalance = buyerDoc.data()?.balance || 0;
+        if (currentBalance < totalCost) {
+          throw new Error("Solde insuffisant durant l'exécution.");
+        }
 
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || "Échec de l'achat de la licence.");
-      }
+        // 1. Débiter l'acheteur
+        transaction.update(buyerRef, {
+          balance: currentBalance - totalCost
+        });
+
+        // 2. Transférer la licence et créditer le vendeur (if secondary market)
+        if (orderId) {
+          const orderRef = doc(db, "market_orders", orderId);
+          const orderDoc = await transaction.get(orderRef);
+          
+          if (!orderDoc.exists() || orderDoc.data()?.status !== "active") {
+            throw new Error("L'offre n'est plus disponible.");
+          }
+
+          const sellerId = orderDoc.data()?.sellerId;
+          const licenseId = orderDoc.data()?.licenseId; // original license to transfer
+          
+          if (sellerId) {
+             const sellerRef = doc(db, "users", sellerId);
+             const sellerDoc = await transaction.get(sellerRef);
+             if (sellerDoc.exists()) {
+               const sellerBalance = sellerDoc.data()?.balance || 0;
+               // Créditer le vendeur du prix de vente (NDARA keep 2% platform fee already paid dynamically)
+               transaction.update(sellerRef, {
+                 balance: sellerBalance + priceToPay
+               });
+             }
+          }
+          
+          if (licenseId) {
+             const licenseRef = doc(db, "licenses", licenseId);
+             // Transfer ownership
+             transaction.update(licenseRef, {
+               userId: currentUser.uid,
+               updatedAt: serverTimestamp()
+             });
+          }
+
+          // Mark order as executed
+          transaction.update(orderRef, {
+            status: "executed",
+            executedAt: serverTimestamp(),
+            buyerId: currentUser.uid
+          });
+
+        } else {
+          // Primary Market: Create a new license document explicitly
+          const newLicenseRef = doc(collection(db, "licenses"));
+          transaction.set(newLicenseRef, {
+            courseId: id,
+            userId: currentUser.uid,
+            purchasePrice: priceToPay,
+            createdAt: serverTimestamp(),
+            status: "active"
+          });
+        }
+
+        // 3. Enregistrer l'historique dans transactions (Buyer tx)
+        const txBuyerRef = doc(collection(db, "transactions"));
+        transaction.set(txBuyerRef, {
+           userId: currentUser.uid,
+           amount: totalCost,
+           currency: 'XAF',
+           type: 'license_purchase',
+           status: 'completed',
+           createdAt: serverTimestamp(),
+           courseId: id,
+           orderId: orderId || null,
+           description: `Achat Licence: ${priceToPay}F + Frais: ${platformFee}F`
+        });
+
+        // if seller, register seller tx
+        if (orderId && orderData?.sellerId) {
+           const txSellerRef = doc(collection(db, "transactions"));
+           transaction.set(txSellerRef, {
+              userId: orderData.sellerId,
+              amount: priceToPay,
+              currency: 'XAF',
+              type: 'license_sale',
+              status: 'completed',
+              createdAt: serverTimestamp(),
+              courseId: id,
+              orderId: orderId,
+              description: `Vente Licence sur le marché`
+           });
+        }
+      });
 
       setShowConfirmModal(false);
       setShowSuccessModal(true);
     } catch (err: any) {
       console.error(err);
-      alert(err.message || "Une erreur est survenue lors du traitement.");
+      alert(err.message || "Une erreur est survenue lors de la transaction.");
     } finally {
       setIsProcessing(false);
     }
@@ -92,7 +205,9 @@ export function BourseLicenseDetail() {
           
           <div className="absolute bottom-4 left-4 right-4 z-10">
             <div className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest mb-1.5">Finance & Trading</div>
-            <h1 className="text-2xl font-black text-white leading-tight mb-2 text-balance">Trading Pro - Analyse Technique & Crypto</h1>
+            <h1 className="text-2xl font-black text-white leading-tight mb-2 text-balance">
+              {orderData ? orderData.courseTitle : "Trading Pro - Analyse Technique & Crypto"}
+            </h1>
             
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-1 text-xs text-white/80">
@@ -112,16 +227,22 @@ export function BourseLicenseDetail() {
         <div className="px-4 pb-4">
           {/* Creator */}
           <div className="flex items-center gap-3 p-4 bg-white/[0.04] border border-white/[0.06] rounded-2xl mb-4 mt-2">
-            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-rose-500 to-rose-700 flex items-center justify-center text-lg font-bold text-white shrink-0">
-              AM
+            <div className={`w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold text-white shrink-0 ${orderData ? "bg-gradient-to-br from-indigo-500 to-purple-600" : "bg-gradient-to-br from-rose-500 to-rose-700"}`}>
+              {orderData ? <RefreshCw className="w-5 h-5" /> : "AM"}
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-bold text-white truncate">Dr. Alain Mbarga</div>
-              <div className="text-[11px] text-slate-400">Expert Finance • 12 cours créés</div>
+              <div className="text-sm font-bold text-white truncate">
+                {orderData ? `Offre P2P de ${orderData.sellerName}` : "Dr. Alain Mbarga"}
+              </div>
+              <div className="text-[11px] text-slate-400">
+                {orderData ? "Marché Secondaire (Licence de revente)" : "Expert Finance • 12 cours créés"}
+              </div>
             </div>
-            <button className="px-4 py-2 rounded-xl bg-emerald-500/20 text-emerald-500 border border-emerald-500/30 text-[11px] font-bold hover:bg-emerald-500/30 transition-colors">
-              Suivre
-            </button>
+            {!orderData && (
+              <button className="px-4 py-2 rounded-xl bg-emerald-500/20 text-emerald-500 border border-emerald-500/30 text-[11px] font-bold hover:bg-emerald-500/30 transition-colors">
+                Suivre
+              </button>
+            )}
           </div>
 
           <h2 className="text-base font-bold text-white mb-2 ml-1">📖 Description</h2>
@@ -165,7 +286,9 @@ export function BourseLicenseDetail() {
             
             <div className="flex justify-between items-center mb-4 relative z-10">
               <div className="text-[15px] font-bold text-white">Détails de la licence</div>
-              <div className="px-2.5 py-1 rounded-md bg-orange-500/20 text-orange-400 text-[10px] font-bold">ROI estim: 1,650%</div>
+              <div className="px-2.5 py-1 rounded-md bg-orange-500/20 text-orange-400 text-[10px] font-bold">
+                ROI estim: {orderData ? "Immédiat P2P" : "1,650%"}
+              </div>
             </div>
 
             <div className="space-y-2 relative z-10">
@@ -173,7 +296,7 @@ export function BourseLicenseDetail() {
                 <div className="text-xs text-slate-400 flex items-center gap-1.5">
                   <Briefcase className="w-3.5 h-3.5 text-slate-500"/> Prix de la licence
                 </div>
-                <div className="text-[13px] font-bold text-orange-400">200 000 XOF</div>
+                <div className="text-[13px] font-bold text-orange-400">{priceToPay.toLocaleString('fr-FR')} XOF</div>
               </div>
               <div className="flex justify-between items-center py-2 border-b border-white/5">
                 <div className="text-xs text-slate-400 flex items-center gap-1.5">
@@ -279,7 +402,7 @@ export function BourseLicenseDetail() {
         <div className="flex justify-between items-center mb-3">
           <div>
             <div className="text-[10px] font-semibold text-slate-400 mb-0.5">Prix de la licence</div>
-            <div className="text-[22px] font-black text-white">200 000 <span className="text-sm text-emerald-500">XOF</span></div>
+            <div className="text-[22px] font-black text-white">{priceToPay.toLocaleString('fr-FR')} <span className="text-sm text-emerald-500">XOF</span></div>
           </div>
           <div className="px-3 py-1.5 bg-white/5 rounded-lg">
             <div className="text-[10px] text-slate-400">Wallet</div>
@@ -291,7 +414,7 @@ export function BourseLicenseDetail() {
           className="w-full p-4 rounded-2xl bg-gradient-to-br from-emerald-600 to-emerald-400 text-white font-bold text-[15px] flex items-center justify-center gap-2 active:scale-95 transition-transform shadow-lg shadow-emerald-500/20"
         >
           <CreditCard className="w-5 h-5" />
-          Acheter la licence - 200 000 XOF
+          Acheter la licence - {totalCost.toLocaleString('fr-FR')} XOF (TTC)
         </button>
       </div>
 
@@ -306,23 +429,23 @@ export function BourseLicenseDetail() {
             <div className="p-4 bg-white/[0.04] rounded-2xl mb-4 space-y-2">
               <div className="flex justify-between text-xs">
                 <span className="text-slate-400">Cours</span>
-                <span className="font-bold text-white">Trading Pro</span>
+                <span className="font-bold text-white">{orderData ? orderData.courseTitle : "Trading Pro"}</span>
               </div>
               <div className="flex justify-between text-xs">
-                <span className="text-slate-400">Créateur</span>
-                <span className="font-bold text-white">Dr. Alain Mbarga</span>
+                <span className="text-slate-400">Vendeur</span>
+                <span className="font-bold text-white">{sellerContent}</span>
               </div>
               <div className="flex justify-between text-xs">
                 <span className="text-slate-400">Prix de la licence</span>
-                <span className="font-bold text-white">200 000 XOF</span>
+                <span className="font-bold text-white">{priceToPay.toLocaleString('fr-FR')} XOF</span>
               </div>
-              <div className="flex justify-between text-xs">
-                <span className="text-slate-400">Frais plateforme (2%)</span>
-                <span className="font-bold text-white">4 000 XOF</span>
+              <div className="flex justify-between text-xs text-orange-400/80">
+                <span className="">Frais plateforme (2%)</span>
+                <span className="font-bold">{platformFee.toLocaleString('fr-FR')} XOF</span>
               </div>
               <div className="flex justify-between pt-3 mt-2 border-t border-white/10">
-                <span className="text-xs text-slate-400">Total à payer</span>
-                <span className="font-black text-emerald-500">204 000 XOF</span>
+                <span className="text-xs font-semibold text-emerald-400">Total à payer</span>
+                <span className="font-black text-emerald-400">{totalCost.toLocaleString('fr-FR')} XOF</span>
               </div>
             </div>
 
@@ -363,9 +486,9 @@ export function BourseLicenseDetail() {
               className="w-full p-4 rounded-xl bg-gradient-to-br from-emerald-600 to-emerald-400 text-white font-bold text-[14px] mb-2 active:scale-95 transition-all flex items-center justify-center gap-2"
             >
               {isProcessing ? (
-                <><Loader2 className="w-4 h-4 animate-spin" /> Traitement...</>
+                <><Loader2 className="w-4 h-4 animate-spin" /> Traitement en cours...</>
               ) : (
-                "Confirmer l'achat - 204 000 XOF"
+                `Confirmer l'achat - ${totalCost.toLocaleString('fr-FR')} XOF`
               )}
             </button>
             <button 
@@ -385,16 +508,18 @@ export function BourseLicenseDetail() {
           <div className="w-24 h-24 rounded-full bg-emerald-500/20 flex items-center justify-center text-5xl mb-6 animate-in zoom-in duration-500 delay-100">
             🎉
           </div>
-          <h2 className="text-2xl font-black text-white mb-2">Achat réussi !</h2>
+          <h2 className="text-2xl font-black text-white mb-2 text-center">Licence acquise !</h2>
           <p className="text-sm text-slate-400 text-center leading-relaxed mb-8 max-w-[280px]">
-            Vous êtes maintenant propriétaire de la licence de revente "Trading Pro". Les revenus des nouvelles inscriptions seront versés dans votre wallet.
+            {orderData
+              ? "Transaction effectuée sur le marché secondaire. Vous êtes le nouveau propriétaire !"
+              : "Vous êtes maintenant propriétaire de la licence de revente."}
           </p>
-          <div className="text-3xl font-black text-emerald-500 mb-8">-204 000 XOF</div>
+          <div className="text-3xl font-black text-emerald-500 mb-8">-{totalCost.toLocaleString('fr-FR')} XOF</div>
           
           <button 
             onClick={() => {
               setShowSuccessModal(false);
-              navigate(-1);
+              navigate('/student/dashboard');
             }}
             className="w-full max-w-xs p-4 rounded-xl bg-gradient-to-br from-emerald-600 to-emerald-400 text-white font-bold text-[15px] mb-3 active:scale-95 transition-transform"
           >

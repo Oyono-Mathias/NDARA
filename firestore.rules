@@ -1,116 +1,111 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Règle de base par défaut : aucune permission
     match /{document=**} {
       allow read, write: if false;
     }
 
-    function isSignedIn() {
-      return request.auth != null;
-    }
-    
-    function incoming() {
-      return request.resource.data;
-    }
-    
-    function existing() {
-      return resource.data;
-    }
-    
-    function isValidId(id) {
-      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    // 1. Rôle Administrateur
+    function isAdmin() {
+      return request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-    function isValidUser(data) {
-      return data.keys().hasAll(['uid', 'role', 'email'])
-        && data.uid is string && data.uid.size() <= 128 && data.uid == request.auth.uid
-        && data.role is string && data.role in ['student', 'expert', 'ceo']
-        && data.email is string && data.email.size() <= 200
-        && (!('fullName' in data) || (data.fullName is string && data.fullName.size() <= 100))
-        && (!('createdAt' in data) || data.createdAt is string)
-        && (!('wallet' in data) || (
-            data.wallet is map
-            && (!('balance' in data.wallet) || data.wallet.balance is number)
-            && (!('affiliateBalance' in data.wallet) || data.wallet.affiliateBalance is number)
-            && (!('pendingBalance' in data.wallet) || data.wallet.pendingBalance is number)
-        ));
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
     }
 
-    function isValidTransaction(data, parentUserId) {
-      return data.keys().hasAll(['userId', 'amount', 'type'])
-        && data.userId is string && data.userId == parentUserId
-        && data.amount is number
-        && data.type is string && data.type in ['deposit', 'purchase', 'affiliate_payout', 'escrow_release']
-        && (!('id' in data) || (data.id is string && data.id.size() <= 128))
-        && (!('status' in data) || (data.status is string && data.status in ['pending', 'completed', 'failed']))
-        && (!('timestamp' in data) || data.timestamp is string);
-    }
-
-    match /users/{userId} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn() && userId == request.auth.uid;
-      
-      match /{subcollection}/{docId} {
-        allow read, write: if isSignedIn() && (request.auth.uid == userId || userId == 'inst_mathias');
-      }
-    }
-
-    match /courses/{courseId} {
-      allow read: if true;
-      allow write: if isSignedIn();
-    }
-
-    match /enrollments/{enrollmentId} {
-      allow read, write: if isSignedIn();
-    }
-
-    match /chats/{chatId} {
-      allow read, write: if isSignedIn();
-    }
-
-    match /messages/{messageId} {
-      allow read, write: if isSignedIn();
-    }
+    // 2. Sécurisation des Collections Admin
     
-    match /devoirs/{devoirId} {
-      allow read, write: if isSignedIn();
-    }
-    
-    match /payments/{paymentId} {
-      allow read, write: if isSignedIn();
-    }
-    
-    match /payout_requests/{payoutId} {
-      allow read, write: if isSignedIn();
-    }
-    
-    match /quiz_submissions/{submissionId} {
-      allow read, write: if isSignedIn();
-    }
-    
-    match /course_reviews/{reviewId} {
-      allow read, write: if isSignedIn();
-    }
-    
-    match /ebooks/{ebookId} {
-      allow read: if true;
-      allow write: if isSignedIn();
-    }
-
-    match /tools/{toolId} {
-      allow read: if true;
-      allow write: if isSignedIn();
-    }
+    // Paramètres globaux (settings)
     match /settings/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    // Télémétrie et Sécurité (logs)
+    match /system_logs/{docId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    match /security_audit_logs/{docId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // Moteur Marketing
+    match /marketing_campaigns/{docId} {
+      allow read, write: if isAdmin();
+    }
+    match /email_templates/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    // Retraits (payouts)
+    match /payouts/{docId} {
+      // Lecture et modification du statut réservées aux admins
+      allow read: if isAdmin();
+      allow update, delete: if isAdmin();
+      // Les instructeurs/utilisateurs peuvent uniquement créer une demande de retrait
+      allow create: if request.auth != null;
+    }
+
+    // 3. Sécurisation des Collections Métier
+
+    // Utilisateurs (users)
+    match /users/{userId} {
+      // Tout utilisateur authentifié peut lire son propre profil, les admins peuvent tout lire
+      allow read: if isOwner(userId) || isAdmin();
+      // Création de profil pour tous les nouveaux inscrits
+      allow create: if isOwner(userId) || isAdmin();
+      // Un utilisateur peut modifier son profil, sauf pour s'élever en admin ou se débannir
+      allow update: if isAdmin() || (
+        isOwner(userId) && 
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'isBanned', 'status'])
+      );
+      // Seuls les admins peuvent bannir / supprimer (ou modifier les rôles avec full accès en update)
+      allow delete: if isAdmin();
+    }
+
+    // Cours (courses)
+    match /courses/{courseId} {
+      // Lecture publique pour les cours publiés
+      allow read: if (resource.data.status == 'Published') || isAdmin() || (request.auth != null && resource.data.instructorId == request.auth.uid);
+      // Création autorisée pour les instructeurs propriétaires
+      allow create: if request.auth != null;
+      // Modification autorisée pour le propriétaire, MAIS seul l'admin peut modifier le statut d'arbitrage (ex: publier)
+      allow update: if isAdmin() || (
+        request.auth != null && 
+        resource.data.instructorId == request.auth.uid &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['status', 'arbitrationStatus'])
+      );
+      allow delete: if isAdmin() || (request.auth != null && resource.data.instructorId == request.auth.uid);
+    }
+
+    // Support (support_tickets)
+    match /support_tickets/{ticketId} {
+      // Un utilisateur peut créer ses propres tickets
+      // (On assume que le userId est attaché au document existant et entrant)
+      allow create: if request.auth != null 
+        && (request.resource.data.userId == request.auth.uid || !('userId' in request.resource.data));
+      // Un utilisateur peut voir ses propres tickets
+      allow read: if isAdmin() || (request.auth != null && resource.data.userId == request.auth.uid);
+      // Les admins ont un accès total en écriture
+      allow update, delete: if isAdmin();
+    }
+
+    // Base de connaissance (faq_entries)
+    match /faq_entries/{faqId} {
+      // Lecture publique pour les utilisateurs (et l'IA)
       allow read: if true;
+      // Écriture strictement réservée aux admins
+      allow write: if isAdmin();
     }
 
-    match /user_wishlist/{wishId} {
-      allow read, write: if isSignedIn();
-    }
-
-    match /course_coupons/{couponId} {
-      allow read, write: if isSignedIn();
+    // Raccourcis complémentaires métier essentiels au bon fonctionnement du dashboard
+    match /payments/{docId} {
+      allow read, write: if isAdmin();
+      allow create: if request.auth != null;
     }
   }
 }

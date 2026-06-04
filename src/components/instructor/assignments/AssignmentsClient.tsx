@@ -100,31 +100,71 @@ export function AssignmentsClient() {
         if (!selectedSubmission) return;
         setIsGeneratingAI(true);
         try {
-            const res = await fetch("/api/ai/grade-assignment", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    assignmentPrompt: selectedSubmission.assignmentTitle || selectedSubmission.title || "",
-                    studentSubmission: selectedSubmission.submissionContent || "Non fourni",
-                })
+            const { GoogleGenAI, Type } = await import('@google/genai');
+            // WARNING: Calling Gemini directly from the client exposes the API Key.
+            // This is implemented to satisfy the strict "no-mock" and "direct execution" requirement,
+            // but in a production setting, this should be moved to a Firebase Cloud Function.
+            const ai = new GoogleGenAI({ apiKey: (import.meta as any).env.VITE_GEMINI_API_KEY });
+            
+            const prompt = `Tu es un professeur expert dans ton domaine. Évalue rigoureusement le devoir étudiant suivant.
+Titre du devoir: ${selectedSubmission.assignmentTitle || selectedSubmission.title || ""}
+Contenu de l'étudiant:
+${selectedSubmission.submissionContent || "Non fourni"}
+
+Retourne un objet JSON strict contenant exactement :
+- globalComment: Un commentaire global bien rédigé
+- strengths: Tableau de chaînes contenant les points forts
+- improvements: Tableau de chaînes contenant les axes d'amélioration
+- finalGrade: La note finale sur 20 (sous forme de nombre)`;
+
+            const response = await ai.models.generateContent({
+                model: "gemini-3.5-flash",
+                contents: prompt,
+                config: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: Type.OBJECT,
+                        properties: {
+                            globalComment: { type: Type.STRING },
+                            strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
+                            improvements: { type: Type.ARRAY, items: { type: Type.STRING } },
+                            finalGrade: { type: Type.NUMBER }
+                        },
+                        required: ["globalComment", "strengths", "improvements", "finalGrade"]
+                    }
+                }
             });
-            const data = await res.json();
-            if (data && !data.error) {
-                if (data.suggestedGrade) {
-                    const parsedGrade = parseFloat(String(data.suggestedGrade).replace(/[^\d.]/g, ''));
-                    if (!isNaN(parsedGrade)) setGrade(parsedGrade.toString());
-                }
-                if (data.feedbackDraft) {
-                    let draft = data.feedbackDraft + "\n\n";
-                    if (data.strengths?.length) draft += "Points forts : " + data.strengths.join(", ") + "\n";
-                    if (data.improvements?.length) draft += "Axes d'amélioration : " + data.improvements.join(", ");
-                    setFeedback(draft);
-                }
-            } else {
-                console.error("AI Generation Error:", data.error);
-            }
+
+            const data = JSON.parse(response.text?.trim() || "{}");
+            
+            // Generate full feedback text
+            let draft = (data.globalComment || "Correction effectuée.") + "\n\n";
+            if (data.strengths?.length) draft += "Points forts :\n- " + data.strengths.join("\n- ") + "\n\n";
+            if (data.improvements?.length) draft += "Axes d'amélioration :\n- " + data.improvements.join("\n- ") + "\n";
+            
+            setGrade(data.finalGrade?.toString() || "");
+            setFeedback(draft);
+
+            // Persistance automatique dans Firestore
+            const ref = doc(db, 'devoirs', selectedSubmission.id);
+            await updateDoc(ref, {
+                status: 'graded',
+                grade: data.finalGrade || 0,
+                feedback: draft,
+                gradedAt: serverTimestamp()
+            });
+
+            setGradeSuccess(true);
+            setTimeout(() => {
+                setGradeSuccess(false);
+                setSelectedSubmission(null);
+                setGrade("");
+                setFeedback("");
+            }, 3000);
+
         } catch (error) {
             console.error("Error generating AI grading:", error);
+            alert("Erreur de correction IA. Assurez-vous que la clé VITE_GEMINI_API_KEY est valide.");
         } finally {
             setIsGeneratingAI(false);
         }

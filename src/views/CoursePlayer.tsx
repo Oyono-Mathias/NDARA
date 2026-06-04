@@ -5,52 +5,34 @@ import { collection, query, where, getDocs, onSnapshot, doc, updateDoc, getDoc, 
 import { Play, Pause, Maximize, SkipForward, SkipBack, Settings, CheckCircle2, ListVideo, PlayCircle, Loader2, ArrowLeft, Trophy, MessageCircleQuestion, Send, Bot } from "lucide-react";
 import { useRole } from "../context/RoleContext";
 
-function StudentQnaForm({ courseId, courseTitle, instructorId }: { courseId: string, courseTitle: string, instructorId: string }) {
+function StudentQnaForm({ courseId, chapterId }: { courseId: string, chapterId: string }) {
     const { currentUser } = useRole();
     const [question, setQuestion] = useState("");
-    const [isAsking, setIsAsking] = useState(false);
+    const [isActionLoading, setIsActionLoading] = useState(false);
     const [successMessage, setSuccessMessage] = useState("");
 
     const handleAskQuestion = async () => {
         if (!question.trim() || !currentUser?.uid) return;
-        setIsAsking(true);
+        setIsActionLoading(true);
         setSuccessMessage("");
         try {
-            // Demande à Mathias IA
-            const res = await fetch("/api/ai/auto-answer", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    studentQuestion: question,
-                    courseContext: `Cours: ${courseTitle}`,
-                })
-            });
-            const data = await res.json();
-            const aiAnswer = !data.error && data.answer ? data.answer : null;
-            
-            await addDoc(collection(db, "course_qna"), {
+            await addDoc(collection(db, "course_questions"), {
                 courseId,
-                courseTitle,
-                instructorId,
+                chapterId,
                 studentId: currentUser.uid,
-                studentName: currentUser.displayName || "Étudiant",
-                question,
-                answer: aiAnswer,
-                isAnswered: !!aiAnswer,
-                needsValidation: !!aiAnswer, // Nécessite la validation de l'instructeur
-                generatedBy: aiAnswer ? 'MathiasIA' : null,
-                validatedByInstructor: false,
-                createdAt: serverTimestamp(),
-                answeredAt: aiAnswer ? serverTimestamp() : null
+                questionText: question,
+                status: 'open',
+                createdAt: serverTimestamp()
             });
 
-            setSuccessMessage("Votre question a été envoyée. Si Mathias IA a trouvé une réponse, elle apparaîtra dans votre tableau de bord, et l'instructeur a été notifié.");
+            setSuccessMessage("Votre question a été enregistrée avec succès. L'instructeur vous répondra.");
             setQuestion("");
-            setTimeout(() => setSuccessMessage(""), 6000);
+            setTimeout(() => setSuccessMessage(""), 5000);
         } catch (error) {
-            console.error(error);
+            console.error("Error submitting question:", error);
+            alert("Erreur lors de l'envoi.");
         } finally {
-            setIsAsking(false);
+            setIsActionLoading(false);
         }
     };
 
@@ -76,13 +58,14 @@ function StudentQnaForm({ courseId, courseTitle, instructorId }: { courseId: str
                          onChange={e => setQuestion(e.target.value)}
                          placeholder="Ex: Je ne comprends pas bien la différence entre..."
                          className="w-full bg-[#1e293b] border border-white/10 rounded-2xl p-4 text-sm focus:ring-1 focus:ring-primary/50 text-slate-300 min-h-[100px] resize-y"
+                         disabled={isActionLoading}
                      />
                      <button 
                          onClick={handleAskQuestion}
-                         disabled={!question.trim() || isAsking}
+                         disabled={!question.trim() || isActionLoading}
                          className="h-12 px-6 bg-primary text-[#0f172a] font-black uppercase tracking-widest text-xs rounded-2xl flex items-center justify-center gap-2 hover:bg-emerald-400 disabled:opacity-50 transition w-full sm:w-auto"
                      >
-                         {isAsking ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Send size={16} /> Envoyer la question</>}
+                         {isActionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Send size={16} /> Envoyer la question</>}
                      </button>
                  </div>
              )}
@@ -289,7 +272,7 @@ export function CoursePlayer() {
              <p>{course.description || "Aucune description fournie."}</p>
           </div>
           
-          <StudentQnaForm courseId={course.id} courseTitle={course.title} instructorId={course.instructorId} />
+          <StudentQnaForm courseId={course.id} chapterId={`m${activeModule}_l${activeLesson}`} />
         </div>
 
         {/* Sidebar Syllabus */}

@@ -12,15 +12,6 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer 
 } from 'recharts';
 
-const mockChartData = [
-  { name: 'Jan', revenue: 400000 },
-  { name: 'Fév', revenue: 550000 },
-  { name: 'Mar', revenue: 480000 },
-  { name: 'Avr', revenue: 720000 },
-  { name: 'Mai', revenue: 840000 },
-  { name: 'Juin', revenue: 1050000 },
-];
-
 export function AdminDashboard() {
   const [stats, setStats] = useState({
     totalRevenue: 0,
@@ -30,6 +21,7 @@ export function AdminDashboard() {
     avgCompletion: 0,
   });
   const [recentTransactions, setRecentTransactions] = useState<any[]>([]);
+  const [chartData, setChartData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -37,8 +29,9 @@ export function AdminDashboard() {
 
     async function fetchDashboardData() {
       try {
-        // 1. Chiffre d'Affaires Global (Aggregation 1 read)
         const paymentsRef = collection(db, 'payments');
+        
+        // 1. Chiffre d'Affaires Global (Aggregation 1 read)
         const revenueSnap = await getAggregateFromServer(query(paymentsRef, where('status', 'in', ['Completed', 'succeeded', 'paid'])), {
           total: sum('amount')
         });
@@ -59,9 +52,38 @@ export function AdminDashboard() {
         });
 
         // 5. Dernières transactions (Limit 5 reads)
-        // using orderBy on createdAt require an index if combined with where, but here we just order all payments
         const recentTxSnap = await getDocs(query(paymentsRef, orderBy('createdAt', 'desc'), limit(5)));
         const transactions = recentTxSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        // 6. Chart Data (Group recent successful payments by month)
+        // We fetch all successful payments (could limit by date in a real large app to save reads)
+        const allCompletedTxSnap = await getDocs(query(paymentsRef, where('status', 'in', ['Completed', 'succeeded', 'paid'])));
+        
+        // Initialize last 6 months
+        const months = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
+        const sixMonthsData = [];
+        const today = new Date();
+        for (let i = 5; i >= 0; i--) {
+          const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+          sixMonthsData.push({
+            name: months[d.getMonth()],
+            monthIndex: d.getMonth(),
+            year: d.getFullYear(),
+            revenue: 0
+          });
+        }
+
+        allCompletedTxSnap.forEach(doc => {
+           const data = doc.data();
+           const dObj = data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt || 0);
+           const m = dObj.getMonth();
+           const y = dObj.getFullYear();
+           
+           const targetMonth = sixMonthsData.find(mData => mData.monthIndex === m && mData.year === y);
+           if (targetMonth) {
+             targetMonth.revenue += (Number(data.amount) || 0);
+           }
+        });
 
         if (isMounted) {
           setStats({
@@ -72,12 +94,11 @@ export function AdminDashboard() {
             avgCompletion: completionSnap.data().avg || 0,
           });
           setRecentTransactions(transactions);
+          setChartData(sixMonthsData);
           setLoading(false);
         }
       } catch (error) {
         console.error("Erreur lors de la récupération des statistiques (FinOps):", error);
-        
-        // Ensure UI displays gracefully in case index is missing during dev
         if (isMounted) setLoading(false);
       }
     }
@@ -211,13 +232,13 @@ export function AdminDashboard() {
             </div>
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
               <ArrowUpRight className="w-4 h-4" />
-              <span className="text-xs font-bold tracking-widest">+24%</span>
+              <span className="text-xs font-bold tracking-widest">{chartData.length >= 2 && chartData[chartData.length - 2].revenue > 0 ? `+${Math.round(((chartData[chartData.length - 1].revenue - chartData[chartData.length - 2].revenue) / chartData[chartData.length - 2].revenue) * 100)}%` : '+0%'}</span>
             </div>
           </div>
           
           <div className="flex-1 w-full min-h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={mockChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#10B981" stopOpacity={0.3}/>

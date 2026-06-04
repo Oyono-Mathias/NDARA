@@ -13,7 +13,9 @@ import {
 } from 'lucide-react';
 import clsx from 'clsx';
 import { format } from 'date-fns';
-import { fr } from 'date-fns/locale';
+// Note: We'll use a basic fallback if date-fns format complains without locale
+import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
+import { db } from '../../firebase';
 
 interface SecurityLog {
   id: string;
@@ -25,10 +27,12 @@ interface SecurityLog {
 }
 
 const LogIcon = ({ type }: { type: string }) => {
-  if (type.includes('user')) return <UserCog className="h-4 w-4 text-blue-400" />;
-  if (type.includes('course')) return <Database className="h-4 w-4 text-emerald-400" />;
-  if (type.includes('payment') || type.includes('payout')) return <CreditCard className="h-4 w-4 text-amber-400" />;
-  if (type.includes('security') || type.includes('suspicious')) return <Lock className="h-4 w-4 text-red-500" />;
+  if (!type) return <Info className="h-4 w-4 text-slate-400" />;
+  const t = type.toLowerCase();
+  if (t.includes('user')) return <UserCog className="h-4 w-4 text-blue-400" />;
+  if (t.includes('course')) return <Database className="h-4 w-4 text-emerald-400" />;
+  if (t.includes('payment') || t.includes('payout')) return <CreditCard className="h-4 w-4 text-amber-400" />;
+  if (t.includes('security') || t.includes('suspicious')) return <Lock className="h-4 w-4 text-red-500" />;
   return <Info className="h-4 w-4 text-slate-400" />;
 };
 
@@ -39,17 +43,25 @@ export function AdminSecurity() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Simulated fetch
-    setTimeout(() => {
-      setLogs([
-        { id: '1', eventType: 'user_login', status: 'info', details: 'Connexion administrateur réussie.', targetId: 'admin_123', timestamp: new Date() },
-        { id: '2', eventType: 'security_brute_force', status: 'danger', details: 'Tentatives de connexion multiples bloquées.', targetId: 'IP: 192.168.1.100', timestamp: new Date(Date.now() - 3600000) },
-        { id: '3', eventType: 'course_deleted', status: 'warning', details: 'Suppression du cours "Hack Ethique" forcé.', targetId: 'course_789', timestamp: new Date(Date.now() - 7200000) },
-        { id: '4', eventType: 'payment_refund', status: 'warning', details: 'Remboursement manuel effectué (25000 XAF).', targetId: 'pay_xyz', timestamp: new Date(Date.now() - 86400000) },
-        { id: '5', eventType: 'security_settings', status: 'info', details: 'Politique de mot de passe mise à jour.', targetId: 'system', timestamp: new Date(Date.now() - 172800000) }
-      ]);
+    const qLogs = query(collection(db, 'security_audit_logs'), orderBy('timestamp', 'desc'), limit(50));
+    const unsubLogs = onSnapshot(qLogs, (snap) => {
+      const fetched: SecurityLog[] = [];
+      snap.forEach(doc => {
+        const data = doc.data();
+        fetched.push({
+          id: doc.id,
+          eventType: data.eventType || 'unknown',
+          status: data.status || 'info', // expected: info, warning, danger
+          details: data.details || '',
+          targetId: data.targetId || 'system',
+          timestamp: data.timestamp?.toDate ? data.timestamp.toDate() : new Date(data.timestamp || Date.now())
+        });
+      });
+      setLogs(fetched);
       setIsLoading(false);
-    }, 800);
+    });
+
+    return () => unsubLogs();
   }, []);
 
   const filteredLogs = logs.filter(log => filterLevel === 'all' || log.status === filterLevel);

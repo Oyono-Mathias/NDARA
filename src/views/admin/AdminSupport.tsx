@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Headphones, 
   Zap, 
@@ -14,39 +14,118 @@ import {
   Loader2,
   LifeBuoy,
   Eye,
-  CheckCircle
+  CheckCircle,
+  XCircle
 } from 'lucide-react';
 import clsx from 'clsx';
+import { collection, query, onSnapshot, doc, updateDoc, setDoc, deleteDoc, orderBy } from 'firebase/firestore';
+import { db } from '../../firebase';
 
 export function AdminSupport() {
   const [activeTab, setActiveTab] = useState('tickets');
-  const [counts] = useState({ open: 12, resolved: 145 });
   const [searchTerm, setSearchTerm] = useState('');
   
+  // Real datasets
+  const [tickets, setTickets] = useState<any[]>([]);
+  const [faqs, setFaqs] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
   // FAQ state
   const [isAddingFaq, setIsAddingFaq] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [faqForm, setFaqForm] = useState({ question_fr: '', answer_fr: '', tags: '', order: 0 });
-  const [faqs, setFaqs] = useState([
-    { id: '1', question_fr: 'Comment obtenir mon certificat ?', answer_fr: 'Vous devez compléter tous les modules vidéo à 100% et réussir le quiz final avec au moins 80% de bonnes réponses.', tags: ['certificat', 'diplôme'], order: 1 },
-    { id: '2', question_fr: 'Comment demander un remboursement ?', answer_fr: 'Contactez le support dans les 14 jours suivant votre achat. Passé ce délai, aucun remboursement ne sera accordé.', tags: ['remboursement', 'paiement'], order: 2 }
-  ]);
+  const [faqForm, setFaqForm] = useState({ id: '', question_fr: '', answer_fr: '', tags: '', order: 0 });
 
-  const handleSaveFaq = () => {
+  useEffect(() => {
+    const unsubTickets = onSnapshot(collection(db, 'support_tickets'), (snap) => {
+      const t: any[] = [];
+      snap.forEach(d => t.push({ id: d.id, ...d.data() }));
+      // Sort by creation date or priority if needed
+      setTickets(t.sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0)));
+      setIsLoading(false);
+    });
+
+    const unsubFaq = onSnapshot(query(collection(db, 'faq_entries'), orderBy('order', 'asc')), (snap) => {
+      const f: any[] = [];
+      snap.forEach(d => {
+        const data = d.data();
+        f.push({ 
+          id: d.id, 
+          ...data,
+          tags: Array.isArray(data.tags) ? data.tags : data.tags?.split(',').map((t: string) => t.trim()) || []
+        });
+      });
+      setFaqs(f);
+    });
+
+    return () => {
+      unsubTickets();
+      unsubFaq();
+    };
+  }, []);
+
+  const handleUpdateTicketStatus = async (ticketId: string, status: string) => {
+    try {
+      await updateDoc(doc(db, 'support_tickets', ticketId), { status });
+    } catch (err) {
+      console.error("Error updating ticket status: ", err);
+    }
+  };
+
+  const handleSaveFaq = async () => {
     setIsSaving(true);
-    setTimeout(() => {
-      setFaqs([...faqs, { ...faqForm, id: Date.now().toString(), tags: faqForm.tags.split(',').map(t => t.trim()) }]);
+    try {
+      const tagsArray = faqForm.tags.split(',').map(t => t.trim()).filter(Boolean);
+      const dataToSave = {
+        question_fr: faqForm.question_fr,
+        answer_fr: faqForm.answer_fr,
+        tags: tagsArray,
+        order: faqForm.order
+      };
+
+      if (faqForm.id) {
+        await updateDoc(doc(db, 'faq_entries', faqForm.id), dataToSave);
+      } else {
+        await setDoc(doc(collection(db, 'faq_entries')), dataToSave);
+      }
+
       setIsAddingFaq(false);
-      setFaqForm({ question_fr: '', answer_fr: '', tags: '', order: 0 });
+      setFaqForm({ id: '', question_fr: '', answer_fr: '', tags: '', order: 0 });
+    } catch (error) {
+      console.error("Error saving FAQ:", error);
+    } finally {
       setIsSaving(false);
-    }, 800);
+    }
   };
 
-  const deleteFaq = (id: string) => {
-    setFaqs(faqs.filter(f => f.id !== id));
+  const handleDeleteFaq = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, 'faq_entries', id));
+    } catch (err) {
+      console.error("Error deleting FAQ: ", err);
+    }
   };
 
-  const filteredFaqs = faqs.filter(f => f.question_fr.toLowerCase().includes(searchTerm.toLowerCase()));
+  const editFaq = (faq: any) => {
+    setFaqForm({
+      id: faq.id,
+      question_fr: faq.question_fr || '',
+      answer_fr: faq.answer_fr || '',
+      tags: Array.isArray(faq.tags) ? faq.tags.join(', ') : (faq.tags || ''),
+      order: faq.order || 0
+    });
+    setIsAddingFaq(true);
+  };
+
+  const filteredFaqs = faqs.filter(f => f.question_fr?.toLowerCase().includes(searchTerm.toLowerCase()));
+  const openCount = tickets.filter(t => t.status !== 'resolved' && t.status !== 'Résolu').length;
+
+  if (isLoading) {
+    return (
+      <div className="flex h-[80vh] items-center justify-center bg-[#090E17]">
+        <Loader2 className="w-12 h-12 animate-spin text-blue-500" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 animate-in fade-in duration-700 pb-24 relative font-sans">
@@ -65,7 +144,7 @@ export function AdminSupport() {
         <div className="flex items-center gap-3">
             <div className="bg-blue-500/10 text-blue-500 text-[10px] font-black px-4 py-2 rounded-xl border border-blue-500/20 flex items-center gap-2 shadow-lg shrink-0">
                 <Zap className="w-4 h-4 animate-pulse" />
-                {counts.open} DEMANDES ACTIVES
+                {openCount} DEMANDES ACTIVES
             </div>
         </div>
       </header>
@@ -102,7 +181,7 @@ export function AdminSupport() {
                 activeTab === 'tickets' ? "bg-slate-800 text-white shadow-sm" : "text-slate-500 hover:text-slate-300 hover:bg-slate-800/30"
               )}
             >
-                <LifeBuoy className="h-4 w-4" /> Tickets Actifs
+                <LifeBuoy className="h-4 w-4" /> Tickets Actifs ({tickets.length})
             </button>
             <button 
               onClick={() => setActiveTab('faq')}
@@ -111,7 +190,7 @@ export function AdminSupport() {
                 activeTab === 'faq' ? "bg-slate-800 text-blue-400 shadow-sm" : "text-blue-500/50 hover:text-blue-400/80 hover:bg-slate-800/30"
               )}
             >
-                <MessageCircleQuestion className="h-4 w-4" /> Base FAQ
+                <MessageCircleQuestion className="h-4 w-4" /> Base FAQ ({faqs.length})
             </button>
         </div>
 
@@ -131,41 +210,55 @@ export function AdminSupport() {
                     </tr>
                   </thead>
                   <tbody className="text-sm divide-y divide-slate-800">
-                    {[1, 2, 3].map((i) => (
-                      <tr key={i} className="hover:bg-slate-800/20 transition-colors group">
+                    {tickets.length > 0 ? tickets.map((t) => (
+                      <tr key={t.id} className="hover:bg-slate-800/20 transition-colors group">
                         <td className="p-4 pl-6">
-                           <span className="font-mono text-xs text-white">TKT-NDR-{i}4X</span>
+                           <span className="font-mono text-xs text-white">TKT-{t.id.substring(0, 6).toUpperCase()}</span>
                         </td>
                         <td className="p-4">
                            <div className="flex items-center gap-2">
                               <div className="h-8 w-8 rounded-full bg-slate-800 border border-white/5 flex items-center justify-center">
-                                <span className="text-[10px] font-black text-slate-500">U{i}</span>
+                                <span className="text-[10px] font-black text-slate-500">{(t.userName ? t.userName[0] : 'U').toUpperCase()}</span>
                               </div>
-                              <span className="text-[10px] font-mono text-slate-400">user_{i}99...</span>
+                              <span className="text-[10px] font-mono text-slate-400 truncate max-w-[120px]">{t.userEmail || t.userId}</span>
                           </div>
                         </td>
                         <td className="p-4">
-                           <span className="font-bold text-white line-clamp-1 max-w-[200px]">Problème d'accès au module vidéo #{i}</span>
+                           <span className="font-bold text-white line-clamp-1 max-w-[200px]">{t.subject || 'Demande de support'}</span>
                         </td>
                         <td className="p-4">
-                           {i === 1 ? (
-                             <span className="inline-flex text-[9px] font-black uppercase border-none px-2 py-1 rounded bg-amber-500/10 text-amber-500 animate-pulse">Ouvert</span>
-                           ) : (
+                           {t.status === 'resolved' || t.status === 'Résolu' ? (
                              <span className="inline-flex text-[9px] font-black uppercase border-none px-2 py-1 rounded bg-emerald-500/10 text-emerald-500">Résolu</span>
+                           ) : t.status === 'urgent' ? (
+                             <span className="inline-flex text-[9px] font-black uppercase border-none px-2 py-1 rounded bg-red-500/10 text-red-500 animate-pulse">Urgent</span>
+                           ) : (
+                             <span className="inline-flex text-[9px] font-black uppercase border-none px-2 py-1 rounded bg-amber-500/10 text-amber-500">Ouvert</span>
                            )}
                         </td>
                         <td className="p-4 pr-6 text-right">
                            <div className="flex justify-end gap-2">
-                             <button className="h-8 w-8 rounded-lg bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition-colors flex items-center justify-center shadow-lg">
-                               <Eye className="w-4 h-4" />
-                             </button>
-                             <button className="h-8 w-8 rounded-lg bg-emerald-500/10 text-emerald-500 hover:text-slate-950 hover:bg-emerald-500 transition-colors flex items-center justify-center border border-emerald-500/20 shadow-lg">
-                               <CheckCircle className="w-4 h-4" />
-                             </button>
+                             {(t.status === 'resolved' || t.status === 'Résolu') ? (
+                               <button onClick={() => handleUpdateTicketStatus(t.id, 'open')} className="h-8 px-3 rounded-lg bg-amber-500/10 text-amber-500 hover:bg-amber-500 hover:text-slate-950 transition-colors flex items-center justify-center border border-amber-500/20 shadow-lg text-[9px] font-black uppercase tracking-wider">
+                                 Réouvrir
+                               </button>
+                             ) : (
+                               <button onClick={() => handleUpdateTicketStatus(t.id, 'resolved')} className="h-8 w-8 rounded-lg bg-emerald-500/10 text-emerald-500 hover:text-slate-950 hover:bg-emerald-500 transition-colors flex items-center justify-center border border-emerald-500/20 shadow-lg" title="Marquer Résolu">
+                                 <CheckCircle className="w-4 h-4" />
+                               </button>
+                             )}
                            </div>
                         </td>
                       </tr>
-                    ))}
+                    )) : (
+                      <tr>
+                        <td colSpan={5}>
+                          <div className="py-12 flex flex-col items-center justify-center text-center">
+                            <LifeBuoy className="w-8 h-8 text-slate-600 mb-3" />
+                            <p className="text-sm font-bold uppercase tracking-widest text-slate-500">Aucun ticket actif.</p>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -186,7 +279,10 @@ export function AdminSupport() {
                     />
                   </div>
                   <button 
-                    onClick={() => setIsAddingFaq(!isAddingFaq)}
+                    onClick={() => {
+                      setIsAddingFaq(!isAddingFaq);
+                      if(isAddingFaq) setFaqForm({ id: '', question_fr: '', answer_fr: '', tags: '', order: 0 }); // reset on cancel
+                    }}
                     className="flex items-center justify-center gap-2 h-12 px-6 rounded-2xl bg-blue-500 hover:bg-blue-400 text-slate-950 font-black uppercase text-[10px] tracking-widest transition-all shadow-xl shrink-0"
                   >
                     {isAddingFaq ? "Annuler" : <><Plus className="w-4 h-4" /> Nouvelle FAQ</>}
@@ -196,7 +292,7 @@ export function AdminSupport() {
                {isAddingFaq && (
                  <div className="bg-slate-800/40 border border-blue-500/30 rounded-3xl p-6 md:p-8 shadow-2xl animate-in slide-in-from-top-4">
                     <h3 className="text-sm font-black text-white uppercase tracking-widest mb-6 flex items-center gap-2">
-                       <MessageCircleQuestion className="w-5 h-5 text-blue-500" /> Nouvelle Entrée FAQ
+                       <MessageCircleQuestion className="w-5 h-5 text-blue-500" /> {faqForm.id ? "Modifier Entrée FAQ" : "Nouvelle Entrée FAQ"}
                     </h3>
                     <div className="space-y-5">
                        <div className="space-y-2">
@@ -259,7 +355,7 @@ export function AdminSupport() {
                           <h4 className="text-white font-black text-lg">{faq.question_fr}</h4>
                           <p className="text-slate-400 text-sm leading-relaxed font-medium">{faq.answer_fr}</p>
                           <div className="flex flex-wrap gap-2 pt-2">
-                             {faq.tags.map((tag, idx) => tag.trim() && (
+                             {faq.tags && faq.tags.map((tag: string, idx: number) => tag.trim() && (
                                <span key={idx} className="flex items-center gap-1.5 bg-slate-950 text-blue-400 border border-slate-800 px-2.5 py-1 rounded-md text-[9px] font-black uppercase tracking-widest">
                                  <Tag className="w-3 h-3" /> {tag.trim()}
                                </span>
@@ -267,11 +363,11 @@ export function AdminSupport() {
                           </div>
                        </div>
                        <div className="flex flex-row md:flex-col gap-2 shrink-0 w-full md:w-auto">
-                          <button className="flex-1 md:flex-none h-10 w-full md:w-10 rounded-xl bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center transition-colors">
+                          <button onClick={() => editFaq(faq)} className="flex-1 md:flex-none h-10 w-full md:w-10 rounded-xl bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center transition-colors">
                             <Edit3 className="w-4 h-4" />
                           </button>
                           <button 
-                            onClick={() => deleteFaq(faq.id)}
+                            onClick={() => handleDeleteFaq(faq.id)}
                             className="flex-1 md:flex-none h-10 w-full md:w-10 rounded-xl bg-slate-800 text-red-500 hover:bg-red-500 hover:text-white flex items-center justify-center transition-colors border border-red-500/10"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -292,3 +388,4 @@ export function AdminSupport() {
     </div>
   );
 }
+

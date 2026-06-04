@@ -4,6 +4,7 @@ import { useRole } from '../../context/RoleContext';
 import { AdminNavigation } from '../../components/AdminNavigation';
 import { AdminDashboard } from './AdminDashboard';
 import { AdminMembers } from './AdminMembers';
+import { AdminSquads } from './AdminSquads';
 import { AdminCourses } from './AdminCourses';
 import { AdminTransactions } from './AdminTransactions';
 import { AdminModeration } from './AdminModeration';
@@ -107,6 +108,7 @@ export function AdminLayout() {
               
               {/* Operations */}
               <Route path="members" element={<AdminMembers />} />
+              <Route path="squads" element={<AdminSquads />} />
               <Route path="catalog" element={<AdminCourses />} />
               <Route path="moderation" element={<AdminModeration />} />
               <Route path="push" element={<AdminMarketing />} />

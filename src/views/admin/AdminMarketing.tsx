@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   BellRing, 
   Mail, 
@@ -8,9 +8,12 @@ import {
   Edit3, 
   Eye, 
   Frown,
-  Users
+  Users,
+  Loader2
 } from 'lucide-react';
 import clsx from 'clsx';
+import { collection, addDoc, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { db } from '../../firebase';
 
 export function AdminMarketing() {
   const [activeTab, setActiveTab] = useState('push');
@@ -21,15 +24,52 @@ export function AdminMarketing() {
   const [pushTarget, setPushTarget] = useState('all');
   const [isSending, setIsSending] = useState(false);
 
-  const handleSendPush = () => {
+  // States for emails
+  const [emailTemplates, setEmailTemplates] = useState<any[]>([]);
+  const [isLoadingEmails, setIsLoadingEmails] = useState(true);
+
+  useEffect(() => {
+    // Fetch email templates
+    const q = query(collection(db, 'email_templates'), orderBy('name', 'asc'));
+    const unsub = onSnapshot(q, (snap) => {
+      const templates: any[] = [];
+      snap.forEach(doc => {
+        templates.push({ id: doc.id, ...doc.data() });
+      });
+      setEmailTemplates(templates);
+      setIsLoadingEmails(false);
+    }, (err) => {
+      console.error("Erreur chargement emails:", err);
+      setIsLoadingEmails(false);
+    });
+
+    return () => unsub();
+  }, []);
+
+  const handleSendPush = async () => {
+    if (!pushTitle || !pushMessage) return;
+    
     setIsSending(true);
-    setTimeout(() => {
+    try {
+      await addDoc(collection(db, 'marketing_campaigns'), {
+        title: pushTitle,
+        message: pushMessage,
+        targetSegment: pushTarget,
+        type: 'push_notification',
+        status: 'scheduled',
+        createdAt: new Date()
+      });
+      
       setPushTitle('');
       setPushMessage('');
       setPushTarget('all');
-      setIsSending(false);
       alert("Notification programmée et envoyée avec succès.");
-    }, 1200);
+    } catch (error) {
+      console.error("Erreur lors de l'envoi de la notification:", error);
+      alert("Erreur lors de l'envoi de la notification.");
+    } finally {
+      setIsSending(false);
+    }
   };
 
   return (
@@ -188,58 +228,64 @@ export function AdminMarketing() {
           {activeTab === 'emails' && (
              <div className="bg-slate-800/30 border border-slate-700/50 rounded-3xl overflow-hidden shadow-2xl relative">
               <div className="overflow-x-auto hide-scrollbar">
-                <table className="w-full text-left border-collapse min-w-[700px]">
-                  <thead>
-                    <tr className="border-b border-slate-800 bg-slate-900/50">
-                      <th className="p-4 pl-6 text-[10px] font-black uppercase tracking-widest text-slate-400">Nom du Modèle</th>
-                      <th className="p-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Déclencheur</th>
-                      <th className="p-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Statut</th>
-                      <th className="p-4 pr-6 text-right text-[10px] font-black uppercase tracking-widest text-slate-400">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="text-sm divide-y divide-slate-800">
-                    {[
-                      { id: 1, name: 'Bienvenue Étudiant', trigger: 'Inscription', status: 'Actif' },
-                      { id: 2, name: 'Reçu d\'achat', trigger: 'Paiement Validé', status: 'Actif' },
-                      { id: 3, name: 'Cours Rejeté', trigger: 'Modération', status: 'Brouillon' }
-                    ].map((tpl) => (
-                      <tr key={tpl.id} className="hover:bg-slate-800/20 transition-colors group">
-                        <td className="p-4 pl-6">
-                           <div className="flex gap-4 items-center">
-                             <div className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-700 flex items-center justify-center shrink-0">
-                               <Mail className="w-4 h-4 text-orange-500" />
-                             </div>
-                             <div>
-                                <span className="font-bold text-sm text-white uppercase">{tpl.name}</span>
-                                <div className="text-[9px] text-slate-500 font-bold uppercase mt-0.5">Système Ndara</div>
-                             </div>
-                           </div>
-                        </td>
-                        <td className="p-4">
-                           <span className="text-xs text-slate-400 font-medium italic">{tpl.trigger}</span>
-                        </td>
-                        <td className="p-4">
-                           <span className={clsx(
-                             "inline-flex text-[9px] font-black uppercase border-none px-2 py-1 rounded",
-                             tpl.status === 'Actif' ? "bg-emerald-500/10 text-emerald-500" : "bg-slate-800 text-slate-400"
-                           )}>
-                             {tpl.status}
-                           </span>
-                        </td>
-                        <td className="p-4 pr-6 text-right">
-                           <div className="flex justify-end gap-2">
-                             <button className="h-8 w-8 rounded-lg bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition-colors flex items-center justify-center">
-                               <Eye className="w-4 h-4" />
-                             </button>
-                             <button className="h-8 w-8 rounded-lg bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition-colors flex items-center justify-center">
-                               <Edit3 className="w-4 h-4" />
-                             </button>
-                           </div>
-                        </td>
+                {isLoadingEmails ? (
+                  <div className="p-12 pl-6 flex justify-center items-center">
+                    <Loader2 className="w-8 h-8 text-orange-500 animate-spin" />
+                  </div>
+                ) : emailTemplates.length === 0 ? (
+                  <div className="p-12 text-center text-slate-500 text-sm font-bold uppercase tracking-widest">
+                    Aucun modèle d'email configuré.
+                  </div>
+                ) : (
+                  <table className="w-full text-left border-collapse min-w-[700px]">
+                    <thead>
+                      <tr className="border-b border-slate-800 bg-slate-900/50">
+                        <th className="p-4 pl-6 text-[10px] font-black uppercase tracking-widest text-slate-400">Nom du Modèle</th>
+                        <th className="p-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Déclencheur</th>
+                        <th className="p-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Statut</th>
+                        <th className="p-4 pr-6 text-right text-[10px] font-black uppercase tracking-widest text-slate-400">Actions</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="text-sm divide-y divide-slate-800">
+                      {emailTemplates.map((tpl) => (
+                        <tr key={tpl.id} className="hover:bg-slate-800/20 transition-colors group">
+                          <td className="p-4 pl-6">
+                             <div className="flex gap-4 items-center">
+                               <div className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-700 flex items-center justify-center shrink-0">
+                                 <Mail className="w-4 h-4 text-orange-500" />
+                               </div>
+                               <div>
+                                  <span className="font-bold text-sm text-white uppercase">{tpl.name || 'Sans nom'}</span>
+                                  <div className="text-[9px] text-slate-500 font-bold uppercase mt-0.5">Système Ndara</div>
+                               </div>
+                             </div>
+                          </td>
+                          <td className="p-4">
+                             <span className="text-xs text-slate-400 font-medium italic">{tpl.trigger || tpl.type || 'Inconnu'}</span>
+                          </td>
+                          <td className="p-4">
+                             <span className={clsx(
+                               "inline-flex text-[9px] font-black uppercase border-none px-2 py-1 rounded",
+                               (tpl.status === 'Actif' || tpl.status === 'active') ? "bg-emerald-500/10 text-emerald-500" : "bg-slate-800 text-slate-400"
+                             )}>
+                               {tpl.status || 'Brouillon'}
+                             </span>
+                          </td>
+                          <td className="p-4 pr-6 text-right">
+                             <div className="flex justify-end gap-2">
+                               <button className="h-8 w-8 rounded-lg bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition-colors flex items-center justify-center">
+                                 <Eye className="w-4 h-4" />
+                               </button>
+                               <button className="h-8 w-8 rounded-lg bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition-colors flex items-center justify-center">
+                                 <Edit3 className="w-4 h-4" />
+                               </button>
+                             </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
               </div>
             </div>
           )}
@@ -248,3 +294,4 @@ export function AdminMarketing() {
     </div>
   );
 }
+

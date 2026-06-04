@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import React, { useState, useEffect, useRef } from "react";
 import { useRole } from "../context/RoleContext";
 import { db } from "../firebase";
-import { doc, getDoc, setDoc, arrayUnion } from "firebase/firestore";
+import { doc, getDoc, setDoc, addDoc, collection, query, orderBy, onSnapshot } from "firebase/firestore";
 
 interface Message {
   id: string;
@@ -25,30 +25,46 @@ export function MathiasTutor() {
 
   useEffect(() => {
     if (!currentUser?.uid) return;
-    const historyRef = doc(db, 'users', currentUser.uid, 'ai_chats', 'mathias');
-    getDoc(historyRef).then(snap => {
-      if (snap.exists() && snap.data().messages) {
-         setMessages(snap.data().messages);
-      } else {
-         // Default welcome message
-         setMessages([{
-           id: "init",
-           role: 'model',
-           content: "Bara ala, c'est Mathias. Je suis là pour t'accompagner dans ta formation. Comment puis-je t'aider aujourd'hui ?"
-         }]);
-      }
+    const chatRef = collection(db, 'users', currentUser.uid, 'mathias_chats');
+    const q = query(chatRef, orderBy('createdAt', 'asc'));
+    const unsub = onSnapshot(q, (snap) => {
+      const msgs: Message[] = [];
+      msgs.push({
+        id: "init",
+        role: "model",
+        content: "Bara ala, c'est Mathias. Je suis là pour t'accompagner dans ta formation. Comment puis-je t'aider aujourd'hui ?"
+      });
+
+      let typing = false;
+
+      snap.docs.forEach(doc => {
+        const data = doc.data();
+        if (data.prompt) {
+           msgs.push({ id: doc.id + "_user", role: "user", content: data.prompt });
+        }
+        if (data.response) {
+           msgs.push({ id: doc.id + "_model", role: "model", content: data.response });
+        } else if (data.prompt) {
+           typing = true;
+        }
+      });
+
+      setMessages(msgs);
       setIsHistoryLoading(false);
-    }).catch(err => {
-      console.error(err);
+      setIsTyping(typing);
+    }, (error) => {
+      console.error(error);
       setIsHistoryLoading(false);
     });
+
+    return () => unsub();
   }, [currentUser?.uid]);
 
   useEffect(() => {
-    if (!isHistoryLoading && initialQuery && messages.length <= 1) {
+    if (!isHistoryLoading && initialQuery && messages.length <= 1 && !isTyping) {
        setInputValue(initialQuery);
     }
-  }, [isHistoryLoading, initialQuery, messages.length]);
+  }, [isHistoryLoading, initialQuery, messages.length, isTyping]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -61,46 +77,21 @@ export function MathiasTutor() {
   const handleSend = async () => {
     if (!inputValue.trim() || isTyping || !currentUser?.uid) return;
 
-    const userMessage: Message = { id: Date.now().toString(), role: 'user', content: inputValue.trim() };
-    const newMessages = [...messages, userMessage];
-    setMessages(newMessages);
+    const userMessageContent = inputValue.trim();
     setInputValue("");
     setIsTyping(true);
 
-    // Save to Firestore immediately
-    const historyRef = doc(db, 'users', currentUser.uid, 'ai_chats', 'mathias');
-    await setDoc(historyRef, { messages: newMessages }, { merge: true });
-
+    const chatRef = collection(db, 'users', currentUser.uid, 'mathias_chats');
+    
+    // Ajout du document dans la collection, qui sera traité par l'extension IA
     try {
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          message: userMessage.content,
-          history: messages.map(m => ({ role: m.role, content: m.content }))
-        })
+      await addDoc(chatRef, {
+        prompt: userMessageContent,
+        systemInstruction: "Tu es Mathias, le tuteur officiel de la plateforme NDARA, encourageant, pédagogue et expert. Réponds aux questions de l'étudiant en t'appuyant sur le contexte du cours.",
+        createdAt: new Date(), // using local JS date for immediate optimistic ordering 
       });
-
-      const data = await response.json();
-      let aiResponse: Message;
-      if (response.ok && data.reply) {
-         aiResponse = { id: Date.now().toString(), role: 'model', content: data.reply };
-         
-      } else {
-         aiResponse = { id: Date.now().toString(), role: 'model', content: "Désolé, j'ai rencontré un problème réseau. Peux-tu reformuler ?" };
-      }
-      const updatedMessages = [...newMessages, aiResponse];
-      setMessages(updatedMessages);
-      await setDoc(historyRef, { messages: updatedMessages }, { merge: true });
     } catch (err) {
-      console.error(err);
-      const errResponse: Message = { id: Date.now().toString(), role: 'model', content: "Désolé, je suis hors ligne actuellement." };
-      const updatedMessages = [...newMessages, errResponse];
-      setMessages(updatedMessages);
-      await setDoc(historyRef, { messages: updatedMessages }, { merge: true });
-    } finally {
+      console.error("Erreur d'envoi du message", err);
       setIsTyping(false);
     }
   };

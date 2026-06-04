@@ -13,8 +13,8 @@ import {
     Database
 } from 'lucide-react';
 import clsx from 'clsx';
-// import { collection, query, orderBy, limit, onSnapshot, doc, updateDoc } from 'firebase/firestore';
-// import { db } from '../../firebase';
+import { collection, query, orderBy, limit, onSnapshot, doc, updateDoc, setDoc } from 'firebase/firestore';
+import { db } from '../../firebase';
 
 export function AdminMonitoring() {
     const [hasMounted, setHasMounted] = useState(true);
@@ -24,23 +24,58 @@ export function AdminMonitoring() {
         ai: { autoCorrection: true, autonomousTutor: true, fraudDetection: true }
     });
 
-    // Simulated Logs Feed
     useEffect(() => {
-        const mockLogs = [
-            { id: '1', timestamp: new Date(), eventType: 'SYS_START', details: 'Mathias engine handshake successful...' },
-            { id: '2', timestamp: new Date(Date.now() - 5000), eventType: 'user_auth', details: 'Admin login detected via secure channel.' },
-            { id: '3', timestamp: new Date(Date.now() - 15000), eventType: 'course_indexing', details: 'Re-indexing knowledge base...' },
-            { id: '4', timestamp: new Date(Date.now() - 45000), eventType: 'alert_throttle', details: 'Rate limit applied to IP 192.168.1.5' },
-        ];
-        
-        setTimeout(() => {
-            setLogs(mockLogs);
+        // Fetch System Logs
+        const qLogs = query(collection(db, 'system_logs'), orderBy('timestamp', 'desc'), limit(50));
+        const unsubLogs = onSnapshot(qLogs, (snap) => {
+            const fetchedLogs: any[] = [];
+            snap.forEach(doc => {
+                const data = doc.data();
+                fetchedLogs.push({
+                    id: doc.id,
+                    timestamp: data.timestamp?.toDate ? data.timestamp.toDate() : new Date(data.timestamp || Date.now()),
+                    eventType: data.eventType || 'SYS_EVENT',
+                    details: data.details || ''
+                });
+            });
+            setLogs(fetchedLogs);
             setLoadingLogs(false);
-        }, 1500);
+        });
+
+        // Fetch AI Settings from global config
+        const unsubSettings = onSnapshot(doc(db, 'settings', 'global_config'), (docSnap) => {
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                if (data.ai) {
+                    setSettings(prev => ({
+                        ...prev,
+                        ai: { ...prev.ai, ...data.ai }
+                    }));
+                }
+            } else {
+                // Initialize if it doesn't exist
+                setDoc(doc(db, 'settings', 'global_config'), { ai: settings.ai }, { merge: true });
+            }
+        });
+
+        return () => {
+            unsubLogs();
+            unsubSettings();
+        };
     }, []);
 
-    const toggleAiFeature = (key: string, value: boolean) => {
+    const toggleAiFeature = async (key: string, value: boolean) => {
+        // Optimistic UI update
         setSettings(prev => ({ ...prev, ai: { ...prev.ai, [key]: value } }));
+        try {
+            await updateDoc(doc(db, 'settings', 'global_config'), {
+                [`ai.${key}`]: value
+            });
+        } catch (error) {
+            console.error("Error updating AI settings:", error);
+            // Revert on error
+            setSettings(prev => ({ ...prev, ai: { ...prev.ai, [key]: !value } }));
+        }
     };
 
     if (!hasMounted) return null;
@@ -127,7 +162,7 @@ export function AdminMonitoring() {
                             label="Correction Auto" 
                             desc="Devoirs & Quiz" 
                             color="text-purple-400" 
-                            checked={settings.ai.autoCorrection}
+                            checked={settings.ai?.autoCorrection !== false} // Default to true if undefined
                             onChange={(v: boolean) => toggleAiFeature('autoCorrection', v)}
                         />
                         <AiToggleItem 
@@ -135,7 +170,7 @@ export function AdminMonitoring() {
                             label="Tuteur Autonome" 
                             desc="Réponses 24/7" 
                             color="text-blue-400" 
-                            checked={settings.ai.autonomousTutor}
+                            checked={settings.ai?.autonomousTutor !== false}
                             onChange={(v: boolean) => toggleAiFeature('autonomousTutor', v)}
                         />
                         <AiToggleItem 
@@ -144,7 +179,7 @@ export function AdminMonitoring() {
                             desc="Analyse temps réel" 
                             color="text-red-400" 
                             isCritical
-                            checked={settings.ai.fraudDetection}
+                            checked={settings.ai?.fraudDetection !== false}
                             onChange={(v: boolean) => toggleAiFeature('fraudDetection', v)}
                         />
                     </div>
