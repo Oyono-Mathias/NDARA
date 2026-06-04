@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Settings, Palette, Wrench, Users, GraduationCap, BookOpen, Award, CreditCard, 
   Landmark, ShieldCheck, Shield, Key, HardDrive, BrainCircuit, Bell, MessageSquare, 
   Layout, TrendingUp, BarChart3, Globe, Save, Loader2, X, ChevronDown
 } from 'lucide-react';
 import clsx from 'clsx';
+import { doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
+import { db } from '../../firebase';
 
 const HUBS = [
   {
@@ -92,15 +94,106 @@ export function AdminSettings() {
   const [activeModuleId, setActiveModuleId] = useState<string>('general');
   const [isSaving, setIsSaving] = useState(false);
   const [isMobileSheetOpen, setIsMobileSheetOpen] = useState(false);
+  
+  const [config, setConfig] = useState<any>({});
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const docRef = doc(db, 'settings', 'global_config');
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          setConfig(docSnap.data());
+        } else {
+          const defaultConfig = {
+            platform_name: "Ndara Afrique",
+            slogan: "L'excellence africaine sans frontières",
+            language: "fr",
+            timezone: "Africa/Douala",
+            enforce_dark_mode: true,
+            theme: "emerald",
+            maintenance_mode: false,
+            auto_backup: true,
+            verbose_logs: true,
+            open_registration: true,
+            email_validation_required: false,
+            default_role: "student",
+            instructor_registration: true,
+            manual_validation_required: true,
+            admin_validation_courses: true,
+            video_required: true,
+            min_price: 1000,
+            auto_generation_cert: true,
+            qr_code: true,
+            cert_design: "modern",
+            enable_payments: true,
+            currency: "XAF",
+            mm_gateway: true,
+            card_gateway: true,
+            platform_commission: 20,
+            auto_payout: false,
+            enforce_2fa: false,
+            max_login_attempts: 5,
+            dynamic_ip_block: true,
+            openai_api_key: "",
+            google_client_id: "",
+            cdn_provider: "firebase",
+            max_video_size: 2000,
+            auto_image_optimization: true,
+            enable_tutor: true,
+            auto_quiz_grading: true,
+            ai_model: "gemini",
+            transactional_emails: true,
+            cloud_messaging: true,
+            whatsapp_api: false,
+            profanity_filter: true,
+            manual_comments_approval: false,
+            enable_blog: true,
+            public_faq: true,
+            promo_codes: true,
+            affiliate_program: true,
+            affiliate_return_rate: 10,
+            internal_telemetry: true,
+            ga4_id: ""
+          };
+          setConfig(defaultConfig);
+          await setDoc(docRef, defaultConfig);
+        }
+      } catch (error) {
+        console.error("Error fetching settings: ", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchSettings();
+  }, []);
 
   const activeHub = HUBS.find(h => h.id === activeHubId)!;
 
-  const handleSave = () => {
-    setIsSaving(true);
-    setTimeout(() => {
-      setIsSaving(false);
-    }, 1000);
+  const handleUpdate = (key: string, value: any) => {
+    setConfig((prev: any) => ({ ...prev, [key]: value }));
   };
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      const docRef = doc(db, 'settings', 'global_config');
+      await updateDoc(docRef, config);
+    } catch (error) {
+       console.error("Error updating config:", error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-[#090E17]">
+        <Loader2 className="w-12 h-12 animate-spin text-emerald-500" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col lg:flex-row min-h-screen bg-[#090E17] text-white -m-4 md:-m-10 font-sans">
@@ -233,7 +326,7 @@ export function AdminSettings() {
 
           <div className="flex-1 overflow-y-auto px-6 lg:px-12 py-8 pb-32 hide-scrollbar">
               <div className="max-w-3xl space-y-8 animate-in fade-in duration-300">
-                  {renderModuleForm(activeModuleId)}
+                  {renderModuleForm(activeModuleId, config, handleUpdate)}
               </div>
           </div>
 
@@ -254,140 +347,140 @@ export function AdminSettings() {
 
 // ------ UI Forms Renderers ------
 
-const renderModuleForm = (moduleId: string) => {
+const renderModuleForm = (moduleId: string, config: any, updateObj: (k: string, v: any) => void) => {
     switch (moduleId) {
         /* GLOBALS */
         case 'general': return (
             <>
-                <TextInput label="Nom de la plateforme" defaultValue="Ndara Afrique" />
-                <TextInput label="Slogan principal" defaultValue="L'excellence africaine sans frontières" />
+                <TextInput label="Nom de la plateforme" value={config.platform_name} onChange={(v: string) => updateObj('platform_name', v)} />
+                <TextInput label="Slogan principal" value={config.slogan} onChange={(v: string) => updateObj('slogan', v)} />
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                    <SelectInput label="Langue système" value="fr" options={[{l: 'Français', v: 'fr'}, {l: 'English', v: 'en'}, {l: 'Sango', v: 'sg'}]} />
-                    <SelectInput label="Fuseau horaire" value="Africa/Douala" options={[{l: 'Africa/Douala', v: 'Africa/Douala'}, {l: 'Africa/Abidjan', v: 'Africa/Abidjan'}]} />
+                    <SelectInput label="Langue système" value={config.language} onChange={(v: string) => updateObj('language', v)} options={[{l: 'Français', v: 'fr'}, {l: 'English', v: 'en'}, {l: 'Sango', v: 'sg'}]} />
+                    <SelectInput label="Fuseau horaire" value={config.timezone} onChange={(v: string) => updateObj('timezone', v)} options={[{l: 'Africa/Douala', v: 'Africa/Douala'}, {l: 'Africa/Abidjan', v: 'Africa/Abidjan'}]} />
                 </div>
             </>
         );
         case 'appearance': return (
             <>
-                <Toggle label="Mode Sombre par défaut" description="Force le dark mode pour tous les utilisateurs non connectés" checked={true} />
-                <SelectInput label="Thème visuel" value="emerald" options={[{l: 'Émeraude Ndara', v: 'emerald'}, {l: 'Cosmic Slate', v: 'slate'}, {l: 'Oasis AMOLED', v: 'black'}]} />
+                <Toggle label="Mode Sombre par défaut" description="Force le dark mode pour tous les utilisateurs non connectés" checked={config.enforce_dark_mode} onChange={(v: boolean) => updateObj('enforce_dark_mode', v)} />
+                <SelectInput label="Thème visuel" value={config.theme} onChange={(v: string) => updateObj('theme', v)} options={[{l: 'Émeraude Ndara', v: 'emerald'}, {l: 'Cosmic Slate', v: 'slate'}, {l: 'Oasis AMOLED', v: 'black'}]} />
             </>
         );
         case 'maintenance': return (
             <>
-                <Toggle label="Mode Maintenance" description="Rend le site inaccessible avec une page 'Revenez plus tard'" checked={false} />
-                <Toggle label="Sauvegarde automatique (Firestore)" description="Export quotidien vers Google Cloud Storage" checked={true} />
-                <Toggle label="Activer les logs détaillés" description="Augmente la fidélité des événements enregistrés dans le journal de sécurité" checked={true} />
+                <Toggle label="Mode Maintenance" description="Rend le site inaccessible avec une page 'Revenez plus tard'" checked={config.maintenance_mode} onChange={(v: boolean) => updateObj('maintenance_mode', v)} />
+                <Toggle label="Sauvegarde automatique (Firestore)" description="Export quotidien vers Google Cloud Storage" checked={config.auto_backup} onChange={(v: boolean) => updateObj('auto_backup', v)} />
+                <Toggle label="Activer les logs détaillés" description="Augmente la fidélité des événements enregistrés dans le journal de sécurité" checked={config.verbose_logs} onChange={(v: boolean) => updateObj('verbose_logs', v)} />
             </>
         );
         
         /* ACTORS */
         case 'users': return (
             <>
-                <Toggle label="Inscriptions Ouvertes" description="Permettre aux visiteurs de créer un compte librement" checked={true} />
-                <Toggle label="Validation Email Obligatoire" description="Bloque la connexion avant confirmation du mail" checked={false} />
-                <SelectInput label="Rôle par défaut" value="student" options={[{l: 'Étudiant', v: 'student'}]} />
+                <Toggle label="Inscriptions Ouvertes" description="Permettre aux visiteurs de créer un compte librement" checked={config.open_registration} onChange={(v: boolean) => updateObj('open_registration', v)} />
+                <Toggle label="Validation Email Obligatoire" description="Bloque la connexion avant confirmation du mail" checked={config.email_validation_required} onChange={(v: boolean) => updateObj('email_validation_required', v)} />
+                <SelectInput label="Rôle par défaut" value={config.default_role} onChange={(v: string) => updateObj('default_role', v)} options={[{l: 'Étudiant', v: 'student'}]} />
             </>
         );
         case 'instructors': return (
             <>
-                <Toggle label="Inscriptions Formateurs Activées" description="Formulaire de soumission de candidature public" checked={true} />
-                <Toggle label="Validation manuelle requise" description="Les nouvelles candidatures doivent être approuvées" checked={true} />
+                <Toggle label="Inscriptions Formateurs Activées" description="Formulaire de soumission de candidature public" checked={config.instructor_registration} onChange={(v: boolean) => updateObj('instructor_registration', v)} />
+                <Toggle label="Validation manuelle requise" description="Les nouvelles candidatures doivent être approuvées" checked={config.manual_validation_required} onChange={(v: boolean) => updateObj('manual_validation_required', v)} />
             </>
         );
 
         /* PEDAGOGY */
         case 'courses': return (
             <>
-                <Toggle label="Validation admin des cours" description="Les cours soumis par les formateurs passent en brouillon avant publication" checked={true} />
-                <Toggle label="Exiger une vidéo de présentation" checked={true} />
-                <TextInput type="number" label="Prix minimum d'une formation (XAF)" defaultValue="1000" />
+                <Toggle label="Validation admin des cours" description="Les cours soumis par les formateurs passent en brouillon avant publication" checked={config.admin_validation_courses} onChange={(v: boolean) => updateObj('admin_validation_courses', v)} />
+                <Toggle label="Exiger une vidéo de présentation" checked={config.video_required} onChange={(v: boolean) => updateObj('video_required', v)} />
+                <TextInput type="number" label="Prix minimum d'une formation (XAF)" value={config.min_price} onChange={(v: any) => updateObj('min_price', Number(v))} />
             </>
         );
         case 'certificates': return (
             <>
-                <Toggle label="Génération automatique" description="Délivre le certificat dès que le cours est à 100%" checked={true} />
-                <Toggle label="Aposer un Code QR cryptographique" description="Permet la vérification d'authenticité via blockchain ou base centralisée" checked={true} />
-                <SelectInput label="Design du certificat" value="modern" options={[{l: 'Modern Elite', v: 'modern'}, {l: 'Classic University', v: 'classic'}]} />
+                <Toggle label="Génération automatique" description="Délivre le certificat dès que le cours est à 100%" checked={config.auto_generation_cert} onChange={(v: boolean) => updateObj('auto_generation_cert', v)} />
+                <Toggle label="Aposer un Code QR cryptographique" description="Permet la vérification d'authenticité via blockchain ou base centralisée" checked={config.qr_code} onChange={(v: boolean) => updateObj('qr_code', v)} />
+                <SelectInput label="Design du certificat" value={config.cert_design} onChange={(v: string) => updateObj('cert_design', v)} options={[{l: 'Modern Elite', v: 'modern'}, {l: 'Classic University', v: 'classic'}]} />
             </>
         );
 
         /* FINTECH */
         case 'payments': return (
             <>
-                <Toggle label="Activer les paiements en ligne" description="Moteur transactionnel global" checked={true} />
-                <SelectInput label="Devise de référence" value="XAF" options={[{l: 'Franc CFA (XAF)', v: 'XAF'}, {l: 'Franc CFA (XOF)', v: 'XOF'}]} />
-                <Toggle label="Passerelle Mobile Money (CINETPay, MeSomb)" checked={true} />
-                <Toggle label="Passerelle Carte Bancaire (Stripe/Flutterwave)" checked={true} />
+                <Toggle label="Activer les paiements en ligne" description="Moteur transactionnel global" checked={config.enable_payments} onChange={(v: boolean) => updateObj('enable_payments', v)} />
+                <SelectInput label="Devise de référence" value={config.currency} onChange={(v: string) => updateObj('currency', v)} options={[{l: 'Franc CFA (XAF)', v: 'XAF'}, {l: 'Franc CFA (XOF)', v: 'XOF'}]} />
+                <Toggle label="Passerelle Mobile Money (CINETPay, MeSomb)" checked={config.mm_gateway} onChange={(v: boolean) => updateObj('mm_gateway', v)} />
+                <Toggle label="Passerelle Carte Bancaire (Stripe/Flutterwave)" checked={config.card_gateway} onChange={(v: boolean) => updateObj('card_gateway', v)} />
             </>
         );
         case 'commissions': return (
             <>
-                <TextInput type="number" label="Commission Plateforme NDARA (%)" defaultValue="20" />
-                <Toggle label="Paiement automatique des formateurs" description="Transfert automatique vers leur Wallet le 1er du mois" checked={false} />
+                <TextInput type="number" label="Commission Plateforme NDARA (%)" value={config.platform_commission} onChange={(v: any) => updateObj('platform_commission', Number(v))} />
+                <Toggle label="Paiement automatique des formateurs" description="Transfert automatique vers leur Wallet le 1er du mois" checked={config.auto_payout} onChange={(v: boolean) => updateObj('auto_payout', v)} />
             </>
         );
 
         /* SECURITY */
         case 'security_config': return (
             <>
-                <Toggle label="Authentification 2FA renforcée (Admins)" checked={false} />
-                <TextInput type="number" label="Tentatives de login max (avant ban)" defaultValue="5" />
-                <Toggle label="Activer le blocage IP dynamique" checked={true} />
+                <Toggle label="Authentification 2FA renforcée (Admins)" checked={config.enforce_2fa} onChange={(v: boolean) => updateObj('enforce_2fa', v)} />
+                <TextInput type="number" label="Tentatives de login max (avant ban)" value={config.max_login_attempts} onChange={(v: any) => updateObj('max_login_attempts', Number(v))} />
+                <Toggle label="Activer le blocage IP dynamique" checked={config.dynamic_ip_block} onChange={(v: boolean) => updateObj('dynamic_ip_block', v)} />
             </>
         );
         case 'api_integrations': return (
             <>
-                <TextInput label="Clé API OpenAI (GPT-4 / Whisper)" type="password" placeholder="sk-..." />
-                <TextInput label="Google OAuth Client ID" type="text" placeholder="123456789-xxxx.apps.googleusercontent.com" />
+                <TextInput label="Clé API OpenAI (GPT-4 / Whisper)" type="password" placeholder="sk-..." value={config.openai_api_key} onChange={(v: string) => updateObj('openai_api_key', v)} />
+                <TextInput label="Google OAuth Client ID" type="text" placeholder="123456789-xxxx.apps.googleusercontent.com" value={config.google_client_id} onChange={(v: string) => updateObj('google_client_id', v)} />
             </>
         );
         case 'storage': return (
             <>
-                <SelectInput label="Fournisseur Cloud CDN" value="firebase" options={[{l: 'Google Cloud Storage / Firebase', v: 'firebase'}]} />
-                <TextInput type="number" label="Taille max des vidéos (Mo)" defaultValue="2000" />
-                <Toggle label="Optimisation automatique des images" checked={true} />
+                <SelectInput label="Fournisseur Cloud CDN" value={config.cdn_provider} onChange={(v: string) => updateObj('cdn_provider', v)} options={[{l: 'Google Cloud Storage / Firebase', v: 'firebase'}]} />
+                <TextInput type="number" label="Taille max des vidéos (Mo)" value={config.max_video_size} onChange={(v: any) => updateObj('max_video_size', Number(v))} />
+                <Toggle label="Optimisation automatique des images" checked={config.auto_image_optimization} onChange={(v: boolean) => updateObj('auto_image_optimization', v)} />
             </>
         );
 
         /* GROWTH */
         case 'ai': return (
             <>
-                <Toggle label="Activer l'IA Pédagogique Mathias" description="Le tuteur virtuel intelligent" checked={true} />
-                <Toggle label="Correction automatique des Quiz par l'IA" checked={true} />
-                <SelectInput label="Modèle Cognitif" value="gemini" options={[{l: 'Gemini 1.5 Flash (Google)', v: 'gemini'}]} />
+                <Toggle label="Activer l'IA Pédagogique Mathias" description="Le tuteur virtuel intelligent" checked={config.enable_tutor} onChange={(v: boolean) => updateObj('enable_tutor', v)} />
+                <Toggle label="Correction automatique des Quiz par l'IA" checked={config.auto_quiz_grading} onChange={(v: boolean) => updateObj('auto_quiz_grading', v)} />
+                <SelectInput label="Modèle Cognitif" value={config.ai_model} onChange={(v: string) => updateObj('ai_model', v)} options={[{l: 'Gemini 1.5 Flash (Google)', v: 'gemini'}]} />
             </>
         );
         case 'notifications': return (
             <>
-                <Toggle label="Envoi des Emails Transactionnels" checked={true} />
-                <Toggle label="Cloud Messaging (Push Mobile)" checked={true} />
-                <Toggle label="Intégration WhatsApp Business API" checked={false} />
+                <Toggle label="Envoi des Emails Transactionnels" checked={config.transactional_emails} onChange={(v: boolean) => updateObj('transactional_emails', v)} />
+                <Toggle label="Cloud Messaging (Push Mobile)" checked={config.cloud_messaging} onChange={(v: boolean) => updateObj('cloud_messaging', v)} />
+                <Toggle label="Intégration WhatsApp Business API" checked={config.whatsapp_api} onChange={(v: boolean) => updateObj('whatsapp_api', v)} />
             </>
         );
         case 'moderation': return (
             <>
-                <Toggle label="Filtre profanité automatique" checked={true} />
-                <Toggle label="Approbation manuelle des commentaires" checked={false} />
+                <Toggle label="Filtre profanité automatique" checked={config.profanity_filter} onChange={(v: boolean) => updateObj('profanity_filter', v)} />
+                <Toggle label="Approbation manuelle des commentaires" checked={config.manual_comments_approval} onChange={(v: boolean) => updateObj('manual_comments_approval', v)} />
             </>
         );
         case 'cms': return (
             <>
-                <Toggle label="Activer le Blog / Articles" checked={true} />
-                <Toggle label="Afficher la FAQ publique" checked={true} />
+                <Toggle label="Activer le Blog / Articles" checked={config.enable_blog} onChange={(v: boolean) => updateObj('enable_blog', v)} />
+                <Toggle label="Afficher la FAQ publique" checked={config.public_faq} onChange={(v: boolean) => updateObj('public_faq', v)} />
             </>
         );
         case 'marketing': return (
             <>
-                <Toggle label="Système de codes promotionnels" checked={true} />
-                <Toggle label="Programme d'affiliation (Parrainage)" checked={true} />
-                <TextInput type="number" label="Taux de retour Affilié (%)" defaultValue="10" />
+                <Toggle label="Système de codes promotionnels" checked={config.promo_codes} onChange={(v: boolean) => updateObj('promo_codes', v)} />
+                <Toggle label="Programme d'affiliation (Parrainage)" checked={config.affiliate_program} onChange={(v: boolean) => updateObj('affiliate_program', v)} />
+                <TextInput type="number" label="Taux de retour Affilié (%)" value={config.affiliate_return_rate} onChange={(v: any) => updateObj('affiliate_return_rate', Number(v))} />
             </>
         );
         case 'analytics': return (
             <>
-                <Toggle label="Télémétrie d'usage interne" checked={true} />
-                <TextInput label="Google Analytics 4 Measurement ID" placeholder="G-XXXXXXXXXX" />
+                <Toggle label="Télémétrie d'usage interne" checked={config.internal_telemetry} onChange={(v: boolean) => updateObj('internal_telemetry', v)} />
+                <TextInput label="Google Analytics 4 Measurement ID" placeholder="G-XXXXXXXXXX" value={config.ga4_id} onChange={(v: string) => updateObj('ga4_id', v)} />
             </>
         );
 
@@ -401,8 +494,7 @@ const renderModuleForm = (moduleId: string) => {
 
 // ------ Custom Input Components ------
 
-function Toggle({ label, description, checked }: any) {
-  const [isOn, setIsOn] = useState(checked);
+function Toggle({ label, description, checked, onChange }: any) {
   return (
     <div className="flex items-center justify-between gap-6 p-5 rounded-2xl bg-slate-900 border border-slate-800/60 shadow-sm">
        <div className="flex-1">
@@ -410,28 +502,29 @@ function Toggle({ label, description, checked }: any) {
          {description && <span className="text-[10px] text-slate-500 mt-1 block font-medium leading-relaxed">{description}</span>}
        </div>
        <button 
-         onClick={() => setIsOn(!isOn)}
+         onClick={() => onChange(!checked)}
          className={clsx(
            "w-12 h-7 shrink-0 rounded-full p-1 transition-colors relative border",
-           isOn ? "bg-emerald-500 border-emerald-400" : "bg-slate-800 border-slate-700"
+           checked ? "bg-emerald-500 border-emerald-400" : "bg-slate-800 border-slate-700"
          )}
        >
          <div className={clsx(
             "w-5 h-5 rounded-full bg-white transition-transform shadow-sm",
-            isOn ? "translate-x-5" : "translate-x-0"
+            checked ? "translate-x-5" : "translate-x-0"
          )} />
        </button>
     </div>
   );
 }
 
-function TextInput({ label, defaultValue = "", type = "text", placeholder = "" }: any) {
+function TextInput({ label, value = "", type = "text", placeholder = "", onChange }: any) {
    return (
       <div className="space-y-2">
          <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">{label}</label>
          <input 
             type={type} 
-            defaultValue={defaultValue} 
+            value={value} 
+            onChange={(e) => onChange(e.target.value)}
             placeholder={placeholder}
             className="w-full h-14 bg-slate-900 border border-slate-800/60 rounded-2xl px-5 text-white text-sm font-medium focus:outline-none focus:border-white/20 transition-colors placeholder:text-slate-700 shadow-sm"
          />
@@ -439,12 +532,12 @@ function TextInput({ label, defaultValue = "", type = "text", placeholder = "" }
    )
 }
 
-function SelectInput({ label, value, options }: any) {
+function SelectInput({ label, value, options, onChange }: any) {
     return (
       <div className="space-y-2">
          <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">{label}</label>
          <div className="relative shadow-sm">
-             <select defaultValue={value} className="w-full h-14 bg-slate-900 border border-slate-800/60 rounded-2xl px-5 text-white text-sm font-medium focus:outline-none focus:border-white/20 transition-colors appearance-none">
+             <select value={value} onChange={(e) => onChange(e.target.value)} className="w-full h-14 bg-slate-900 border border-slate-800/60 rounded-2xl px-5 text-white text-sm font-medium focus:outline-none focus:border-white/20 transition-colors appearance-none">
                  {options.map((opt:any) => <option key={opt.v} value={opt.v}>{opt.l}</option>)}
              </select>
              <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
@@ -454,4 +547,5 @@ function SelectInput({ label, value, options }: any) {
       </div>
     )
 }
+
 

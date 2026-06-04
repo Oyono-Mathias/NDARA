@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   LayoutTemplate, 
   ImageIcon, 
@@ -13,9 +13,10 @@ import {
   GripVertical
 } from 'lucide-react';
 import clsx from 'clsx';
+import { doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
+import { db } from '../../firebase';
 
-// Simulated local interface data for UI demonstration
-interface CarouselSlide {
+export interface CarouselSlide {
   id: string;
   imageUrl: string;
   link?: string;
@@ -27,30 +28,98 @@ export function AdminInterface() {
   const [activeTab, setActiveTab] = useState('carousel');
   const [isAdding, setIsAdding] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [newSlide, setNewSlide] = useState({ imageUrl: '', link: '', order: 0 });
 
-  const [slides, setSlides] = useState<CarouselSlide[]>([
-    { id: '1', imageUrl: 'https://images.unsplash.com/photo-1616469829581-73993eb86b02?q=80&w=1200&auto=format&fit=crop', link: '/promo', order: 1, isActive: true },
-    { id: '2', imageUrl: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=1200&auto=format&fit=crop', link: '/catalogue', order: 2, isActive: false },
-  ]);
+  const [slides, setSlides] = useState<CarouselSlide[]>([]);
 
-  const handleAddSlide = () => {
+  useEffect(() => {
+    const fetchInterfaceSettings = async () => {
+      try {
+        const docRef = doc(db, 'settings', 'interface');
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (data.carousel_slides) {
+            setSlides(data.carousel_slides.sort((a: CarouselSlide, b: CarouselSlide) => a.order - b.order));
+          }
+        } else {
+          // Initialize empty if it doesn't exist
+          await setDoc(docRef, { carousel_slides: [] });
+        }
+      } catch (error) {
+        console.error("Error fetching interface settings:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchInterfaceSettings();
+  }, []);
+
+  const saveToFirestore = async (updatedSlides: CarouselSlide[]) => {
+    try {
+      const docRef = doc(db, 'settings', 'interface');
+      await updateDoc(docRef, { carousel_slides: updatedSlides });
+    } catch (error) {
+      console.error("Error saving slides to Firestore:", error);
+    }
+  };
+
+  const handleAddSlide = async () => {
     setIsSaving(true);
-    setTimeout(() => {
-      setSlides([...slides, { ...newSlide, id: Date.now().toString(), isActive: true }]);
-      setNewSlide({ imageUrl: '', link: '', order: slides.length + 1 });
-      setIsAdding(false);
-      setIsSaving(false);
-    }, 800);
+    const updatedSlides = [...slides, { ...newSlide, id: Date.now().toString(), isActive: true }];
+    setSlides(updatedSlides);
+    await saveToFirestore(updatedSlides);
+    setNewSlide({ imageUrl: '', link: '', order: updatedSlides.length + 1 });
+    setIsAdding(false);
+    setIsSaving(false);
   };
 
-  const toggleSlideStatus = (id: string) => {
-    setSlides(slides.map(s => s.id === id ? { ...s, isActive: !s.isActive } : s));
+  const toggleSlideStatus = async (id: string) => {
+    const updatedSlides = slides.map(s => s.id === id ? { ...s, isActive: !s.isActive } : s);
+    setSlides(updatedSlides);
+    await saveToFirestore(updatedSlides);
   };
 
-  const deleteSlide = (id: string) => {
-    setSlides(slides.filter(s => s.id !== id));
+  const deleteSlide = async (id: string) => {
+    const updatedSlides = slides.filter(s => s.id !== id);
+    setSlides(updatedSlides);
+    await saveToFirestore(updatedSlides);
   };
+
+  // Basic Drag and Drop Reordering
+  const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
+
+  const handleDragStart = (idx: number) => {
+    setDraggedIdx(idx);
+  };
+
+  const handleDragOver = (e: React.DragEvent, idx: number) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = async (e: React.DragEvent, dropIdx: number) => {
+    e.preventDefault();
+    if (draggedIdx === null || draggedIdx === dropIdx) return;
+
+    const newSlides = [...slides];
+    const item = newSlides.splice(draggedIdx, 1)[0];
+    newSlides.splice(dropIdx, 0, item);
+    
+    // Update order property
+    const ordered = newSlides.map((s, i) => ({ ...s, order: i + 1 }));
+    setSlides(ordered);
+    await saveToFirestore(ordered);
+    setDraggedIdx(null);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex h-[80vh] items-center justify-center bg-[#090E17]">
+        <Loader2 className="w-12 h-12 animate-spin text-pink-500" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 animate-in fade-in duration-700 pb-24 relative font-sans">
@@ -148,17 +217,25 @@ export function AdminInterface() {
               {/* Vertical Card List (Android-First) */}
               <div className="space-y-4">
                 {slides.length > 0 ? (
-                  slides.map((slide) => (
-                    <div key={slide.id} className={clsx(
-                      "bg-slate-800/40 border rounded-3xl p-4 flex flex-col md:flex-row gap-4 relative overflow-hidden transition-all group",
-                      slide.isActive ? "border-slate-700/50" : "border-dashed border-slate-700/50 opacity-60"
-                    )}>
+                  slides.map((slide, idx) => (
+                    <div 
+                      key={slide.id} 
+                      className={clsx(
+                        "bg-slate-800/40 border rounded-3xl p-4 flex flex-col md:flex-row gap-4 relative overflow-hidden transition-all group",
+                        slide.isActive ? "border-slate-700/50" : "border-dashed border-slate-700/50 opacity-60",
+                        draggedIdx === idx ? "opacity-30 border-pink-500/50" : ""
+                      )}
+                      draggable
+                      onDragStart={() => handleDragStart(idx)}
+                      onDragOver={(e) => handleDragOver(e, idx)}
+                      onDrop={(e) => handleDrop(e, idx)}
+                    >
                       {/* Drag Handle & Image */}
                       <div className="flex gap-3">
-                        <div className="flex items-center justify-center text-slate-600 cursor-grab active:cursor-grabbing">
+                        <div className="flex items-center justify-center text-slate-600 cursor-grab hover:text-slate-400 active:cursor-grabbing px-2">
                           <GripVertical className="w-5 h-5" />
                         </div>
-                        <div className="relative w-full md:w-64 aspect-video bg-slate-900 rounded-2xl overflow-hidden border border-slate-800 shrink-0">
+                        <div className="relative w-full md:w-64 aspect-video bg-slate-900 rounded-2xl overflow-hidden border border-slate-800 shrink-0 pointer-events-none">
                           {slide.imageUrl ? (
                             <img src={slide.imageUrl} alt="Slide preview" className="w-full h-full object-cover" />
                           ) : (
