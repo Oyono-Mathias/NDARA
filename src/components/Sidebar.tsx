@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { X, Search, BookOpen, Wallet, LayoutGrid, Bot, TrendingUp, Users, MessageSquare, Award, Bookmark, User, Bell, LifeBuoy, LogOut, ArrowLeftRight, Heart, Medal, ShoppingBag, Folder, BadgeCheck, Tag, Megaphone, ClipboardCheck, FileQuestion, Star, Building, Settings } from 'lucide-react';
+import { X, Search, BookOpen, Wallet, LayoutGrid, Bot, TrendingUp, Users, MessageSquare, Award, Bookmark, User, Bell, LifeBuoy, LogOut, ArrowLeftRight, Heart, Medal, ShoppingBag, Folder, BadgeCheck, Tag, Megaphone, ClipboardCheck, FileQuestion, Star, Building, Settings, Terminal } from 'lucide-react';
 import { useRole } from '../context/RoleContext';
 import { cn } from '../lib/utils';
 import { signOut } from 'firebase/auth';
@@ -142,6 +142,7 @@ export function Sidebar({ isOpen, onClose }: { isOpen: boolean, onClose: () => v
                                 {/* COMM */}
                                 <div className="space-y-2">
                                     <p className="px-4 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2">RÉSEAU COMMUNAUTAIRE</p>
+                                    <NavItem icon={Terminal} label="LABO SANDBOX" to="/student/sandbox" badge="BETA" current={location.pathname} onClick={onClose} />
                                     <NavItem icon={Users} label="COMMUNAUTÉS (SQUADS)" to="/student/squads" badge="NEW" current={location.pathname} onClick={onClose} />
                                     <NavItem icon={TrendingUp} label="AMBASSADEUR" to="/student/ambassador" current={location.pathname} onClick={onClose} />
                                     <NavItem icon={Users} label="ANNUAIRE NDARA" to="/student/directory" current={location.pathname} onClick={onClose} />

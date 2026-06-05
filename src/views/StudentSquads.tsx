@@ -29,7 +29,7 @@ interface Squad {
 }
 
 export function StudentSquads() {
-  const { currentUser } = useRole();
+  const { currentUser, isUserLoading } = useRole();
   const navigate = useNavigate();
   const [squads, setSquads] = useState<Squad[]>([]);
   const [courses, setCourses] = useState<any[]>([]);
@@ -47,6 +47,12 @@ export function StudentSquads() {
   const [selectedCourse, setSelectedCourse] = useState("");
 
   useEffect(() => {
+    if (isUserLoading) return;
+    if (!currentUser) {
+      setIsLoading(false);
+      return;
+    }
+
     // Listen to squads
     const q = query(collection(db, "squads"), orderBy("createdAt", "desc"));
     const unsubSquads = onSnapshot(q, (snap) => {
@@ -59,17 +65,17 @@ export function StudentSquads() {
     });
 
     // Listen to courses for the dropdown
-    const coursesQ = query(collection(db, "courses"));
+    const coursesQ = query(collection(db, "courses"), where('status', '==', 'Published'));
     const unsubCourses = onSnapshot(coursesQ, (snap) => {
        const data = snap.docs.map(c => ({ id: c.id, ...c.data() }));
        setCourses(data);
-    });
+    }, (err) => console.log('Error loading courses for dropdown:', err));
 
     return () => {
       unsubSquads();
       unsubCourses();
     };
-  }, []);
+  }, [currentUser, isUserLoading]);
 
   const handleCreateSquad = async (e: React.FormEvent) => {
     e.preventDefault();

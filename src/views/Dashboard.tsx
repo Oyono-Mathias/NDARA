@@ -2,7 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { Play, BookOpen, Award, ArrowRight, Bot, Sparkles, Search, CheckCircle2, ChevronRight, Flame, Loader2, MessageCircleQuestion } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useRole } from "../context/RoleContext";
-import { collection, query, where, onSnapshot, getDocs, limit, getCountFromServer, orderBy } from "firebase/firestore";
+import { collection, query, where, onSnapshot, getDocs, limit, getCountFromServer, orderBy, getDoc, doc } from "firebase/firestore";
 import { db } from "../firebase";
 
 export function Dashboard() {
@@ -44,12 +44,20 @@ export function Dashboard() {
             if (enrolledCourseIds.length > 0) {
                  const coursesRef = collection(db, 'courses');
                  // En prod, vous devriez utiliser 'in' sur ces IDs, mais pour éviter les erreurs d'Index/where-in avec tableaux vides, on fait 2 reads directs :
-                 const myRecentPromises = enrolledCourseIds.map(id => getDocs(query(coursesRef, where('__name__', '==', id))));
+                 const myRecentPromises = enrolledCourseIds.map(async id => {
+                     try {
+                         const snap = await getDoc(doc(coursesRef, id));
+                         if (snap.exists()) return snap;
+                     } catch (e) {
+                         console.warn("Failed to fetch course: " + id, e);
+                     }
+                     return null;
+                 });
                  const myRecentSnaps = await Promise.all(myRecentPromises);
                  // Fusion avec la progression
                  const myRecent = myRecentSnaps.map((snap, i) => {
-                     if (snap.docs.length > 0) {
-                        return { id: snap.docs[0].id, ...snap.docs[0].data(), progress: enrolSnap.docs[i].data().progress || 0 }
+                     if (snap) {
+                        return { id: snap.id, ...snap.data(), progress: enrolSnap.docs[i].data().progress || 0 }
                      }
                      return null;
                  }).filter(Boolean);
@@ -98,7 +106,8 @@ export function Dashboard() {
             snap.forEach(d => { total += Number(d.data().progress) || 0; });
             const avg = snap.size > 0 ? Math.round(total / snap.size) : 0;
             if (isMounted) setAvgProgress(avg);
-        }
+        },
+        (error) => console.log('Error pulling progress:', error)
     );
 
     // Badges en temps réel
@@ -108,7 +117,8 @@ export function Dashboard() {
             if (isMounted) {
                 setStudentBadges(snap.docs.map(d => ({ id: d.id, ...d.data() })));
             }
-        }
+        },
+        (error) => console.log('Error pulling badges:', error)
     );
 
     return () => {

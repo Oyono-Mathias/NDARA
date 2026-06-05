@@ -11,8 +11,10 @@ import {
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer 
 } from 'recharts';
+import { useRole } from '../../context/RoleContext';
 
 export function AdminDashboard() {
+  const { isUserLoading, role } = useRole();
   const [stats, setStats] = useState({
     totalRevenue: 0,
     studentsCount: 0,
@@ -25,6 +27,12 @@ export function AdminDashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (isUserLoading) return;
+    if (role !== 'admin') {
+      setLoading(false);
+      return;
+    }
+
     let isMounted = true;
 
     async function fetchDashboardData() {
@@ -108,7 +116,7 @@ export function AdminDashboard() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [isUserLoading, role]);
 
   if (loading) {
     return (

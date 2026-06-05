@@ -2,7 +2,7 @@ import React from 'react';
 import { Link, useLocation } from "react-router-dom";
 import { 
   LayoutDashboard, BarChart2, Activity,
-  Users, BookOpen, ShieldCheck, Radio, Globe,
+  Users, BookOpen, ShieldCheck, Radio, Globe, Store,
   Wallet, CreditCard, TrendingUp,
   HelpCircle, MessageSquare, FileQuestion,
   Image as ImageIcon, Images, Search,
@@ -27,7 +27,7 @@ const adminNavigationConfig: NavSection[] = [
     routes: [
       { label: "Tableau de Bord", icon: LayoutDashboard, path: "/admin" },
       { label: "Analytics", icon: BarChart2, path: "/admin/analytics" },
-      { label: "IA & Monitoring", icon: Activity, path: "/admin/monitoring" },
+      { label: "IA Mathias Config", icon: Activity, path: "/admin/ai" },
     ]
   },
   {
@@ -35,6 +35,7 @@ const adminNavigationConfig: NavSection[] = [
     routes: [
       { label: "Membres", icon: Users, path: "/admin/members" },
       { label: "Catalogue", icon: BookOpen, path: "/admin/catalog" },
+      { label: "Marchés & Bourse", icon: Store, path: "/admin/markets" },
       { label: "Communautés (Squads)", icon: Users, path: "/admin/squads" },
       { label: "Modération", icon: ShieldCheck, path: "/admin/moderation" },
       { label: "Diffusion Push", icon: Radio, path: "/admin/push" },

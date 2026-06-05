@@ -186,6 +186,48 @@ Réponds simplement au format JSON avec cette structure :
     }
   });
 
+  app.post("/api/ai/squad-tutor", async (req, res) => {
+    try {
+      const { message, history } = req.body;
+      const { GoogleGenAI } = await import("@google/genai");
+      
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+         return res.status(500).json({ error: "GEMINI_API_KEY is not configured" });
+      }
+
+      const ai = new GoogleGenAI({ apiKey });
+      
+      const systemInstruction = `Tu es Mathias, le tuteur IA officiel de la plateforme NDARA.
+Tu interviens dans un groupe d'étude (Squad). Ton ton doit être bienveillant, formateur et extrêmement pointu.
+Tu ne dois pas donner la réponse brute immédiatement, mais guider les étudiants vers la solution en leur posant des questions d'orientation ou en leur fournissant des indices textuels.`;
+
+      let contents = [];
+      if (history && Array.isArray(history)) {
+        contents = history.map(item => ({
+          role: item.role === 'user' ? 'user' : 'model',
+          parts: [{ text: item.content }]
+        }));
+      }
+
+      contents.push({ role: "user", parts: [{ text: message }] });
+
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents,
+        config: {
+           systemInstruction,
+           temperature: 0.7,
+        }
+      });
+
+      res.json({ reply: response.text });
+    } catch (error: any) {
+      console.error("Gemini Squad Tutor Error:", error);
+      res.status(500).json({ error: "Erreur IA Tuteur Squad." });
+    }
+  });
+
   app.post("/api/wallet/deposit", async (req, res) => {
     try {
       const { userId, amount, description } = req.body;

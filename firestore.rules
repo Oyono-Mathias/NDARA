@@ -6,21 +6,31 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
-    // 1. Rôle Administrateur
+    // 1. Fonctions Utilitaires & Rôles
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
     function isAdmin() {
-      return request.auth != null && 
+      return isAuthenticated() && 
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
     function isOwner(userId) {
-      return request.auth != null && request.auth.uid == userId;
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isSquadMember(squadId) {
+      return isAuthenticated() && 
+        (request.auth.uid in get(/databases/$(database)/documents/squads/$(squadId)).data.membersList);
     }
 
     // 2. Sécurisation des Collections Admin
     
     // Paramètres globaux (settings)
     match /settings/{docId} {
-      allow read, write: if isAdmin();
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
     // Télémétrie et Sécurité (logs)
@@ -47,65 +57,237 @@ service cloud.firestore {
       allow read: if isAdmin();
       allow update, delete: if isAdmin();
       // Les instructeurs/utilisateurs peuvent uniquement créer une demande de retrait
-      allow create: if request.auth != null;
+      allow create: if isAuthenticated();
     }
 
-    // 3. Sécurisation des Collections Métier
+    // 3. Sécurisation des Nouvelles Collections Métier (Zéro-Trust)
+
+    // Transactions - Portefeuille et Finances
+    match /transactions/{transactionId} {
+      // Lecture : Uniquement ses propres transactions ou Admin
+      allow read: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+      
+      // Écriture : Zéro-trust strict avec vérification de devise et montant
+      allow create: if isAuthenticated() 
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.amount > 0 
+        && request.resource.data.currency == 'XAF'
+        && request.resource.data.status == 'pending';
+
+      // Modification / Suppression : Strictement interdit (immuabilité) sauf Admin
+      allow update, delete: if isAdmin();
+    }
+
+    // Squads - Groupes d'Étude
+    match /squads/{squadId} {
+      // Lecture : Tout utilisateur authentifié a un accès en lecture
+      allow read: if isAuthenticated();
+
+      // Création : L'UID du créateur doit correspondre
+      allow create: if isAuthenticated() 
+        && request.auth.uid == request.resource.data.creatorId;
+
+      // Modification : Rejoindre/Quitter une squad autorisé en modifiant UNIQUEMENT les membres
+      allow update: if isAdmin() || (
+        isAuthenticated() &&
+        // Garantit que seuls membersList et membersCount sont modifiés (et n'altère ni creatorId ni courseId)
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['membersList', 'membersCount']) &&
+        // Garantit la cohérence du membre ajouté/retiré
+        request.resource.data.membersCount == request.resource.data.membersList.size()
+      );
+
+      // Suppression : Interdit sauf Admin
+      allow delete: if isAdmin();
+    }
+
+    // Squad Messages - Discussions de Squads
+    match /squad_messages/{messageId} {
+      // Lecture : Autorisé seulement si l'utilisateur fait partie de la liste des membres actuels de la Squad
+      allow read: if isAdmin() || isSquadMember(resource.data.squadId);
+
+      // Création : L'utilisateur doit être le sender et faire partie de la Squad
+      allow create: if isAuthenticated() 
+        && request.auth.uid == request.resource.data.senderId
+        && isSquadMember(request.resource.data.squadId);
+
+      // Modification / Suppression : Interdit aux étudiants, modération réservée à l'administrateur
+      allow update, delete: if isAdmin();
+    }
+
+    // 4. Sécurisation des Collections Métier Restantes
 
     // Utilisateurs (users)
     match /users/{userId} {
-      // Tout utilisateur authentifié peut lire son propre profil, les admins peuvent tout lire
       allow read: if isOwner(userId) || isAdmin();
-      // Création de profil pour tous les nouveaux inscrits
       allow create: if isOwner(userId) || isAdmin();
-      // Un utilisateur peut modifier son profil, sauf pour s'élever en admin ou se débannir
       allow update: if isAdmin() || (
         isOwner(userId) && 
         !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'isBanned', 'status'])
       );
-      // Seuls les admins peuvent bannir / supprimer (ou modifier les rôles avec full accès en update)
       allow delete: if isAdmin();
     }
 
     // Cours (courses)
     match /courses/{courseId} {
-      // Lecture publique pour les cours publiés
-      allow read: if (resource.data.status == 'Published') || isAdmin() || (request.auth != null && resource.data.instructorId == request.auth.uid);
-      // Création autorisée pour les instructeurs propriétaires
-      allow create: if request.auth != null;
-      // Modification autorisée pour le propriétaire, MAIS seul l'admin peut modifier le statut d'arbitrage (ex: publier)
+      allow read: if (resource.data.status == 'Published') || isAdmin() || (isAuthenticated() && resource.data.instructorId == request.auth.uid);
+      allow create: if isAuthenticated();
       allow update: if isAdmin() || (
-        request.auth != null && 
+        isAuthenticated() && 
         resource.data.instructorId == request.auth.uid &&
         !request.resource.data.diff(resource.data).affectedKeys().hasAny(['status', 'arbitrationStatus'])
       );
-      allow delete: if isAdmin() || (request.auth != null && resource.data.instructorId == request.auth.uid);
+      allow delete: if isAdmin() || (isAuthenticated() && resource.data.instructorId == request.auth.uid);
     }
 
     // Support (support_tickets)
     match /support_tickets/{ticketId} {
-      // Un utilisateur peut créer ses propres tickets
-      // (On assume que le userId est attaché au document existant et entrant)
-      allow create: if request.auth != null 
+      allow create: if isAuthenticated() 
         && (request.resource.data.userId == request.auth.uid || !('userId' in request.resource.data));
-      // Un utilisateur peut voir ses propres tickets
-      allow read: if isAdmin() || (request.auth != null && resource.data.userId == request.auth.uid);
-      // Les admins ont un accès total en écriture
+      allow read: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
       allow update, delete: if isAdmin();
+    }
+
+    // --- NOUVELLES REGLES POUR COLLECTIONS MANQUANTES ---
+
+    // Enrollments
+    match /enrollments/{docId} {
+      allow read: if isAuthenticated() && (resource == null || resource.data.studentId == request.auth.uid || resource.data.instructorId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && request.resource.data.studentId == request.auth.uid;
+      allow update: if isAuthenticated() && (resource.data.studentId == request.auth.uid || resource.data.instructorId == request.auth.uid);
+      allow delete: if isAdmin();
+    }
+
+    // Questions / Réponses (course_qna / course_questions)
+    match /course_qna/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+    match /course_questions/{docId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Marché & Bourse
+    match /market_data/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /market_orders/{docId} {
+      allow read, write: if isAuthenticated();
+    }
+    match /licenses/{docId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // E-commerce & Paiements
+    match /purchases/{docId} {
+      allow read: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+    match /payout_requests/{docId} {
+      allow read: if isAdmin() || (isAuthenticated() && resource.data.instructorId == request.auth.uid);
+      allow create: if isAuthenticated() && request.resource.data.instructorId == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    // Outils Éducatifs (Devoirs, Quiz, Certificats)
+    match /devoirs/{docId} {
+      allow read: if isAdmin() || (isAuthenticated() && (resource.data.studentId == request.auth.uid || resource.data.instructorId == request.auth.uid));
+      allow create: if isAuthenticated() && request.resource.data.studentId == request.auth.uid;
+      allow update, delete: if isAuthenticated();
+    }
+    match /quiz_submissions/{docId} {
+      allow read, write: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow read: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+    }
+    match /certificates/{docId} {
+      allow read: if true;
+      allow write: if isAdmin() || isAuthenticated();
+    }
+
+    // Contenu additionnel des cours
+    match /course_resources/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin() || (isAuthenticated() && (request.resource.data.instructorId == request.auth.uid || resource.data.instructorId == request.auth.uid));
+    }
+    match /course_announcements/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin() || (isAuthenticated() && (request.resource.data.instructorId == request.auth.uid || resource.data.instructorId == request.auth.uid));
+    }
+    match /course_coupons/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin() || (isAuthenticated() && (request.resource.data.instructorId == request.auth.uid || resource.data.instructorId == request.auth.uid));
+    }
+    match /course_reviews/{docId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    // Chats
+    match /chats/{docId} {
+      allow read, write: if isAuthenticated();
+    }
+    match /messages/{docId} {
+      allow read, write: if isAuthenticated();
+    }
+    match /users/{userId}/mathias_chats/{docId} {
+      allow read, write: if isOwner(userId) || isAdmin();
+    }
+    match /users/{userId}/cart/{docId} {
+      allow read, write: if isOwner(userId) || isAdmin();
+    }
+    match /users/{userId}/notifications/{docId} {
+      allow read, write: if isOwner(userId) || isAdmin();
+    }
+
+    // Sous-collections de courses
+    match /courses/{courseId}/quizzes/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin() || isAuthenticated();
+    }
+    match /courses/{courseId}/assignments/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin() || isAuthenticated();
+    }
+
+    // --- FIN NOUVELLES REGLES ---
+
+    // 5. Nouvelles Collections: Sandbox, Marchés, Badges
+    match /market_templates/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /market_ebooks/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /sandbox_templates/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /student_sandboxes/{docId} {
+      allow read: if isAdmin() || (isAuthenticated() && (resource == null || resource.data.userId == request.auth.uid));
+      allow write: if isAdmin() || (isAuthenticated() && request.resource.data.userId == request.auth.uid);
+    }
+
+    match /student_badges/{docId} {
+      allow read: if true;
+      allow write: if isAdmin() || (isAuthenticated() && request.resource.data.userId == request.auth.uid);
     }
 
     // Base de connaissance (faq_entries)
     match /faq_entries/{faqId} {
-      // Lecture publique pour les utilisateurs (et l'IA)
       allow read: if true;
-      // Écriture strictement réservée aux admins
       allow write: if isAdmin();
     }
 
-    // Raccourcis complémentaires métier essentiels au bon fonctionnement du dashboard
+    // Raccourcis complémentaires métier essentiels
     match /payments/{docId} {
       allow read, write: if isAdmin();
-      allow create: if request.auth != null;
+      allow create: if isAuthenticated();
     }
   }
 }

@@ -15,7 +15,7 @@ import {
   Loader2
 } from 'lucide-react';
 import clsx from 'clsx';
-import { collection, query, orderBy, onSnapshot, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, doc, updateDoc, runTransaction } from 'firebase/firestore';
 import { db } from '../../firebase';
 
 export function AdminTransactions() {
@@ -24,6 +24,7 @@ export function AdminTransactions() {
   
   const [payments, setPayments] = useState<any[]>([]);
   const [payouts, setPayouts] = useState<any[]>([]);
+  const [transactions, setTransactions] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -43,12 +44,21 @@ export function AdminTransactions() {
       setPayouts(data);
     }, (err) => console.error(err));
 
+    // Fetch Global Ledger Transactions
+    const qTx = query(collection(db, 'transactions'), orderBy('createdAt', 'desc'));
+    const unsubTx = onSnapshot(qTx, (snap) => {
+      const data: any[] = [];
+      snap.forEach(doc => data.push({ id: doc.id, ...doc.data() }));
+      setTransactions(data);
+    }, (err) => console.error(err));
+
     // Wait briefly to allow both to load or just handle organically
     const timer = setTimeout(() => setIsLoading(false), 800);
 
     return () => {
       unsubPayments();
       unsubPayouts();
+      unsubTx();
       clearTimeout(timer);
     };
   }, []);
@@ -61,6 +71,54 @@ export function AdminTransactions() {
       });
     } catch (err) {
       console.error("Error updating payout status:", err);
+    }
+  };
+
+  const triggerRefundTransaction = async (txId: string) => {
+    if (!window.confirm("Êtes-vous sûr de vouloir annuler et rembourser cette transaction ? Les soldes seront ajustés.")) return;
+    try {
+        await runTransaction(db, async (t) => {
+            const txRef = doc(db, 'transactions', txId);
+            const txDoc = await t.get(txRef);
+            if (!txDoc.exists()) throw new Error("Transaction non trouvée");
+            const data = txDoc.data();
+            if (data.status === 'refunded') throw new Error("Transaction déjà remboursée");
+
+            // Rétablir les balances si l'opération a affecté un wallet
+            const senderId = data.senderId || data.userId; 
+            const receiverId = data.receiverId;
+            const amount = data.amount || 0;
+
+            if (amount > 0) {
+               if (senderId) {
+                  const sRef = doc(db, 'users', senderId);
+                  const sDoc = await t.get(sRef);
+                  // Rendre l'argent à l'acheteur
+                  // Si c'était un achat, le sender a perdu de l'argent. On lui redonne (+).
+                  // Si c'était une recharge, le type indique refund.
+                  if (sDoc.exists() && data.type !== 'topup') {
+                      t.update(sRef, { walletBalance: (sDoc.data().walletBalance || 0) + amount });
+                  } else if (sDoc.exists() && data.type === 'topup') {
+                      t.update(sRef, { walletBalance: (Math.max(0, (sDoc.data().walletBalance || 0) - amount)) });
+                  }
+               }
+
+               if (receiverId && data.type !== 'topup') {
+                  const rRef = doc(db, 'users', receiverId);
+                  const rDoc = await t.get(rRef);
+                  // Reprendre l'argent au vendeur
+                  if (rDoc.exists()) {
+                      t.update(rRef, { walletBalance: Math.max(0, (rDoc.data().walletBalance || 0) - amount) });
+                  }
+               }
+            }
+
+            t.update(txRef, { status: 'refunded', refundedAt: new Date() });
+        });
+        alert("Transaction remboursée et soldes rééquilibrés avec succès.");
+    } catch(err: any) {
+        console.error("Refund error:", err);
+        alert("Erreur lors de l'arbitrage: " + err.message);
     }
   };
 
@@ -92,6 +150,13 @@ export function AdminTransactions() {
     const term = searchTerm.toLowerCase();
     return p.id.toLowerCase().includes(term) || 
            (p.instructorName && p.instructorName.toLowerCase().includes(term));
+  });
+
+  const filteredTransactions = transactions.filter(t => {
+    const term = searchTerm.toLowerCase();
+    return t.id.toLowerCase().includes(term) || 
+           (t.userId && t.userId.toLowerCase().includes(term)) ||
+           (t.type && t.type.toLowerCase().includes(term));
   });
 
   if (isLoading) {
@@ -211,6 +276,15 @@ export function AdminTransactions() {
                 )}
               >
                   <Banknote className="h-4 w-4" /> Retraits (Payouts) ({payouts.length})
+              </button>
+              <button 
+                onClick={() => setActiveTab('ledger')}
+                className={clsx(
+                  "flex items-center justify-center gap-2 px-6 py-3 font-bold uppercase text-[10px] tracking-widest rounded-xl transition-all whitespace-nowrap",
+                  activeTab === 'ledger' ? "bg-slate-800 text-emerald-400 shadow-sm" : "text-emerald-500/50 hover:text-emerald-400/80"
+                )}
+              >
+                  <ShieldCheck className="h-4 w-4" /> Grand Livre FinOps ({transactions.length})
               </button>
           </div>
 
@@ -371,6 +445,73 @@ export function AdminTransactions() {
                           <div className="py-12 flex flex-col items-center justify-center text-center">
                             <Banknote className="w-8 h-8 text-slate-600 mb-3" />
                             <p className="text-sm font-bold uppercase tracking-widest text-slate-500">Aucune demande de retrait.</p>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'ledger' && (
+             <div className="bg-slate-800/30 border border-slate-700/50 rounded-3xl overflow-hidden shadow-2xl relative">
+              <div className="overflow-x-auto hide-scrollbar">
+                <table className="w-full text-left border-collapse min-w-[1000px]">
+                  <thead>
+                    <tr className="border-b border-slate-800 bg-slate-900/50">
+                      <th className="p-4 pl-6 text-[10px] font-black uppercase tracking-widest text-slate-400">ID Action</th>
+                      <th className="p-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Type</th>
+                      <th className="p-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Acteurs (User / Receiver)</th>
+                      <th className="p-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Montant</th>
+                      <th className="p-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Statut</th>
+                      <th className="p-4 pr-6 text-right text-[10px] font-black uppercase tracking-widest text-slate-400">Arbitrage</th>
+                    </tr>
+                  </thead>
+                  <tbody className="text-sm divide-y divide-slate-800">
+                    {filteredTransactions.length > 0 ? filteredTransactions.map((t) => {
+                       const isRefunded = t.status === 'refunded';
+                       const tDate = t.createdAt?.toDate ? t.createdAt.toDate() : (t.timestamp?.toDate ? t.timestamp.toDate() : new Date(t.createdAt || 0));
+                       return (
+                      <tr key={t.id} className={clsx("hover:bg-slate-800/20 transition-colors group", isRefunded && "opacity-50 line-through")}>
+                        <td className="p-4 pl-6">
+                           <span className="font-mono text-[10px] text-slate-300">TX-{t.id.substring(0, 8).toUpperCase()}</span>
+                           <div className="text-[8px] text-slate-500 mt-1">{tDate.toLocaleString()}</div>
+                        </td>
+                        <td className="p-4">
+                           <span className="font-bold text-xs uppercase tracking-widest text-blue-400">{t.type || 'P2P_TRANSFER'}</span>
+                        </td>
+                        <td className="p-4">
+                           <div className="flex flex-col gap-0.5">
+                             <span className="text-[10px] font-mono text-slate-200">U: {t.userId?.substring(0, 10)}...</span>
+                             {t.receiverId && <span className="text-[10px] font-mono text-emerald-400">R: {t.receiverId?.substring(0, 10)}...</span>}
+                           </div>
+                        </td>
+                        <td className="p-4">
+                           <span className="font-black text-white">{(t.amount || 0).toLocaleString('fr-FR')} <span className="text-[10px] opacity-40">{t.currency || 'XAF'}</span></span>
+                        </td>
+                        <td className="p-4">
+                            {isRefunded ? (
+                               <span className="inline-flex text-[9px] font-black uppercase border border-red-500/50 px-2 py-0.5 rounded text-red-500">Annulé</span>
+                            ) : (
+                               <span className="inline-flex text-[9px] font-black uppercase border border-emerald-500/50 px-2 py-0.5 rounded text-emerald-500">Confirmé</span>
+                            )}
+                        </td>
+                        <td className="p-4 pr-6 text-right">
+                           {!isRefunded && (
+                             <button onClick={() => triggerRefundTransaction(t.id)} className="h-8 px-3 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 font-bold uppercase tracking-widest text-[9px] hover:bg-red-500 hover:text-white transition-colors">
+                               Refund
+                             </button>
+                           )}
+                        </td>
+                      </tr>
+                    )}) : (
+                      <tr>
+                        <td colSpan={6}>
+                          <div className="py-12 flex flex-col items-center justify-center text-center">
+                            <ShieldCheck className="w-8 h-8 text-slate-600 mb-3" />
+                            <p className="text-sm font-bold uppercase tracking-widest text-slate-500">Aucune écriture trouvée au Grand Livre.</p>
                           </div>
                         </td>
                       </tr>

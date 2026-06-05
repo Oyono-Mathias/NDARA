@@ -5,7 +5,7 @@ import {
   Users, BookOpen, ShieldCheck, Radio, Globe,
   Wallet, CreditCard, TrendingUp, HelpCircle,
   MessageSquare, FileQuestion, Image as ImageIcon,
-  Images, Search, Settings, KeyRound, History
+  Images, Search, Settings, KeyRound, History, Store
 } from 'lucide-react';
 
 const routeConfig: Record<string, { title: string, icon: any }> = {
@@ -14,6 +14,7 @@ const routeConfig: Record<string, { title: string, icon: any }> = {
     "/admin/monitoring": { title: "IA & Monitoring Actif", icon: Activity },
     "/admin/members": { title: "Gestion des Membres", icon: Users },
     "/admin/catalog": { title: "Catalogue Formations", icon: BookOpen },
+    "/admin/markets": { title: "Supervision des Marchés", icon: Store },
     "/admin/moderation": { title: "Espace Modération", icon: ShieldCheck },
     "/admin/push": { title: "Diffusion Push & Notifs", icon: Radio },
     "/admin/countries": { title: "Pays & Devises", icon: Globe },

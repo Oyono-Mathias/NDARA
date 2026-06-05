@@ -15,7 +15,6 @@ import { SearchAndCatalog } from "./views/Search";
 import { WalletView } from "./views/Wallet";
 import { BourseView } from "./views/Bourse";
 import { EbookDetail } from "./views/EbookDetail";
-import { ToolsView } from "./views/Tools";
 import { BourseLicenseDetail } from "./views/BourseLicenseDetail";
 import { ProfileView } from "./views/Profile";
 import { CoursesView } from "./views/Courses";
@@ -28,7 +27,6 @@ import { AssignmentDetail } from "./views/AssignmentDetail";
 import { QuizView } from "./views/Quiz";
 import { ResultsView } from "./views/Results";
 import { PaymentsView } from "./views/Payments";
-import { EbooksView } from "./views/Ebooks";
 import { CheckoutView } from "./views/Checkout";
 import { AmbassadorView } from "./views/Ambassador";
 import { DirectoryView } from "./views/Directory";
@@ -52,6 +50,9 @@ import { LeaderboardView } from "./views/LeaderboardView";
 import { InviteRedirectView } from "./views/InviteRedirectView";
 import { StudentSquads } from "./views/StudentSquads";
 import { StudentSquadDetails } from "./views/StudentSquadDetails";
+import { Sandbox } from "./views/Sandbox";
+import { TemplateMarket } from "./views/TemplateMarket";
+import { EbookMarket } from "./views/EbookMarket";
 import { useState } from "react";
 
 function StudentLayout() {
@@ -129,11 +130,12 @@ function StudentLayout() {
             <Route path="account" element={<AccountView />} />
             <Route path="support" element={<SupportView />} />
             <Route path="notifications" element={<NotificationsView />} />
-            <Route path="ebooks" element={<EbooksView />} />
-            <Route path="ebooks/:id" element={<EbookDetail />} />
-            <Route path="tools" element={<ToolsView />} />
+            <Route path="ebooks" element={<EbookMarket />} />
+            <Route path="ebooks/:id" element={<EbookMarket />} />
+            <Route path="tools" element={<TemplateMarket />} />
             <Route path="squads" element={<StudentSquads />} />
             <Route path="squads/:squadId" element={<StudentSquadDetails />} />
+            <Route path="sandbox" element={<Sandbox />} />
           </Routes>
        </main>
        

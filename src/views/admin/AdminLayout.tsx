@@ -14,6 +14,8 @@ import { AdminMonitoring } from './AdminMonitoring';
 import { AdminSecurity } from './AdminSecurity';
 import { AdminSupport } from './AdminSupport';
 import { AdminSettings } from './AdminSettings';
+import { AdminAiConfig } from './AdminAiConfig';
+import { AdminMarketControl } from './AdminMarketControl';
 import { Loader2, Menu, LayoutDashboard, Users, BookOpen, Wallet, Headphones } from 'lucide-react';
 
 function AdminBottomNav() {
@@ -109,6 +111,7 @@ export function AdminLayout() {
               {/* Operations */}
               <Route path="members" element={<AdminMembers />} />
               <Route path="squads" element={<AdminSquads />} />
+              <Route path="markets" element={<AdminMarketControl />} />
               <Route path="catalog" element={<AdminCourses />} />
               <Route path="moderation" element={<AdminModeration />} />
               <Route path="push" element={<AdminMarketing />} />
@@ -118,6 +121,9 @@ export function AdminLayout() {
               <Route path="treasury" element={<AdminTransactions />} />
               <Route path="transactions" element={<AdminTransactions />} />
               <Route path="growth" element={<AdminMarketing />} />
+              
+              {/* IA Config */}
+              <Route path="ai" element={<AdminAiConfig />} />
               
               {/* Support */}
               <Route path="help" element={<AdminSupport />} />

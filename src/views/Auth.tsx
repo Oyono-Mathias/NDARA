@@ -103,7 +103,11 @@ export function AuthView() {
 
     } catch (err: any) {
       console.error(err);
-      setError("Une erreur est survenue lors de l'authentification.");
+      if (err.code === 'auth/popup-blocked') {
+          setError("Le popup de connexion a été bloqué par votre navigateur. Autorisez-le ou ouvrez la page dans un nouvel onglet.");
+      } else {
+          setError("Une erreur est survenue lors de l'authentification.");
+      }
     } finally {
       setLoading(false);
     }

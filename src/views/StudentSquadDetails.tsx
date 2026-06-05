@@ -27,7 +27,7 @@ interface SquadMessage {
 export function StudentSquadDetails() {
   const { squadId } = useParams<{ squadId: string }>();
   const navigate = useNavigate();
-  const { currentUser } = useRole();
+  const { currentUser, isUserLoading } = useRole();
   
   const [squadName, setSquadName] = useState<string>("Chargement...");
   const [memberCount, setMemberCount] = useState<number>(0);
@@ -38,6 +38,8 @@ export function StudentSquadDetails() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (isUserLoading) return;
+    if (!currentUser) return;
     if (!squadId) return;
 
     // Load Squad Metadata
@@ -48,7 +50,7 @@ export function StudentSquadDetails() {
         setSquadName(data.name || "Squad sans nom");
         setMemberCount(data.membersCount || 0);
       }
-    });
+    }, (err) => console.log('Error pulling squad:', err));
 
     // Load Chat Messages
     const q = query(
@@ -63,13 +65,13 @@ export function StudentSquadDetails() {
         ...d.data()
       })) as SquadMessage[];
       setMessages(msgs);
-    });
+    }, (err) => console.log('Error pulling messages:', err));
 
     return () => {
       unsubSquad();
       unsubMessages();
     };
-  }, [squadId]);
+  }, [squadId, isUserLoading, currentUser]);
 
   // Auto-scroll on new messages
   useEffect(() => {
@@ -85,6 +87,7 @@ export function StudentSquadDetails() {
     setInputValue(""); // Optimistic clear
 
     try {
+      // 1. Add user message
       await addDoc(collection(db, "squad_messages"), {
         squadId,
         senderId: currentUser.uid,
@@ -93,6 +96,42 @@ export function StudentSquadDetails() {
         messageText: textToSend,
         createdAt: serverTimestamp()
       });
+
+      // 2. Trigger Mathias AI if mentioned
+      if (textToSend.toLowerCase().includes("@mathias")) {
+        // Extract the last 10 messages for context
+        const historyContext = messages.slice(-10).map(m => ({
+           role: m.senderId === 'AI_MATHIAS' ? 'model' : 'user',
+           content: `${m.senderName}: ${m.messageText}`
+        }));
+
+        try {
+          const res = await fetch('/api/ai/squad-tutor', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              message: textToSend,
+              history: historyContext
+            })
+          });
+
+          if (res.ok) {
+            const data = await res.json();
+            if (data.reply) {
+              await addDoc(collection(db, "squad_messages"), {
+                squadId,
+                senderId: 'AI_MATHIAS',
+                senderName: 'Mathias (IA Tuteur)',
+                senderAvatar: '🤖',
+                messageText: data.reply,
+                createdAt: serverTimestamp()
+              });
+            }
+          }
+        } catch (aiError) {
+          console.error("Erreur de l'IA Mathias:", aiError);
+        }
+      }
     } catch (err) {
       console.error("Erreur d'envoi du message :", err);
       // Restore input on failure
@@ -154,6 +193,7 @@ export function StudentSquadDetails() {
         ) : (
           messages.map((msg, index) => {
             const isMe = msg.senderId === currentUser?.uid;
+            const isAI = msg.senderId === 'AI_MATHIAS';
             
             // Check if previous message is from same sender to group them visually
             const prevMsg = index > 0 ? messages[index - 1] : null;
@@ -165,9 +205,11 @@ export function StudentSquadDetails() {
                 className={`flex gap-3 max-w-[85%] ${isMe ? 'ml-auto flex-row-reverse' : ''} ${isConsecutive ? 'mt-1' : 'mt-5'}`}
               >
                 {!isMe && !isConsecutive && (
-                  <div className="w-8 h-8 rounded-full bg-card border border-white/10 shrink-0 flex items-center justify-center overflow-hidden">
-                    {msg.senderAvatar ? (
-                      <img src={msg.senderAvatar} alt={msg.senderName} className="w-full h-full object-cover" />
+                  <div className={`w-8 h-8 rounded-full border shrink-0 flex items-center justify-center overflow-hidden ${isAI ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-card border-white/10'}`}>
+                    {isAI ? (
+                       <span className="text-lg">🤖</span>
+                    ) : msg.senderAvatar ? (
+                       <img src={msg.senderAvatar} alt={msg.senderName} className="w-full h-full object-cover" />
                     ) : (
                        <span className="text-[10px] font-bold text-white uppercase">{msg.senderName?.substring(0, 2) || "AN"}</span>
                     )}
@@ -178,11 +220,15 @@ export function StudentSquadDetails() {
 
                 <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
                   {!isMe && !isConsecutive && (
-                     <span className="text-[10px] text-slate-400 mb-1 ml-1">{msg.senderName}</span>
+                     <span className={`text-[10px] mb-1 ml-1 ${isAI ? 'text-emerald-400 font-bold' : 'text-slate-400'}`}>
+                       {msg.senderName} {isAI && <span className="bg-emerald-500/20 text-emerald-400 px-1 py-0.5 rounded-[4px] text-[8px] ml-1 uppercase">Officiel AI</span>}
+                     </span>
                   )}
-                  <div className={`p-3.5 rounded-2xl text-[14px] leading-relaxed shadow-sm break-words ${
+                  <div className={`p-3.5 rounded-2xl text-[14px] leading-relaxed shadow-sm break-words whitespace-pre-wrap ${
                     isMe 
                       ? 'bg-primary text-[#0f172a] rounded-tr-sm font-medium' 
+                      : isAI
+                      ? 'bg-emerald-500/10 text-emerald-50 rounded-tl-sm border border-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.1)]'
                       : 'bg-white/10 text-white rounded-tl-sm border border-white/5'
                   }`}>
                     {msg.messageText}
