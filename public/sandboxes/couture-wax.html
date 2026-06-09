@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sandbox: Couture & Optimisation du Tissu</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap');
+
+        :root {
+            --bg-base: #000000;
+            --bg-surface: #0a0a0a;
+            --bg-element: #1a1a1a;
+            --border-color: rgba(255, 255, 255, 0.1);
+            --text-primary: #ffffff;
+            --text-secondary: #9ca3af;
+            --emerald: #10B981;
+            --error: #ef4444;
+            --warning: #f59e0b;
+        }
+
+        body { font-family: 'Inter', sans-serif; background-color: var(--bg-base); color: var(--text-primary); margin: 0; padding: 16px; display: flex; justify-content: center; }
+        .container { width: 100%; max-width: 500px; background-color: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 16px; padding: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        h2 { margin-top: 0; font-weight: 700; font-size: 1.5rem; margin-bottom: 8px; }
+        p.subtitle { color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 24px; line-height: 1.5; }
+
+        .fabric-preview {
+            width: 100%;
+            height: 150px;
+            background: repeating-linear-gradient(45deg, #1f2937, #1f2937 10px, #111827 10px, #111827 20px);
+            border: 2px dashed var(--border-color);
+            border-radius: 12px;
+            margin-bottom: 20px;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+        }
+
+        .fabric-text {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: rgba(255,255,255,0.8);
+            z-index: 2;
+        }
+
+        .slider-group { margin-bottom: 20px; background-color: var(--bg-element); border: 1px solid var(--border-color); padding: 16px; border-radius: 12px; }
+        .slider-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .slider-label { font-size: 0.85rem; font-weight: 500; color: var(--text-secondary); }
+        .slider-value { font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; font-weight: 700; background: rgba(255, 255, 255, 0.05); padding: 4px 8px; border-radius: 6px; }
+
+        input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 20px; width: 20px; border-radius: 50%; background: var(--emerald); cursor: pointer; margin-top: -8px; }
+        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; cursor: pointer; background: var(--border-color); border-radius: 2px; }
+
+        .result-panel { margin-top: 24px; padding: 16px; border-radius: 12px; border: 1px solid var(--border-color); background-color: var(--bg-element); text-align: center; transition: all 0.3s; }
+        .result-panel.success { border-color: var(--emerald); background-color: rgba(16, 185, 129, 0.1); color: var(--emerald); }
+        .result-panel.error { border-color: var(--error); background-color: rgba(239, 68, 68, 0.1); color: var(--error); }
+        .result-panel.warning { border-color: var(--warning); background-color: rgba(245, 158, 11, 0.1); color: var(--warning); }
+
+        .result-title { font-weight: 700; margin-bottom: 8px; text-transform: uppercase; font-size: 0.9rem; letter-spacing: 1px; }
+        .result-desc { font-size: 0.85rem; line-height: 1.4; color: var(--text-primary); }
+        .waste-value { font-family: 'JetBrains Mono', monospace; font-size: 1.5rem; font-weight: bold; margin-top: 8px; display: block; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>Atelier Couture Wax</h2>
+        <p class="subtitle">Placez vos patrons avec précision. Trop proches = risque de ratage. Trop éloignés = gaspillage et perte d'argent.</p>
+
+        <div class="fabric-preview">
+            <span class="fabric-text">Pagne 6 Yards</span>
+            <span style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 8px;">Zone de coupe</span>
+        </div>
+
+        <div class="slider-group">
+            <div class="slider-header">
+                <span class="slider-label">Marge de sécurité entre pièces (Coutures)</span>
+                <span class="slider-value" id="val-marge">2 cm</span>
+            </div>
+            <input type="range" id="slider-marge" min="0" max="15" step="1" value="2">
+        </div>
+
+        <div class="slider-group">
+            <div class="slider-header">
+                <span class="slider-label">Alignement Raccord de Motifs</span>
+                <span class="slider-value" id="val-raccord">100%</span>
+            </div>
+            <input type="range" id="slider-raccord" min="0" max="100" step="10" value="100">
+        </div>
+
+        <div class="result-panel" id="result-panel">
+            <div class="result-title" id="result-title">Analyse en cours</div>
+            <div class="result-desc" id="result-desc">Ajustez vos paramètres pour calculer la rentabilité.</div>
+            <span class="waste-value" id="waste-value">0%</span>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const sliderMarge = document.getElementById('slider-marge');
+            const sliderRaccord = document.getElementById('slider-raccord');
+            const valMarge = document.getElementById('val-marge');
+            const valRaccord = document.getElementById('val-raccord');
+            const resultPanel = document.getElementById('result-panel');
+            const resultTitle = document.getElementById('result-title');
+            const resultDesc = document.getElementById('result-desc');
+            const wasteValue = document.getElementById('waste-value');
+
+            function calculate() {
+                const marge = parseInt(sliderMarge.value);
+                const raccord = parseInt(sliderRaccord.value);
+
+                valMarge.textContent = `${marge} cm`;
+                valRaccord.textContent = `${raccord}%`;
+
+                // Logique de simulation
+                let gaspillage = (marge * 2) + ((100 - raccord) * 0.2);
+                let message = "";
+                let type = "warning";
+                let title = "Rentabilité Faible";
+
+                if (marge < 2) {
+                    type = "error";
+                    title = "Risque Élevé !";
+                    message = "La marge est trop petite. Au moindre coup de ciseaux décalé, le tissu s'effiloche ou le vêtement sera trop serré. Client mécontent.";
+                    gaspillage = gaspillage > 100 ? 100 : gaspillage;
+                } else if (marge > 5) {
+                    type = "error";
+                    title = "Gaspillage Massif";
+                    message = "Vous laissez trop d'espace entre les morceaux. Vous gaspillez du pagne qui aurait pu servir à faire un bandeau ou un petit accessoire.";
+                } else if (raccord < 70) {
+                    type = "warning";
+                    title = "Motif Cassé";
+                    message = "Le vêtement n'aura pas l'air harmonieux car les motifs du Wax ne sont pas alignés au niveau des coutures. Prix perçu à la baisse.";
+                } else {
+                    type = "success";
+                    title = "Optimisation Parfaite";
+                    message = "Marge de couture suffisante et motifs bien respectés avec un minimum de pertes. Vous maximisez votre bénéfice !";
+                }
+
+                resultPanel.className = `result-panel ${type}`;
+                resultTitle.textContent = title;
+                resultDesc.textContent = message;
+                wasteValue.textContent = `Pertes: ${gaspillage.toFixed(1)}%`;
+            }
+
+            sliderMarge.addEventListener('input', calculate);
+            sliderRaccord.addEventListener('input', calculate);
+
+            calculate();
+        });
+    </script>
+</body>
+</html>

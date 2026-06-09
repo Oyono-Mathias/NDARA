@@ -23,19 +23,23 @@ import { InstructorSettings } from "./InstructorSettings";
 import { InstructorStudents } from "./InstructorStudents";
 
 export function InstructorLayout() {
-  const { isUserLoading, currentUser } = useRole();
+  const { loading, currentUser } = useRole();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-  if (isUserLoading) {
-    return <div className="h-screen w-full flex items-center justify-center bg-black text-white">Loading...</div>;
+  if (loading) {
+    return (
+      <div className="h-screen w-full flex items-center justify-center bg-black text-white">
+        Loading...
+      </div>
+    );
   }
 
   if (!currentUser) return <Navigate to="/auth" replace />;
-  if (currentUser?.role !== 'expert' && currentUser?.role !== 'instructor') return <Navigate to="/student/dashboard" replace />;
+  if (currentUser?.role !== "expert" && currentUser?.role !== "instructor")
+    return <Navigate to="/student/dashboard" replace />;
 
   return (
     <div className="antialiased min-h-screen flex bg-black">
-      
       {/* Background Gradients */}
       <div className="fixed top-0 right-0 w-[500px] h-[500px] bg-secondary/10 rounded-full blur-[120px] -mr-40 -mt-40 pointer-events-none z-0"></div>
       <div className="fixed bottom-0 left-0 w-[500px] h-[500px] bg-primary/5 rounded-full blur-[120px] -ml-40 -mb-40 pointer-events-none z-0"></div>
@@ -47,14 +51,19 @@ export function InstructorLayout() {
         <header className="md:hidden fixed top-0 w-full z-40 glass safe-top">
           <div className="flex items-center justify-between px-6 py-4">
             <div className="flex items-center gap-3">
-              <button onClick={() => setIsSidebarOpen(true)} className="p-2 -ml-2 text-white hover:bg-white/10 rounded-full transition-colors relative z-50">
+              <button
+                onClick={() => setIsSidebarOpen(true)}
+                className="p-2 -ml-2 text-white hover:bg-white/10 rounded-full transition-colors relative z-50"
+              >
                 <Menu className="w-6 h-6" />
               </button>
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-secondary to-amber-600 flex items-center justify-center text-background font-black text-sm shadow-[0_0_15px_rgba(204,119,34,0.3)]">
                   E
                 </div>
-                <span className="font-serif font-bold text-lg tracking-tight text-white drop-shadow-md">EXPERT</span>
+                <span className="font-serif font-bold text-lg tracking-tight text-white drop-shadow-md">
+                  EXPERT
+                </span>
               </div>
             </div>
             <div className="flex items-center gap-4">
@@ -63,7 +72,14 @@ export function InstructorLayout() {
                 <span className="absolute top-2 right-2.5 w-2 h-2 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.8)]"></span>
               </button>
               <div className="w-10 h-10 rounded-full bg-card border border-white/10 overflow-hidden ring-2 ring-secondary/50 shadow-[0_0_10px_rgba(204,119,34,0.2)]">
-                <img src={currentUser?.profilePictureURL || "https://i.pravatar.cc/150?img=12"} alt="Profile" className="w-full h-full object-cover" />
+                <img
+                  src={
+                    currentUser?.profilePictureURL ||
+                    "https://i.pravatar.cc/150?img=12"
+                  }
+                  alt="Profile"
+                  className="w-full h-full object-cover"
+                />
               </div>
             </div>
           </div>
@@ -78,14 +94,38 @@ export function InstructorLayout() {
             <Route path="courses/create" element={<InstructorCourseCreate />} />
             <Route path="courses/edit/:id" element={<InstructorCourseEdit />} />
             <Route path="quiz" element={<InstructorQuiz />} />
-            <Route path="quiz/:id" element={<GenericPlaceholder title="Éditeur de Quiz" subtitle="Création de questions et aide IA" />} />
+            <Route
+              path="quiz/:id"
+              element={
+                <GenericPlaceholder
+                  title="Éditeur de Quiz"
+                  subtitle="Création de questions et aide IA"
+                />
+              }
+            />
             <Route path="qna" element={<InstructorQna />} />
             <Route path="resources" element={<InstructorResources />} />
             <Route path="devoirs" element={<InstructorDevoirs />} />
-            <Route path="devoirs/:id" element={<GenericPlaceholder title="Correcteur Mathias IA" subtitle="Aide à la notation et feedback" />} />
+            <Route
+              path="devoirs/:id"
+              element={
+                <GenericPlaceholder
+                  title="Correcteur Mathias IA"
+                  subtitle="Aide à la notation et feedback"
+                />
+              }
+            />
             <Route path="students" element={<InstructorStudents />} />
             <Route path="revenus" element={<InstructorWealth />} />
-            <Route path="ambassador" element={<GenericPlaceholder title="Ambassadeur Elite" subtitle="Programme de partenariat Premium" />} />
+            <Route
+              path="ambassador"
+              element={
+                <GenericPlaceholder
+                  title="Ambassadeur Elite"
+                  subtitle="Programme de partenariat Premium"
+                />
+              }
+            />
             <Route path="annonces" element={<InstructorAnnouncements />} />
             <Route path="coupons" element={<InstructorCoupons />} />
             <Route path="avis" element={<InstructorAvis />} />
@@ -100,24 +140,37 @@ export function InstructorLayout() {
   );
 }
 
-function GenericPlaceholder({ title, subtitle }: { title: string, subtitle?: string }) {
+function GenericPlaceholder({
+  title,
+  subtitle,
+}: {
+  title: string;
+  subtitle?: string;
+}) {
   const navigate = useNavigate();
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-6 animate-in fade-in duration-500">
       <div className="w-24 h-24 rounded-full glass border border-secondary/30 flex items-center justify-center shadow-[0_0_30px_rgba(204,119,34,0.15)] relative">
         <div className="absolute inset-0 rounded-full border-t-2 border-r-2 border-secondary animate-spin"></div>
         <div className="w-12 h-12 rounded-full bg-secondary/10 flex items-center justify-center">
-            <span className="text-secondary font-serif font-black text-xl">N</span>
+          <span className="text-secondary font-serif font-black text-xl">
+            N
+          </span>
         </div>
       </div>
       <div className="text-center space-y-2">
         <h2 className="font-serif text-3xl font-bold text-white">{title}</h2>
-        {subtitle && <p className="text-primary text-sm font-bold uppercase tracking-wider">{subtitle}</p>}
+        {subtitle && (
+          <p className="text-primary text-sm font-bold uppercase tracking-wider">
+            {subtitle}
+          </p>
+        )}
       </div>
       <p className="text-gray-400 text-sm text-center max-w-md leading-relaxed">
-        L'infrastructure souveraine de Ndara Afrique prépare cette interface expert. La synchronisation des noeuds blockchain est en cours.
+        L'infrastructure souveraine de Ndara Afrique prépare cette interface
+        expert. La synchronisation des noeuds blockchain est en cours.
       </p>
-      <button 
+      <button
         onClick={() => navigate(-1)}
         className="px-8 py-4 rounded-2xl bg-secondary text-background font-bold text-sm hover:bg-amber-600 transition-colors shadow-[0_0_20px_rgba(204,119,34,0.4)]"
       >

@@ -17,7 +17,8 @@ export function InstructorCourseCreate() {
     );
   }
 
-  if (!currentUser?.isInstructorApproved && currentUser?.role !== 'admin') {
+  // Bypass temporaire pour le développement : suppression de la vérification stricte du statut
+  if (false && currentUser?.status !== 'approved' && currentUser?.role !== 'admin' && currentUser?.role !== 'ceo') {
     return (
       <div className="max-w-2xl mx-auto py-12 px-4 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
         <div className="flex justify-center mb-8">

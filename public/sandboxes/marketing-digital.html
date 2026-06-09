@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sandbox: Marketing Digital & Budget Publicitaire</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap');
+
+        :root {
+            --bg-base: #000000;
+            --bg-surface: #0a0a0a;
+            --bg-element: #1a1a1a;
+            --border-color: rgba(255, 255, 255, 0.1);
+            --text-primary: #ffffff;
+            --text-secondary: #9ca3af;
+            --emerald: #10B981;
+            --emerald-dark: #059669;
+            --error: #ef4444;
+            --warning: #f59e0b;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-base);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 16px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 500px;
+            background-color: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        h2 { margin-top: 0; font-weight: 700; font-size: 1.5rem; margin-bottom: 8px; }
+        p.subtitle { color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 24px; line-height: 1.5; }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background-color: var(--bg-element);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 16px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .stat-label { font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+        .stat-value { font-family: 'JetBrains Mono', monospace; font-size: 1.25rem; font-weight: 700; }
+        
+        #budget-val { color: var(--emerald); }
+        #sales-val { color: #3b82f6; }
+
+        .form-group { margin-bottom: 16px; }
+        label { display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 8px; font-weight: 500; }
+        
+        select {
+            width: 100%;
+            background-color: var(--bg-element);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 12px;
+            color: var(--text-primary);
+            font-family: 'Inter', sans-serif;
+            font-size: 0.95rem;
+            outline: none;
+            transition: border-color 0.2s;
+            appearance: none;
+        }
+        select:focus { border-color: var(--emerald); }
+
+        button.btn-run {
+            width: 100%;
+            background-color: var(--emerald);
+            color: #000;
+            border: none;
+            border-radius: 8px;
+            padding: 14px;
+            font-weight: 700;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: transform 0.1s, background-color 0.2s;
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.2);
+            margin-top: 10px;
+        }
+        button.btn-run:active { transform: scale(0.98); }
+        button.btn-run:hover { background-color: var(--emerald-dark); }
+        button.btn-run:disabled { background-color: var(--text-secondary); cursor: not-allowed; box-shadow: none; transform: none; }
+
+        .feedback-panel {
+            margin-top: 24px;
+            padding: 16px;
+            border-radius: 12px;
+            display: none;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .feedback-panel.success {
+            display: block;
+            background-color: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            color: var(--emerald);
+        }
+
+        .feedback-panel.error {
+            display: block;
+            background-color: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: var(--error);
+        }
+
+        .feedback-title { font-weight: bold; margin-bottom: 8px; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>Simulateur Facebook Ads</h2>
+        <p class="subtitle">Apprenez à gérer un budget publicitaire. Ciblez précisément pour générer des ventes sans vider votre portefeuille.</p>
+
+        <div class="dashboard">
+            <div class="stat-card">
+                <div class="stat-label">Budget Restant</div>
+                <div class="stat-value" id="budget-val">50,000 CFA</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Ventes Générées</div>
+                <div class="stat-value" id="sales-val">0</div>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>Audience de la campagne</label>
+            <select id="target-select">
+                <option value="broad">Très large (Tout le pays, 18-65 ans)</option>
+                <option value="medium">Moyenne (Ville précise, 20-40 ans)</option>
+                <option value="precise">Précise (Intéressés par votre produit, acheteurs récents)</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label>Visuel & Message (Créa)</label>
+            <select id="creative-select">
+                <option value="generic">Photo d'un produit sur fond blanc (Banal)</option>
+                <option value="video">Vidéo courte avec appel à l'action clair</option>
+                <option value="promotion">Offre spéciale limitée avec urgence</option>
+            </select>
+        </div>
+
+        <button class="btn-run" id="btn-run">Lancer la campagne (5,000 CFA / jour)</button>
+
+        <div class="feedback-panel" id="feedback-panel">
+            <div class="feedback-title" id="feedback-title">Résultats</div>
+            <div id="feedback-text"></div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            let budget = 50000;
+            let sales = 0;
+            const costPerRun = 5000;
+
+            const budgetValStr = document.getElementById('budget-val');
+            const salesValStr = document.getElementById('sales-val');
+            const targetSelect = document.getElementById('target-select');
+            const creativeSelect = document.getElementById('creative-select');
+            const btnRun = document.getElementById('btn-run');
+            const feedbackPanel = document.getElementById('feedback-panel');
+            const feedbackTitle = document.getElementById('feedback-title');
+            const feedbackText = document.getElementById('feedback-text');
+
+            function updateUI() {
+                budgetValStr.textContent = `${budget.toLocaleString('fr-FR')} CFA`;
+                salesValStr.textContent = sales;
+                
+                if (budget < costPerRun) {
+                    btnRun.disabled = true;
+                    btnRun.textContent = "Budget épuisé";
+                }
+            }
+
+            btnRun.addEventListener('click', () => {
+                if (budget < costPerRun) return;
+
+                budget -= costPerRun;
+                const target = targetSelect.value;
+                const creative = creativeSelect.value;
+                
+                let newSales = 0;
+                let cpc = 0;
+                let message = "";
+                let isSuccess = false;
+
+                // Logique de simulation simplifiée
+                if (target === 'broad') {
+                    if (creative === 'generic') {
+                        newSales = 0;
+                        message = "Votre cible est trop large et votre visuel n'attire pas l'attention. Vous avez payé pour des affichages inutiles (beaucoup de 'J'aime' mais zéro client).";
+                    } else {
+                        newSales = 1;
+                        message = "La vidéo a attiré l'oeil, mais comme la cible est trop large, peu de personnes étaient vraiment prêtes à acheter. Le Cost Per Click (CPC) est énorme.";
+                    }
+                } else if (target === 'medium') {
+                    if (creative === 'promotion') {
+                        newSales = 3;
+                        isSuccess = true;
+                        message = "Bon ciblage ! La promotion a créé l'urgence. Des ventes ont été générées.";
+                    } else {
+                        newSales = 1;
+                        message = "Ciblage moyen, résultat moyen. Vous pouvez faire mieux en affinant la cible ou en améliorant le visuel.";
+                    }
+                } else if (target === 'precise') {
+                    if (creative === 'video' || creative === 'promotion') {
+                        newSales = 5;
+                        isSuccess = true;
+                        message = "Excellent ! En ciblant précisément les personnes intéressées avec un bon visuel, votre coût par vente est très faible. Rentabilité maximale !";
+                    } else {
+                        newSales = 2;
+                        message = "Le ciblage est parfait, mais le visuel banal ne convainc pas tout le monde. Améliorez la photo !";
+                    }
+                }
+
+                sales += newSales;
+                updateUI();
+
+                feedbackPanel.className = 'feedback-panel ' + (isSuccess ? 'success' : 'error');
+                feedbackTitle.textContent = isSuccess ? 'Campagne Rentable' : 'Campagne à Perte';
+                feedbackText.textContent = `+${newSales} Ventes. ${message}`;
+            });
+
+            updateUI();
+        });
+    </script>
+</body>
+</html>

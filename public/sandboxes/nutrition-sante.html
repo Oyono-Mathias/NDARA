@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sandbox: Nutrition & Santé</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap');
+
+        :root {
+            --bg-base: #000000;
+            --bg-surface: #0a0a0a;
+            --bg-element: #1a1a1a;
+            --border-color: rgba(255, 255, 255, 0.1);
+            --text-primary: #ffffff;
+            --text-secondary: #9ca3af;
+            --emerald: #10B981;
+            --error: #ef4444;
+            --warning: #f59e0b;
+        }
+
+        body { font-family: 'Inter', sans-serif; background-color: var(--bg-base); color: var(--text-primary); margin: 0; padding: 16px; display: flex; justify-content: center; }
+        .container { width: 100%; max-width: 600px; background-color: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 16px; padding: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        h2 { margin-top: 0; font-weight: 700; font-size: 1.5rem; margin-bottom: 8px; }
+        p.subtitle { color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 24px; line-height: 1.5; }
+
+        .top-stats { display: flex; justify-content: space-between; align-items: center; background: var(--bg-element); padding: 12px 16px; border-radius: 12px; border: 1px solid var(--border-color); margin-bottom: 20px; }
+        .budget-lbl { font-size: 0.85rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px;}
+        .budget-val { font-family: 'JetBrains Mono', monospace; font-size: 1.25rem; font-weight: bold; color: var(--emerald); }
+        .budget-val.over { color: var(--error); text-shadow: 0 0 10px rgba(239, 68, 68, 0.4); }
+
+        .gauges { display: flex; gap: 12px; margin-bottom: 24px; }
+        .gauge-col { flex: 1; background: var(--bg-base); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; text-align: center; }
+        .gauge-title { font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 8px; }
+        .bar-bg { width: 100%; height: 8px; background: rgba(255,255,255,0.05); border-radius: 4px; overflow: hidden; margin-bottom: 8px; }
+        .bar-fill { height: 100%; background: var(--emerald); width: 0%; transition: width 0.3s; }
+        .gauge-pct { font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; font-weight: bold; }
+
+        .items-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+        .food-item { background: var(--bg-element); border: 1px solid var(--border-color); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; cursor: pointer; transition: all 0.2s; }
+        .food-item:hover { border-color: var(--emerald); background-color: rgba(16, 185, 129, 0.05); }
+        .food-item:active { transform: scale(0.98); }
+        
+        .f-top { display: flex; justify-content: space-between; margin-bottom: 8px; }
+        .f-emoji { font-size: 2rem; }
+        .f-price { font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; color: var(--text-secondary); background: var(--bg-base); padding: 2px 6px; border-radius: 4px; }
+        .f-name { font-weight: bold; font-size: 0.9rem; margin-bottom: 4px; }
+        .f-desc { font-size: 0.75rem; color: var(--text-secondary); }
+
+        .controls { display: flex; justify-content: space-between; margin-top: 24px; gap: 12px; }
+        .btn { flex: 1; padding: 14px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 0.95rem; transition: all 0.2s; }
+        .btn-reset { background: var(--bg-element); color: var(--text-primary); border: 1px solid var(--border-color); }
+        .btn-reset:hover { background: rgba(255,255,255,0.1); }
+        .btn-eval { background: var(--emerald); color: #000; box-shadow: 0 4px 15px rgba(16,185,129,0.2); }
+        .btn-eval:hover { background: #059669; }
+
+        .feedback { margin-top: 16px; padding: 16px; border-radius: 12px; display: none; font-size: 0.9rem; line-height: 1.5; text-align: center; }
+        .feedback.active { display: block; animation: fadeIn 0.3s; }
+        .feedback.success { background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); color: var(--emerald); }
+        .feedback.error { background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); color: var(--error); }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>Atelier Nutrition</h2>
+        <p class="subtitle">Composez un repas équilibré pour un enfant, sans dépasser le budget du foyer (1 500 CFA max).</p>
+
+        <div class="top-stats">
+            <span class="budget-lbl">Total du Panier</span>
+            <span class="budget-val" id="total-val">0 CFA</span>
+        </div>
+
+        <div class="gauges">
+            <div class="gauge-col">
+                <div class="gauge-title">Énergie (Glucides)</div>
+                <div class="bar-bg"><div class="bar-fill" id="bar-energy"></div></div>
+                <div class="gauge-pct" id="pct-energy">0%</div>
+            </div>
+            <div class="gauge-col">
+                <div class="gauge-title">Croissance (Protéines)</div>
+                <div class="bar-bg"><div class="bar-fill" id="bar-protein" style="background:#3b82f6;"></div></div>
+                <div class="gauge-pct" id="pct-protein" style="color:#3b82f6;">0%</div>
+            </div>
+            <div class="gauge-col">
+                <div class="gauge-title">Santé (Vitamines)</div>
+                <div class="bar-bg"><div class="bar-fill" id="bar-vit" style="background:var(--warning);"></div></div>
+                <div class="gauge-pct" id="pct-vit" style="color:var(--warning);">0%</div>
+            </div>
+        </div>
+
+        <div class="items-grid" id="foods">
+            <!-- Injecté par JS -->
+        </div>
+
+        <div class="controls">
+            <button class="btn btn-reset" id="btn-reset">Vider l'assiette</button>
+            <button class="btn btn-eval" id="btn-eval">Évaluer le Repas</button>
+        </div>
+
+        <div class="feedback" id="feedback"></div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const maxBudget = 1500;
+            let currentCost = 0;
+            let stats = { energy: 0, protein: 0, vit: 0 };
+            
+            const foods = [
+                { id: 1, name: "Bâton de Manioc", desc: "Énergie longue durée", price: 200, energy: 50, protein: 5, vit: 10, emoji: "🥖" },
+                { id: 2, name: "Poisson Frit", desc: "Protéines essentielles", price: 1000, energy: 10, protein: 80, vit: 20, emoji: "🐟" },
+                { id: 3, name: "Saka-Saka", desc: "Feuilles riches en Fer/Vit", price: 300, energy: 15, protein: 10, vit: 70, emoji: "🥬" },
+                { id: 4, name: "Avocat", desc: "Bonnes graisses & Vitamines", price: 400, energy: 20, protein: 5, vit: 50, emoji: "🥑" },
+                { id: 5, name: "Œuf Bouilli", desc: "Protéines très denses", price: 150, energy: 10, protein: 40, vit: 20, emoji: "🥚" },
+                { id: 6, name: "Omelette Chargée", desc: "Très riche et copieux", price: 800, energy: 40, protein: 60, vit: 30, emoji: "🍳" }
+            ];
+
+            const grid = document.getElementById('foods');
+            const totalVal = document.getElementById('total-val');
+            const barE = document.getElementById('bar-energy');
+            const barP = document.getElementById('bar-protein');
+            const barV = document.getElementById('bar-vit');
+            const pctE = document.getElementById('pct-energy');
+            const pctP = document.getElementById('pct-protein');
+            const pctV = document.getElementById('pct-vit');
+            const feedback = document.getElementById('feedback');
+
+            function render() {
+                grid.innerHTML = '';
+                foods.forEach(f => {
+                    const div = document.createElement('div');
+                    div.className = 'food-item';
+                    div.innerHTML = `
+                        <div class="f-top">
+                            <span class="f-emoji">${f.emoji}</span>
+                            <span class="f-price">+${f.price}</span>
+                        </div>
+                        <div class="f-name">${f.name}</div>
+                        <div class="f-desc">${f.desc}</div>
+                    `;
+                    div.onclick = () => addFood(f);
+                    grid.appendChild(div);
+                });
+            }
+
+            function updateUI() {
+                totalVal.textContent = `${currentCost.toLocaleString()} CFA`;
+                if(currentCost > maxBudget) totalVal.classList.add('over');
+                else totalVal.classList.remove('over');
+
+                const e = Math.min(100, stats.energy);
+                const p = Math.min(100, stats.protein);
+                const v = Math.min(100, stats.vit);
+
+                barE.style.width = `${e}%`; pctE.textContent = `${e}%`;
+                barP.style.width = `${p}%`; pctP.textContent = `${p}%`;
+                barV.style.width = `${v}%`; pctV.textContent = `${v}%`;
+            }
+
+            function addFood(f) {
+                currentCost += f.price;
+                stats.energy += f.energy;
+                stats.protein += f.protein;
+                stats.vit += f.vit;
+                updateUI();
+                feedback.classList.remove('active');
+            }
+
+            document.getElementById('btn-reset').onclick = () => {
+                currentCost = 0; stats = { energy: 0, protein: 0, vit: 0 };
+                updateUI();
+                feedback.classList.remove('active');
+            };
+
+            document.getElementById('btn-eval').onclick = () => {
+                feedback.className = 'feedback active';
+                
+                if (currentCost === 0) {
+                    feedback.classList.add('error');
+                    feedback.textContent = "L'assiette est vide ! L'enfant doit manger.";
+                    return;
+                }
+
+                if (currentCost > maxBudget) {
+                    feedback.classList.add('error');
+                    feedback.textContent = `Budget dépassé ! Vous avez dépensé ${currentCost} CFA. Le budget quotidien du foyer n'est pas respecté.`;
+                    return;
+                }
+
+                if (stats.energy >= 80 && stats.protein >= 80 && stats.vit >= 80) {
+                    feedback.classList.add('success');
+                    feedback.innerHTML = "<strong>Excellente composition !</strong><br>Le repas est équilibré, riche pour la croissance, et dans le budget. Félicitations.";
+                } else {
+                    feedback.classList.add('error');
+                    let manques = [];
+                    if (stats.energy < 80) manques.push("Énergie (Glucides)");
+                    if (stats.protein < 80) manques.push("Croissance (Protéines)");
+                    if (stats.vit < 80) manques.push("Vitamines de protection");
+                    feedback.innerHTML = `<strong>Déséquilibre :</strong><br>Il manque des sources de : ${manques.join(', ')}. Remanipulez le marché !`;
+                }
+            };
+
+            render();
+            updateUI();
+        });
+    </script>
+</body>
+</html>

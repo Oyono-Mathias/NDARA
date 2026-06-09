@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sandbox: Électricité de Base</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap');
+
+        :root {
+            --bg-base: #000000;
+            --bg-surface: #0a0a0a;
+            --bg-element: #1a1a1a;
+            --border-color: rgba(255, 255, 255, 0.1);
+            --text-primary: #ffffff;
+            --text-secondary: #9ca3af;
+            --emerald: #10B981;
+            --error: #ef4444;
+            --phase: #ef4444; /* Rouge Phase */
+            --neutre: #3b82f6; /* Bleu Neutre */
+        }
+
+        body { font-family: 'Inter', sans-serif; background-color: var(--bg-base); color: var(--text-primary); margin: 0; padding: 16px; display: flex; justify-content: center; }
+        .container { width: 100%; max-width: 500px; background-color: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 16px; padding: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        h2 { margin-top: 0; font-weight: 700; font-size: 1.5rem; margin-bottom: 8px; }
+        p.subtitle { color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 24px; line-height: 1.5; }
+
+        .board {
+            background-color: var(--bg-element);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .bulb-svg {
+            width: 80px;
+            height: 80px;
+            fill: var(--bg-surface);
+            stroke: var(--text-secondary);
+            stroke-width: 2;
+            transition: all 0.3s;
+            margin-bottom: 16px;
+        }
+
+        .bulb-svg.on {
+            fill: rgba(16, 185, 129, 0.3);
+            stroke: var(--emerald);
+            filter: drop-shadow(0 0 15px var(--emerald));
+        }
+
+        .bulb-svg.broken {
+            stroke: var(--error);
+            fill: rgba(239, 68, 68, 0.2);
+        }
+
+        .connections { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+
+        .btn-toggle {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            padding: 12px 16px;
+            border-radius: 8px;
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.85rem;
+            text-align: left;
+        }
+
+        .btn-toggle:hover { background-color: rgba(255, 255, 255, 0.05); }
+        .btn-toggle.active { border-color: var(--emerald); background-color: rgba(16, 185, 129, 0.05); }
+        .btn-toggle.active .indicator { background-color: var(--emerald); border-color: var(--emerald); }
+
+        .indicator {
+            width: 16px; height: 16px; border-radius: 50%;
+            border: 2px solid var(--text-secondary);
+            transition: all 0.2s;
+        }
+
+        .btn-run {
+            width: 100%; background-color: var(--text-primary); color: #000; border: none; border-radius: 8px; padding: 14px; font-weight: 700; font-size: 1rem; cursor: pointer; transition: all 0.2s;
+        }
+        .btn-run:hover { background-color: #e5e5e5; }
+        .btn-run:active { transform: scale(0.98); }
+
+        .alert-box {
+            margin-top: 16px; padding: 16px; border-radius: 12px; font-size: 0.9rem; display: none; line-height: 1.5; text-align: center;
+        }
+        .alert-box.active { display: block; animation: fadeIn 0.3s; }
+        .alert-box.success { background-color: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); color: var(--emerald); }
+        .alert-box.error { background-color: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); color: var(--error); }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>Tableau Électrique</h2>
+        <p class="subtitle">Apprenez à câbler une ampoule en sécurité avec un interrupteur. Évitez les courts-circuits !</p>
+
+        <div class="board">
+            <svg class="bulb-svg" id="bulb" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2v1M12 21v1M4.9 4.9l.7.7M18.4 18.4l.7.7M2 12h1M21 12h1M4.9 19.1l.7-.7M18.4 5.6l.7-.7M12 8a3 3 0 0 0-3 3c0 1.5 1 2.8 2.3 3.6A2 2 0 0 1 12 16h0a2 2 0 0 1 .7-1.4C14 13.8 15 12.5 15 11A3 3 0 0 0 12 8z"/>
+                <path d="M9.5 16v2a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-2"/>
+            </svg>
+            <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--text-secondary);">AMPOULE TÉMOIN</div>
+        </div>
+
+        <div class="connections" id="connections">
+            <div class="btn-toggle" data-id="c1">
+                <span>🔴 Phase DIRECTE ➔ Ampoule</span> <div class="indicator"></div>
+            </div>
+            <div class="btn-toggle" data-id="c2">
+                <span>🔴 Phase ➔ Interrupteur ➔ Ampoule</span> <div class="indicator"></div>
+            </div>
+            <div class="btn-toggle" data-id="c3">
+                <span>🔵 Neutre ➔ Ampoule</span> <div class="indicator"></div>
+            </div>
+            <div class="btn-toggle" data-id="c4">
+                <span>🔴 Phase ➔ 🔵 Neutre (Direct)</span> <div class="indicator"></div>
+            </div>
+        </div>
+
+        <button class="btn-run" id="btn-power">⚡ Armer le Disjoncteur</button>
+
+        <div class="alert-box" id="alert-box"></div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const toggles = document.querySelectorAll('.btn-toggle');
+            const btnPower = document.getElementById('btn-power');
+            const bulb = document.getElementById('bulb');
+            const alertBox = document.getElementById('alert-box');
+
+            let state = {
+                c1: false, // Phase Directe Ampoule (Danger + Pas contrôlable)
+                c2: false, // Phase -> Switch -> Ampoule (Correct)
+                c3: false, // Neutre -> Ampoule (Correct)
+                c4: false  // Court-circuit
+            };
+
+            toggles.forEach(toggle => {
+                toggle.addEventListener('click', () => {
+                    const id = toggle.getAttribute('data-id');
+                    state[id] = !state[id];
+                    toggle.classList.toggle('active');
+                    
+                    // Reset bulb
+                    bulb.classList.remove('on', 'broken');
+                    alertBox.classList.remove('active');
+                });
+            });
+
+            btnPower.addEventListener('click', () => {
+                bulb.classList.remove('on', 'broken');
+                alertBox.className = 'alert-box active';
+
+                if (state.c4) {
+                    // Court-circuit franc
+                    bulb.classList.add('broken');
+                    alertBox.classList.add('error');
+                    alertBox.innerHTML = "<strong>BOUM ! Court-Circuit !</strong><br>Vous avez relié la Phase et le Neutre directement. Le fusible a sauté. Risque d'incendie.";
+                    return;
+                }
+
+                const hasPhase = state.c1 || state.c2;
+                const hasNeutral = state.c3;
+
+                if (hasPhase && hasNeutral) {
+                    if (state.c1) {
+                         bulb.classList.add('on');
+                         alertBox.classList.add('warning');
+                         alertBox.style.color = "var(--warning)";
+                         alertBox.style.borderColor = "var(--warning)";
+                         alertBox.style.backgroundColor = "rgba(245, 158, 11, 0.1)";
+                         alertBox.innerHTML = "<strong>Lumière allumée, mais...</strong><br>Vous avez branché la Phase directement ! L'ampoule brille en permanence, impossible de l'éteindre sans couper le disjoncteur général.";
+                    } else if (state.c2) {
+                         bulb.classList.add('on');
+                         alertBox.classList.add('success');
+                         alertBox.innerHTML = "<strong>Parfait ! Câblage standard sécurisé.</strong><br>La Phase passe par l'interrupteur, permettant de couper le courant avant l'ampoule. Le Neutre boucle le circuit sans danger.";
+                    }
+                } else if (!hasPhase && !hasNeutral) {
+                    alertBox.classList.add('error');
+                    alertBox.innerHTML = "Rien ne se passe. Le circuit est incomplet.";
+                } else {
+                    alertBox.classList.add('error');
+                    alertBox.innerHTML = hasPhase ? "Le courant n'a pas de retour (Neutre manquant). Ça ne s'allume pas." : "L'ampoule a le Neutre mais pas l'arrivée de courant (Phase manquante).";
+                }
+            });
+        });
+    </script>
+</body>
+</html>

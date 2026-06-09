@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sandbox: Rédaction Professionnelle & Facturation</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap');
+
+        :root {
+            --bg-base: #000000;
+            --bg-surface: #0a0a0a;
+            --bg-element: #1a1a1a;
+            --border-color: rgba(255, 255, 255, 0.1);
+            --text-primary: #ffffff;
+            --text-secondary: #9ca3af;
+            --emerald: #10B981;
+            --emerald-dark: #059669;
+            --error: #ef4444;
+            --blue: #3b82f6;
+        }
+
+        body { font-family: 'Inter', sans-serif; background-color: var(--bg-base); color: var(--text-primary); margin: 0; padding: 16px; display: flex; justify-content: center; }
+        .container { width: 100%; max-width: 550px; background-color: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 16px; padding: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        h2 { margin-top: 0; font-weight: 700; font-size: 1.5rem; margin-bottom: 8px; }
+        p.subtitle { color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 24px; line-height: 1.5; }
+
+        .invoice-card { background: #ffffff; color: #000000; border-radius: 8px; padding: 20px; font-family: 'Inter', sans-serif; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 24px; }
+        .invoice-header { display: flex; justify-content: space-between; border-bottom: 2px solid #e5e7eb; padding-bottom: 12px; margin-bottom: 16px; }
+        .invoice-title { font-size: 1.25rem; font-weight: 900; letter-spacing: 2px; color: #111827; }
+        .inv-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.85rem; }
+        
+        .blank { display: inline-block; min-width: 150px; height: 26px; border: 2px dashed #9ca3af; background: #f3f4f6; border-radius: 4px; vertical-align: middle; padding: 2px 8px; color: #374151; font-weight: bold; font-size: 0.8rem; cursor: pointer; transition: all 0.2s; text-align: center; }
+        .blank.filled { border: 2px solid var(--emerald); background: rgba(16, 185, 129, 0.1); color: var(--emerald-dark); border-style: solid; }
+        .blank.error-fill { border: 2px solid var(--error); background: rgba(239, 68, 68, 0.1); color: var(--error); border-style: solid; }
+        
+        .inv-table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 0.85rem; }
+        .inv-table th, .inv-table td { border-bottom: 1px solid #e5e7eb; padding: 8px 4px; text-align: left; }
+        .inv-table th { color: #6b7280; font-weight: 600; text-transform: uppercase; font-size: 0.75rem; }
+        
+        .totals { border-top: 2px solid #e5e7eb; padding-top: 12px; display: flex; flex-direction: column; gap: 6px; align-items: flex-end; font-size: 0.85rem; }
+
+        .items-pool { display: flex; flex-wrap: wrap; gap: 8px; background: var(--bg-element); padding: 16px; border-radius: 12px; border: 1px solid var(--border-color); }
+        .item-pill { background: var(--bg-surface); border: 1px solid var(--border-color); padding: 8px 12px; border-radius: 20px; font-size: 0.85rem; cursor: pointer; transition: all 0.2s; user-select: none; }
+        .item-pill:hover { border-color: var(--blue); background: rgba(59, 130, 246, 0.1); }
+        .item-pill.used { opacity: 0.3; pointer-events: none; }
+        .item-pill.selected { border-color: var(--emerald); background: rgba(16, 185, 129, 0.1); color: var(--emerald); }
+
+        .btn-check { width: 100%; background: var(--emerald); color: #000; border: none; padding: 14px; border-radius: 8px; font-weight: bold; margin-top: 20px; cursor: pointer; font-size: 1rem; transition: all 0.2s; }
+        .btn-check:active { transform: scale(0.98); }
+
+        .feedback-box { margin-top: 16px; padding: 16px; border-radius: 12px; text-align: center; display: none; }
+        .feedback-box.success { display: block; background: rgba(16,185,129,0.1); color: var(--emerald); border: 1px solid rgba(16,185,129,0.3); }
+        .feedback-box.error { display: block; background: rgba(239,68,68,0.1); color: var(--error); border: 1px solid rgba(239,68,68,0.3); }
+
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>Rédiger une Facture Pro</h2>
+        <p class="subtitle">Sélectionnez une étiquette en bas, puis cliquez sur le trou correspondant dans la facture pour la remplir. Une facture incomplète n'a pas de valeur juridique.</p>
+
+        <div class="invoice-card">
+            <div class="invoice-header">
+                <div>
+                    <div class="invoice-title">FACTURE N° 0042</div>
+                    <div style="color: #6b7280; font-size: 0.8rem; margin-top:4px;">Date: 09/06/2026</div>
+                </div>
+                <div style="text-align: right; line-height: 1.4;">
+                    <strong style="font-size: 0.9rem;">ENTREPRISE ABC</strong><br>
+                    <span class="blank" data-id="rccm" id="blank-rccm">Mention Légale 1</span><br>
+                    <span class="blank" data-id="ifu" id="blank-ifu">Mention Légale 2</span>
+                </div>
+            </div>
+
+            <div style="margin-bottom: 16px;">
+                <strong style="font-size: 0.85rem;">Client :</strong> DUPONT Jean<br>
+                <strong style="font-size: 0.85rem;">Adresse :</strong> BP 1234, Ville
+            </div>
+
+            <table class="inv-table">
+                <thead>
+                    <tr>
+                        <th>Désignation</th>
+                        <th>Qté</th>
+                        <th>Prix U.</th>
+                        <th>Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Création Logo</td>
+                        <td>1</td>
+                        <td>50,000</td>
+                        <td>50,000</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="totals">
+                <div>Total HT : 50,000 CFA</div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <span class="blank" data-id="tva" id="blank-tva">Taxe obligatoire</span> : 9,600 CFA
+                </div>
+                <div style="font-weight: 900; font-size: 1rem; display:flex; align-items:center; gap:8px;">
+                    <span class="blank" data-id="ttc" id="blank-ttc">Montant Final</span> : 59,600 CFA
+                </div>
+            </div>
+            
+            <div style="margin-top: 24px; font-size: 0.75rem; color: #9ca3af; text-align: center; border-top: 1px solid #e5e7eb; padding-top: 12px;">
+                Pénalités de retard : 3 fois le taux d'intérêt légal. En cas d'escompte, aucun escompte anticipé.
+            </div>
+        </div>
+
+        <div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 8px;">Étiquettes disponibles :</div>
+        <div class="items-pool" id="pool">
+            <div class="item-pill" data-type="rccm">RCCM: CI-ABJ-2023-B-12</div>
+            <div class="item-pill" data-type="ttc">Total TTC (Net à Payer)</div>
+            <div class="item-pill" data-type="tva">TVA (19.2%)</div>
+            <div class="item-pill" data-type="ifu">N° IFU: 0011223344</div>
+            <div class="item-pill" data-type="fake1">Date de Naissance</div>
+            <div class="item-pill" data-type="fake2">Total Bénéfice</div>
+        </div>
+
+        <button class="btn-check" id="btn-check">Valider la Facture</button>
+
+        <div class="feedback-box" id="feedback"></div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const pills = document.querySelectorAll('.item-pill');
+            const blanks = document.querySelectorAll('.blank');
+            const btnCheck = document.getElementById('btn-check');
+            const feedback = document.getElementById('feedback');
+
+            let selectedPill = null;
+            let placements = { rccm: null, ifu: null, tva: null, ttc: null };
+
+            pills.forEach(pill => {
+                pill.addEventListener('click', () => {
+                    if (pill.classList.contains('used')) return;
+                    
+                    pills.forEach(p => p.classList.remove('selected'));
+                    pill.classList.add('selected');
+                    selectedPill = pill;
+                });
+            });
+
+            blanks.forEach(blank => {
+                blank.addEventListener('click', () => {
+                    if (!selectedPill) return;
+
+                    const type = selectedPill.getAttribute('data-type');
+                    const text = selectedPill.textContent;
+                    const expectedId = blank.getAttribute('data-id');
+
+                    // If cell already had something, free the old pill
+                    if (placements[expectedId]) {
+                        const oldPill = document.querySelector(`.item-pill[data-type="${placements[expectedId]}"]`);
+                        if(oldPill) oldPill.classList.remove('used');
+                    }
+
+                    // Place new content
+                    blank.textContent = text;
+                    blank.classList.add('filled');
+                    blank.classList.remove('error-fill'); // Reset error state on change
+                    
+                    selectedPill.classList.add('used');
+                    selectedPill.classList.remove('selected');
+                    
+                    placements[expectedId] = type;
+                    selectedPill = null;
+                    feedback.style.display = 'none';
+                });
+            });
+
+            btnCheck.addEventListener('click', () => {
+                // Check if all are filled
+                let allFilled = true;
+                for (let key in placements) {
+                    if (!placements[key]) allFilled = false;
+                }
+
+                if (!allFilled) {
+                    feedback.className = 'feedback-box error';
+                    feedback.textContent = "La facture est incomplète ! Remplissez tous les trous.";
+                    return;
+                }
+
+                // Check correctness
+                let allCorrect = true;
+                blanks.forEach(blank => {
+                    const expected = blank.getAttribute('data-id');
+                    const actual = placements[expected];
+                    if (expected !== actual) {
+                        allCorrect = false;
+                        blank.classList.remove('filled');
+                        blank.classList.add('error-fill');
+                    } else {
+                        blank.classList.remove('error-fill');
+                        blank.classList.add('filled');
+                    }
+                });
+
+                if (allCorrect) {
+                    feedback.className = 'feedback-box success';
+                    feedback.innerHTML = "<strong>Facture Valide aux yeux de la loi ✅</strong><br>Le Registre de Commerce (RCCM), l'Identifiant Fiscal (IFU), la TVA et le Total Net à payer (TTC) sont aux bons endroits.";
+                } else {
+                    feedback.className = 'feedback-box error';
+                    feedback.innerHTML = "Attention ! Certains éléments sont mal placés. Une facture avec une mention légale au mauvais endroit peut entraîner de lourdes amendes.";
+                }
+            });
+        });
+    </script>
+</body>
+</html>

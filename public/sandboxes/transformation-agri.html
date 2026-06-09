@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sandbox: Transformation Agricole & Coût de Revient</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap');
+
+        :root {
+            --bg-base: #000000;
+            --bg-surface: #0a0a0a;
+            --bg-element: #1a1a1a;
+            --border-color: rgba(255, 255, 255, 0.1);
+            --text-primary: #ffffff;
+            --text-secondary: #9ca3af;
+            --emerald: #10B981;
+            --error: #ef4444;
+        }
+
+        body { font-family: 'Inter', sans-serif; background-color: var(--bg-base); color: var(--text-primary); margin: 0; padding: 16px; display: flex; justify-content: center; }
+        .container { width: 100%; max-width: 500px; background-color: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 16px; padding: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        h2 { margin-top: 0; font-weight: 700; font-size: 1.5rem; margin-bottom: 8px; }
+        p.subtitle { color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 24px; line-height: 1.5; }
+
+        .slider-group { margin-bottom: 20px; background-color: var(--bg-element); border: 1px solid var(--border-color); padding: 16px; border-radius: 12px; }
+        .slider-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .slider-label { font-size: 0.85rem; font-weight: 500; color: var(--text-secondary); }
+        .slider-value { font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; font-weight: 700; background: rgba(255, 255, 255, 0.05); padding: 4px 8px; border-radius: 6px; }
+
+        input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 20px; width: 20px; border-radius: 50%; background: var(--emerald); cursor: pointer; margin-top: -8px; }
+        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; cursor: pointer; background: var(--border-color); border-radius: 2px; }
+
+        .result-panel { margin-top: 24px; border: 1px solid var(--border-color); border-radius: 12px; overflow: hidden; }
+        .result-row { display: flex; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--border-color); font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; }
+        .result-row:last-child { border-bottom: none; }
+        .result-label { font-family: 'Inter', sans-serif; color: var(--text-secondary); }
+        
+        .final-result { padding: 20px; text-align: center; background-color: rgba(16, 185, 129, 0.1); }
+        .final-label { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; font-weight: 700; color: var(--emerald); }
+        .final-value { font-family: 'JetBrains Mono', monospace; font-size: 2rem; font-weight: 700; color: var(--emerald); text-shadow: 0 0 15px rgba(16, 185, 129, 0.4); }
+
+        .info { padding: 12px; font-size: 0.8rem; color: var(--text-secondary); background: var(--bg-element); border-radius: 8px; border: 1px solid var(--border-color); margin-top: 16px; line-height:1.4; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>Calcul Côté Agro</h2>
+        <p class="subtitle">Transformation du Manioc en Gari. Prenez en compte la perte de poids due au séchage pour calculer votre vrai coût.</p>
+
+        <div class="slider-group">
+            <div class="slider-header">
+                <span class="slider-label">Achat Manioc brut (KG)</span>
+                <span class="slider-value" id="val-poids">100 KG</span>
+            </div>
+            <input type="range" id="slider-poids" min="50" max="500" step="10" value="100">
+        </div>
+
+        <div class="slider-group">
+            <div class="slider-header">
+                <span class="slider-label">Prix d'achat par KG (CFA)</span>
+                <span class="slider-value" id="val-prix">150 CFA</span>
+            </div>
+            <input type="range" id="slider-prix" min="50" max="300" step="10" value="150">
+        </div>
+
+        <div class="slider-group">
+            <div class="slider-header">
+                <span class="slider-label">Temps de Séchage / Pressage</span>
+                <span class="slider-value" id="val-sechage">Optimal (3 Jours)</span>
+            </div>
+            <input type="range" id="slider-sechage" min="1" max="5" step="1" value="3">
+        </div>
+
+        <div class="result-panel">
+            <div class="result-row">
+                <span class="result-label">Coût Achat Brut</span>
+                <span id="res-cout">15,000 CFA</span>
+            </div>
+            <div class="result-row">
+                <span class="result-label">Poids Final (Après perte d'eau)</span>
+                <span id="res-poids-final">30 KG</span>
+            </div>
+            <div class="result-row" style="background: var(--bg-element);">
+                <span class="result-label">Sachets de Gari (500g)</span>
+                <span id="res-sachets">60 sachets</span>
+            </div>
+            <div class="final-result">
+                <div class="final-label">PRIX DE REVIENT PAR SACHET</div>
+                <div class="final-value" id="final-value">250 CFA</div>
+            </div>
+        </div>
+
+        <div class="info">
+            💡 En sachant que votre coût de revient est de <span id="info-revient" style="color:var(--emerald);font-weight:bold;">250 CFA</span>, vous devez fixer un prix de vente supérieur (ex: 400 CFA) pour dégager des bénéfices.
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const sliderPoids = document.getElementById('slider-poids');
+            const sliderPrix = document.getElementById('slider-prix');
+            const sliderSechage = document.getElementById('slider-sechage');
+
+            const valPoids = document.getElementById('val-poids');
+            const valPrix = document.getElementById('val-prix');
+            const valSechage = document.getElementById('val-sechage');
+
+            const resCout = document.getElementById('res-cout');
+            const resPoidsFinal = document.getElementById('res-poids-final');
+            const resSachets = document.getElementById('res-sachets');
+            const finalValue = document.getElementById('final-value');
+            const infoRevient = document.getElementById('info-revient');
+
+            function calculate() {
+                const poidsBrut = parseInt(sliderPoids.value);
+                const prixKg = parseInt(sliderPrix.value);
+                const jours = parseInt(sliderSechage.value);
+
+                valPoids.textContent = `${poidsBrut} KG`;
+                valPrix.textContent = `${prixKg} CFA`;
+                
+                let sechageTexte = "";
+                let rendement = 0.3; // 30% par défaut
+                
+                if (jours === 1) { sechageTexte = "Très Humide (1 Jour)"; rendement = 0.5; }
+                else if (jours === 2) { sechageTexte = "Moyen (2 Jours)"; rendement = 0.4; }
+                else if (jours === 3) { sechageTexte = "Optimal (3 Jours)"; rendement = 0.3; }
+                else if (jours === 4) { sechageTexte = "Très Sec (4 Jours)"; rendement = 0.25; }
+                else { sechageTexte = "Trop Sec / Perte (5 Jours)"; rendement = 0.2; }
+                
+                valSechage.textContent = sechageTexte;
+
+                const coutTotal = poidsBrut * prixKg;
+                const poidsFinal = Math.round(poidsBrut * rendement);
+                const nbSachets = Math.floor(poidsFinal / 0.5); // Sachets de 500g
+                const prixRevient = Math.round(coutTotal / nbSachets);
+
+                resCout.textContent = `${coutTotal.toLocaleString('fr-FR')} CFA`;
+                resPoidsFinal.textContent = `${poidsFinal} KG`;
+                resSachets.textContent = `${nbSachets} sachets`;
+                
+                finalValue.textContent = `${prixRevient.toLocaleString('fr-FR')} CFA`;
+                infoRevient.textContent = `${prixRevient.toLocaleString('fr-FR')} CFA`;
+            }
+
+            sliderPoids.addEventListener('input', calculate);
+            sliderPrix.addEventListener('input', calculate);
+            sliderSechage.addEventListener('input', calculate);
+
+            calculate();
+        });
+    </script>
+</body>
+</html>

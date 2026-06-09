@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sandbox: WhatsApp Business</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
+
+        :root {
+            --bg-base: #000000;
+            --bg-surface: #0a0a0a;
+            --whatsapp-green: #25D366;
+            --whatsapp-dark: #075E54;
+            --msg-in: #2a2f32;
+            --msg-out: #056162;
+            --text-primary: #ffffff;
+            --text-secondary: #9ca3af;
+        }
+
+        body { font-family: 'Inter', sans-serif; background-color: var(--bg-base); color: var(--text-primary); margin: 0; padding: 16px; display: flex; justify-content: center; }
+        
+        .phone {
+            width: 100%;
+            max-width: 380px;
+            background-color: #0b141a;
+            border: 4px solid #1f2937;
+            border-radius: 36px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 700px;
+            position: relative;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+        }
+
+        .header {
+            background-color: var(--bg-surface);
+            padding: 20px 16px 12px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            z-index: 10;
+        }
+
+        .avatar { width: 40px; height: 40px; background-color: var(--text-secondary); border-radius: 50%; display:flex; align-items:center; justify-content:center;font-weight:bold; }
+        .header-info h3 { margin: 0; font-size: 1rem; }
+        .header-info p { margin: 0; font-size: 0.75rem; color: var(--whatsapp-green); }
+
+        .chat-area {
+            flex: 1;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            overflow-y: auto;
+            background-image: url('data:image/svg+xml,%3Csvg width="20" height="20" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="%23ffffff" fill-opacity="0.03" fill-rule="evenodd"%3E%3Ccircle cx="3" cy="3" r="3"/%3E%3Ccircle cx="13" cy="13" r="3"/%3E%3C/g%3E%3C/svg%3E');
+        }
+
+        .msg { max-width: 80%; padding: 10px 14px; border-radius: 12px; font-size: 0.9rem; line-height: 1.4; position: relative; animation: pop 0.3s ease; }
+        .msg.in { align-self: flex-start; background-color: var(--msg-in); border-top-left-radius: 0; }
+        .msg.out { align-self: flex-end; background-color: var(--msg-out); border-top-right-radius: 0; }
+        
+        .time { display: block; font-size: 0.65rem; color: rgba(255,255,255,0.5); text-align: right; margin-top: 4px; }
+
+        .reply-box { background-color: #1f2c34; padding: 16px; border-top: 1px solid rgba(255,255,255,0.05); }
+        .reply-title { font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 1px; }
+        
+        .reply-options { display: flex; flex-direction: column; gap: 8px; }
+        .reply-btn {
+            background-color: var(--bg-surface);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: white;
+            padding: 12px;
+            border-radius: 8px;
+            text-align: left;
+            font-family: inherit;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .reply-btn:hover { border-color: var(--whatsapp-green); background-color: rgba(37, 211, 102, 0.05); }
+
+        .success-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(0,0,0,0.8);
+            backdrop-filter: blur(4px);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 24px;
+            z-index: 20;
+        }
+        .success-overlay.active { display: flex; animation: fadeIn 0.3s; }
+        .icon-check { font-size: 3rem; margin-bottom: 16px; }
+        .btn-restart { margin-top: 20px; background: var(--whatsapp-green); border: none; color: #000; font-weight: bold; padding: 12px 24px; border-radius: 8px; cursor: pointer; }
+
+        @keyframes pop { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    </style>
+</head>
+<body>
+
+    <div class="phone">
+        <div class="header">
+            <div class="avatar">C</div>
+            <div class="header-info">
+                <h3>Client Pressé</h3>
+                <p>En ligne</p>
+            </div>
+        </div>
+
+        <div class="chat-area" id="chat">
+            <div class="msg in">
+                Bonjour, je veux commander 3 paquets de Gari. C'est urgent, vous livrez aujourd'hui ?
+                <span class="time">10:42</span>
+            </div>
+        </div>
+
+        <div class="reply-box">
+            <div class="reply-title">Choisissez la réponse rapide (Automatisme)</div>
+            <div class="reply-options" id="options">
+                <button class="reply-btn" data-correct="false">Bonjour, oui on livre. Mais il faut d'abord payer hein, envoyez l'argent.</button>
+                <button class="reply-btn" data-correct="false">Veuillez patienter, nous répondrons dans 24 à 48 heures.</button>
+                <button class="reply-btn" data-correct="true">Bonjour ! Oui, livraison possible ce jour avant 18h. Le total est de 1500 CFA. Voici le lien de notre catalogue pour confirmer l'adresse de livraison : [Lien]</button>
+            </div>
+        </div>
+
+        <div class="success-overlay" id="success">
+            <div class="icon-check">✅</div>
+            <h2 style="margin:0 0 8px 0; color:var(--whatsapp-green);">Client Converti</h2>
+            <p style="font-size:0.9rem; color:var(--text-secondary); line-height:1.5;">Excellente utilisation des réponses rapides de WhatsApp Business ! Vous avez été pro, direct, et avez inclus un lien vers votre catalogue.</p>
+            <button class="btn-restart" onclick="location.reload()">Recommencer la simulation</button>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const chat = document.getElementById('chat');
+            const btns = document.querySelectorAll('.reply-btn');
+            const successOverlay = document.getElementById('success');
+
+            function addMsg(text, type) {
+                const div = document.createElement('div');
+                div.className = `msg ${type}`;
+                const now = new Date();
+                const time = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`;
+                
+                div.innerHTML = `${text} <span class="time">${time}</span>`;
+                chat.appendChild(div);
+                chat.scrollTop = chat.scrollHeight;
+            }
+
+            btns.forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const isCorrect = e.target.getAttribute('data-correct') === 'true';
+                    const text = e.target.textContent;
+
+                    addMsg(text, 'out');
+                    
+                    document.getElementById('options').style.opacity = '0.5';
+                    document.getElementById('options').style.pointerEvents = 'none';
+
+                    setTimeout(() => {
+                        if(isCorrect) {
+                            addMsg("Parfait, j'ai cliqué sur le lien et rempli l'adresse. J'attends la livraison !", 'in');
+                            setTimeout(() => { successOverlay.classList.add('active'); }, 1500);
+                        } else {
+                            addMsg("C'est bon, je vais chercher ailleurs.", 'in');
+                            setTimeout(() => {
+                                alert("Échec ! Votre réponse n'était pas professionnelle ou pas adaptée à l'urgence. La vente est perdue.");
+                                location.reload();
+                            }, 1000);
+                        }
+                    }, 1000);
+                });
+            });
+        });
+    </script>
+</body>
+</html>

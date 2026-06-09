@@ -27,11 +27,11 @@ import {
 import { Link } from 'react-router-dom';
 import { format, subMonths, isSameMonth } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { db } from '../../firebase';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 
 export function InstructorDashboard() {
     const { currentUser: instructor, isUserLoading } = useRole();
-    const db = getFirestore();
 
     const [pendingSubmissions, setPendingSubmissions] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);

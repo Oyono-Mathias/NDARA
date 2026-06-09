@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sandbox: Labo de Maths Applicables</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap');
+
+        :root {
+            --bg-base: #000000;
+            --bg-surface: #0a0a0a;
+            --bg-element: #1a1a1a;
+            --border-color: rgba(255, 255, 255, 0.1);
+            --text-primary: #ffffff;
+            --text-secondary: #9ca3af;
+            --emerald: #10B981;
+            --emerald-dark: #059669;
+            --error: #ef4444;
+            --warning: #f59e0b;
+            --blue: #3b82f6;
+        }
+
+        body { font-family: 'Inter', sans-serif; background-color: var(--bg-base); color: var(--text-primary); margin: 0; padding: 16px; display: flex; justify-content: center; }
+        .container { width: 100%; max-width: 500px; background-color: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 16px; padding: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        h2 { margin-top: 0; font-weight: 700; font-size: 1.5rem; margin-bottom: 8px; }
+        p.subtitle { color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 24px; line-height: 1.5; }
+
+        .scenario-box { background: var(--bg-element); border: 1px solid var(--border-color); padding: 16px; border-radius: 12px; margin-bottom: 24px; }
+        .scenario-box strong { color: var(--emerald); }
+
+        .form-group { margin-bottom: 16px; }
+        label { display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 8px; font-weight: 500; }
+        
+        .formula-selector { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
+        .formula-btn { background: var(--bg-surface); border: 1px solid var(--border-color); padding: 12px; border-radius: 8px; color: var(--text-primary); font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; text-align: left; cursor: pointer; transition: all 0.2s; }
+        .formula-btn:hover { background: rgba(255,255,255,0.05); }
+        .formula-btn.selected { border-color: var(--emerald); background: rgba(16, 185, 129, 0.1); color: var(--emerald); }
+
+        input { width: 100%; background: var(--bg-element); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; color: var(--text-primary); font-family: 'JetBrains Mono', monospace; box-sizing: border-box; outline: none; transition: border-color 0.2s; }
+        input:focus { border-color: var(--emerald); }
+
+        .btn-solve { width: 100%; background: var(--emerald); color: #000; border: none; border-radius: 8px; padding: 14px; font-weight: 700; cursor: pointer; transition: all 0.2s; margin-top: 10px; }
+        .btn-solve:active { transform: scale(0.98); }
+
+        .hint { margin-top: 10px; font-size: 0.8rem; color: var(--warning); display: none; padding: 10px; border: 1px solid var(--warning); border-radius: 8px; background: rgba(245,158,11,0.1); }
+        
+        .result-panel { margin-top: 20px; padding: 16px; border-radius: 12px; text-align: center; display: none; animation: fadeIn 0.3s; }
+        .result-panel.success { background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); color: var(--emerald); }
+        .result-panel.error { background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); color: var(--error); }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>Laboratoire de Maths</h2>
+        <p class="subtitle">Appliquez la géométrie à des métiers concrets.</p>
+
+        <div class="scenario-box">
+            <p><strong>Cas Pratique : Pisciculture 🐟</strong></p>
+            <p style="font-size: 0.9rem; margin-top: 8px; line-height: 1.4;">
+                Vous devez construire un bac d'élevage rectangulaire pour des alevins.
+                Les dimensions du bac sont :<br>
+                - Longueur (L) : <strong>5 mètres</strong><br>
+                - Largeur (l) : <strong>2 mètres</strong><br>
+                - Hauteur (h) : <strong>1.5 mètres</strong><br><br>
+                Quelle formule utiliser pour calculer le <strong>Volume</strong> du bac en mètres cubes (m³), et quel est le résultat final ?
+            </p>
+        </div>
+
+        <div class="form-group">
+            <label>Étape 1 : Choisir la bonne formule</label>
+            <div class="formula-selector" id="formulas">
+                <button class="formula-btn" data-form="area">A = Longueur × Largeur</button>
+                <button class="formula-btn" data-form="vol_rect">V = Longueur × Largeur × Hauteur</button>
+                <button class="formula-btn" data-form="vol_cyl">V = Rayon² × π × Hauteur</button>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>Étape 2 : Calculer le résultat final (en m³)</label>
+            <input type="number" id="result-input" placeholder="Ex: 20">
+        </div>
+
+        <button class="btn-solve" id="btn-solve">Vérifier mon calcul</button>
+        
+        <div class="hint" id="hint-box"></div>
+        <div class="result-panel" id="result-panel"></div>
+
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const formulaBtns = document.querySelectorAll('.formula-btn');
+            const resultInput = document.getElementById('result-input');
+            const btnSolve = document.getElementById('btn-solve');
+            const resultPanel = document.getElementById('result-panel');
+            const hintBox = document.getElementById('hint-box');
+
+            let selectedFormula = null;
+            const correctAnswer = 5 * 2 * 1.5; // 15
+
+            formulaBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    formulaBtns.forEach(b => b.classList.remove('selected'));
+                    btn.classList.add('selected');
+                    selectedFormula = btn.getAttribute('data-form');
+                    hintBox.style.display = 'none';
+                    resultPanel.style.display = 'none';
+                });
+            });
+
+            btnSolve.addEventListener('click', () => {
+                const answer = parseFloat(resultInput.value);
+
+                if (!selectedFormula) {
+                    showHint("Veuillez d'abord choisir une formule mathématique.");
+                    return;
+                }
+
+                if (isNaN(answer)) {
+                    showHint("Veuillez entrer une valeur numérique pour le résultat.");
+                    return;
+                }
+
+                if (selectedFormula !== 'vol_rect') {
+                    showHint("Attention ! Vous cherchez un Volume (espace 3D), pas une Surface (2D), et le bac est rectangulaire, pas cylindrique.");
+                    showResult(false, "Mauvaise formule sélectionnée.");
+                    return;
+                }
+
+                if (answer === correctAnswer) {
+                    hintBox.style.display = 'none';
+                    showResult(true, "<strong>Bravo !</strong><br>Formule correcte et calcul exact. Le volume de votre bac est bien de 15 m³.<br>Astuce terrain : 1m³ = 1000 Litres d'eau.");
+                } else {
+                    showHint("Formule correcte, mais erreur de calcul. Multipliez bien (5 × 2 × 1.5).");
+                    showResult(false, "Résultat numérique incorrect.");
+                }
+            });
+
+            function showHint(msg) {
+                hintBox.textContent = msg;
+                hintBox.style.display = 'block';
+            }
+
+            function showResult(isSuccess, msg) {
+                resultPanel.className = `result-panel ${isSuccess ? 'success' : 'error'}`;
+                resultPanel.innerHTML = msg;
+                resultPanel.style.display = 'block';
+            }
+        });
+    </script>
+</body>
+</html>

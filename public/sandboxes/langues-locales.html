@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sandbox: Langues & Communication</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap');
+
+        :root {
+            --bg-base: #000000;
+            --bg-surface: #0a0a0a;
+            --bg-element: #1a1a1a;
+            --border-color: rgba(255, 255, 255, 0.1);
+            --text-primary: #ffffff;
+            --text-secondary: #9ca3af;
+            --emerald: #10B981;
+            --error: #ef4444;
+            --blue: #3b82f6;
+        }
+
+        body { font-family: 'Inter', sans-serif; background-color: var(--bg-base); color: var(--text-primary); margin: 0; padding: 16px; display: flex; justify-content: center; }
+        .container { width: 100%; max-width: 500px; background-color: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 16px; padding: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        h2 { margin-top: 0; font-weight: 700; font-size: 1.5rem; margin-bottom: 8px; }
+        p.subtitle { color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 24px; line-height: 1.5; }
+
+        .score-board { display: flex; justify-content: space-between; align-items: center; background: var(--bg-element); padding: 12px 16px; border-radius: 12px; border: 1px solid var(--border-color); margin-bottom: 20px; }
+        .score-lbl { font-size: 0.85rem; color: var(--emerald); font-weight: bold; text-transform: uppercase; }
+        .score-val { font-family: 'JetBrains Mono', monospace; font-size: 1.2rem; font-weight: bold; }
+
+        .chat-bubble { background: var(--bg-element); border: 1px solid var(--border-color); padding: 16px; border-radius: 16px; border-top-left-radius: 0; margin-bottom: 20px; position: relative; }
+        .chat-name { font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 4px; font-weight: bold; }
+        .chat-text { font-size: 1.1rem; line-height: 1.4; color: var(--warning); }
+        .chat-lang { position: absolute; top: 12px; right: 12px; background: rgba(255,255,255,0.1); padding: 2px 8px; border-radius: 12px; font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase; }
+
+        .options { display: flex; flex-direction: column; gap: 10px; }
+        .btn-option { background: var(--bg-surface); border: 1px solid var(--border-color); color: var(--text-primary); padding: 14px; border-radius: 10px; text-align: left; font-family: 'Inter', sans-serif; font-size: 0.95rem; cursor: pointer; transition: all 0.2s; line-height: 1.4; }
+        .btn-option:hover { background: rgba(255,255,255,0.05); border-color: var(--blue); }
+        .btn-option:active { transform: scale(0.98); }
+
+        .feedback-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); display: none; align-items: center; justify-content: center; flex-direction: column; text-align: center; padding: 20px; z-index: 50; }
+        .feedback-overlay.active { display: flex; animation: fadeIn 0.3s; }
+        .feedback-card { background: var(--bg-surface); border: 1px solid var(--border-color); padding: 30px; border-radius: 20px; max-width: 400px; width: 100%; }
+        .f-icon { font-size: 4rem; margin-bottom: 16px; }
+        .f-title { font-size: 1.5rem; font-weight: bold; margin-bottom: 12px; }
+        .f-desc { color: var(--text-secondary); font-size: 0.95rem; line-height: 1.5; margin-bottom: 24px; }
+        
+        .btn-next { background: var(--emerald); color: #000; border: none; padding: 12px 24px; border-radius: 8px; font-weight: bold; font-size: 1rem; cursor: pointer; width: 100%; transition: all 0.2s; }
+        .btn-next:hover { background: var(--emerald-dark); }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>Traduction & Vente</h2>
+        <p class="subtitle">Créer du lien avec le client en utilisant la langue locale augmente vos chances de vente.</p>
+
+        <div class="score-board">
+            <span class="score-lbl">Respect Culturel</span>
+            <span class="score-val" id="score-val">+ 0 pts</span>
+        </div>
+
+        <div id="game-stage">
+            <div class="chat-bubble">
+                <div class="chat-name">Client au Marché</div>
+                <div class="chat-lang">Wolof</div>
+                <div class="chat-text" id="npc-text">"Nanga def ! Ñaata la bii ?"</div>
+            </div>
+
+            <div style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 12px; margin-top: 24px;">Votre réponse :</div>
+            
+            <div class="options" id="options">
+                <button class="btn-option" data-correct="false">Bonjour. C'est 5000 francs CFA patron.</button>
+                <button class="btn-option" data-correct="true">"Mangi fi rekk ! Bii 5000 francs la." (Je vais bien ! Ça coûte 5000 F)</button>
+                <button class="btn-option" data-correct="false">Je ne parle pas votre langue, c'est combien en français ?</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="feedback-overlay" id="feedback">
+        <div class="feedback-card">
+            <div class="f-icon" id="f-icon">✅</div>
+            <div class="f-title" id="f-title">Vente Conclue !</div>
+            <div class="f-desc" id="f-desc">En répondant correctement "Mangi fi rekk", le client a souri. La connexion est établie et il achète sans hésiter !</div>
+            <button class="btn-next" onclick="location.reload()">Rejouer une situation</button>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const btns = document.querySelectorAll('.btn-option');
+            const feedback = document.getElementById('feedback');
+            const scoreVal = document.getElementById('score-val');
+            const fIcon = document.getElementById('f-icon');
+            const fTitle = document.getElementById('f-title');
+            const fDesc = document.getElementById('f-desc');
+
+            btns.forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const isCorrect = e.target.getAttribute('data-correct') === 'true';
+
+                    if (isCorrect) {
+                        scoreVal.textContent = "+ 100 pts";
+                        scoreVal.style.color = "var(--emerald)";
+                        scoreVal.style.textShadow = "0 0 10px rgba(16,185,129,0.5)";
+                        
+                        fIcon.textContent = "🤝";
+                        fTitle.textContent = "Excellente Négociation";
+                        fTitle.style.color = "var(--emerald)";
+                        fDesc.textContent = "Répondre dans la langue du client brise la glace. Vous venez de gagner sa confiance et fidéliser un acheteur.";
+                    } else {
+                        fIcon.textContent = "❌";
+                        fTitle.textContent = "Vente Perdue...";
+                        fTitle.style.color = "var(--error)";
+                        fDesc.textContent = "Une réponse froide ou dans une autre langue a refroidi le client. Il est parti chez la concurrence.";
+                    }
+
+                    feedback.classList.add('active');
+                });
+            });
+        });
+    </script>
+</body>
+</html>

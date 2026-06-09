@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sandbox: Pitch Business & Prise de Parole</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap');
+
+        :root {
+            --bg-base: #000000;
+            --bg-surface: #0a0a0a;
+            --bg-element: #1a1a1a;
+            --border-color: rgba(255, 255, 255, 0.1);
+            --text-primary: #ffffff;
+            --text-secondary: #9ca3af;
+            --emerald: #10B981;
+            --emerald-dark: #059669;
+            --error: #ef4444;
+            --warning: #f59e0b;
+            --blue: #3b82f6;
+        }
+
+        body { font-family: 'Inter', sans-serif; background-color: var(--bg-base); color: var(--text-primary); margin: 0; padding: 16px; display: flex; justify-content: center; }
+        .container { width: 100%; max-width: 500px; background-color: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 16px; padding: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        h2 { margin-top: 0; font-weight: 700; font-size: 1.5rem; margin-bottom: 8px; }
+        p.subtitle { color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 24px; line-height: 1.5; }
+
+        .gauges { display: flex; gap: 16px; margin-bottom: 24px; }
+        .gauge-wrap { flex: 1; background: var(--bg-element); border: 1px solid var(--border-color); border-radius: 12px; padding: 12px; text-align: center; }
+        .g-title { font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 8px; font-weight: bold; }
+        .bar-bg { width: 100%; height: 8px; background: rgba(255,255,255,0.05); border-radius: 4px; overflow: hidden; }
+        .bar-fill { height: 100%; width: 50%; transition: all 0.3s ease; }
+        
+        #bar-interest { background: var(--emerald); }
+        #bar-stress { background: var(--warning); }
+
+        .workspace { border: 1px dashed var(--border-color); border-radius: 12px; padding: 16px; min-height: 200px; margin-bottom: 20px; display: flex; flex-direction: column; gap: 8px; background: rgba(255,255,255,0.02); }
+        .workspace-title { font-size: 0.85rem; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 8px; text-align: center; }
+
+        .pitch-part { background: var(--bg-element); border: 1px solid var(--border-color); padding: 12px; border-radius: 8px; cursor: pointer; transition: all 0.2s; font-size: 0.9rem; line-height: 1.4; display: flex; align-items: center; gap: 12px; }
+        .pitch-part:hover { border-color: var(--blue); background: rgba(59, 130, 246, 0.05); }
+        .pitch-part:active { transform: scale(0.98); }
+        .p-num { background: var(--border-color); width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; font-weight: bold; flex-shrink: 0; }
+
+        .choices { display: flex; flex-direction: column; gap: 8px; }
+        
+        .btn-restart { background: transparent; border: 1px solid var(--border-color); color: var(--text-primary); padding: 10px; border-radius: 8px; width: 100%; cursor: pointer; margin-top: 10px; font-weight: bold; }
+        .btn-restart:hover { background: rgba(255,255,255,0.05); }
+
+        .result-msg { margin-top: 16px; text-align: center; font-weight: bold; padding: 12px; border-radius: 8px; display: none; }
+        .result-msg.success { display: block; background: rgba(16,185,129,0.1); color: var(--emerald); border: 1px solid rgba(16,185,129,0.3); }
+        .result-msg.error { display: block; background: rgba(239,68,68,0.1); color: var(--error); border: 1px solid rgba(239,68,68,0.3); }
+
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>Structure du Pitch</h2>
+        <p class="subtitle">Sélectionnez les parties de votre discours dans le bon ordre pour convaincre le public sans les ennuyer.</p>
+
+        <div class="gauges">
+            <div class="gauge-wrap">
+                <div class="g-title">Intérêt Public</div>
+                <div class="bar-bg"><div class="bar-fill" id="bar-interest" style="width: 20%;"></div></div>
+            </div>
+            <div class="gauge-wrap">
+                <div class="g-title">Stress</div>
+                <div class="bar-bg"><div class="bar-fill" id="bar-stress" style="width: 20%;"></div></div>
+            </div>
+        </div>
+
+        <div class="workspace" id="workspace">
+            <div class="workspace-title">Votre Discours (Séquence)</div>
+            <!-- Sélection viendra ici -->
+        </div>
+
+        <div class="choices" id="choices">
+            <div class="pitch-part" data-type="price">
+                <div class="p-num">+</div>
+                <div>"Notre solution coûte 150,000 CFA par abonnement mensuel."</div>
+            </div>
+            <div class="pitch-part" data-type="solution">
+                <div class="p-num">+</div>
+                <div>"C'est pourquoi nous avons créé AgroTrack, une application mobile qui gère l'irrigation via SMS."</div>
+            </div>
+            <div class="pitch-part" data-type="hook">
+                <div class="p-num">+</div>
+                <div>"Saviez-vous que 40% des récoltes sont perdues en Afrique à cause de la mauvaise gestion de l'eau ?"</div>
+            </div>
+            <div class="pitch-part" data-type="problem">
+                <div class="p-num">+</div>
+                <div>"Le problème, c'est que les petits agriculteurs n'ont pas accès aux prévisions météo locales et arrosent à l'aveugle."</div>
+            </div>
+        </div>
+
+        <div class="result-msg" id="result-msg"></div>
+        <button class="btn-restart" onclick="location.reload()">Réinitialiser</button>
+
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const choices = document.querySelectorAll('.pitch-part');
+            const workspace = document.getElementById('workspace');
+            const choiceContainer = document.getElementById('choices');
+            const barInterest = document.getElementById('bar-interest');
+            const barStress = document.getElementById('bar-stress');
+            const resultMsg = document.getElementById('result-msg');
+
+            const correctSequence = ['hook', 'problem', 'solution', 'price'];
+            let currentSequence = [];
+
+            function updateUI() {
+                // Update Gauges based on current performance
+                let interest = 20;
+                let stress = 20;
+                let isFailing = false;
+
+                currentSequence.forEach((type, index) => {
+                    if (type === correctSequence[index]) {
+                        interest += 20; // Good step
+                        stress = Math.max(10, stress - 5);
+                    } else {
+                        interest -= 15; // Bad step
+                        stress += 30;
+                        isFailing = true;
+                    }
+                });
+
+                interest = Math.max(0, Math.min(100, interest));
+                stress = Math.max(0, Math.min(100, stress));
+
+                barInterest.style.width = `${interest}%`;
+                barStress.style.width = `${stress}%`;
+
+                if (stress >= 80) barStress.style.background = 'var(--error)';
+                if (interest <= 10 && currentSequence.length > 0) barInterest.style.background = 'var(--error)';
+
+                if (currentSequence.length === 4) {
+                    if (!isFailing && interest >= 80) {
+                        resultMsg.className = 'result-msg success';
+                        resultMsg.innerHTML = "🎯 Excellent Pitch !<br><br>Accroche -> Problème -> Solution -> Prix.<br>Le public est captivé et les investisseurs valident !";
+                    } else {
+                        resultMsg.className = 'result-msg error';
+                        resultMsg.innerHTML = "📉 Pitch Raté...<br><br>L'ordre est illogique (Commencer par le prix tue l'intérêt). Personne n'a écouté jusqu'à la fin.";
+                    }
+                } else if (isFailing && currentSequence.length > 0) {
+                    resultMsg.className = 'result-msg error';
+                    resultMsg.innerHTML = "Aïe, vous perdez l'attention du public ! Mauvais enchaînement.";
+                } else {
+                    resultMsg.className = 'result-msg';
+                }
+            }
+
+            choices.forEach(choice => {
+                choice.addEventListener('click', function() {
+                    const type = this.getAttribute('data-type');
+                    
+                    // Move to workspace
+                    this.style.pointerEvents = 'none';
+                    const clone = this.cloneNode(true);
+                    clone.querySelector('.p-num').textContent = currentSequence.length + 1;
+                    clone.style.background = 'var(--bg-base)';
+                    
+                    workspace.appendChild(clone);
+                    this.style.opacity = '0.3';
+
+                    currentSequence.push(type);
+                    updateUI();
+                });
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sandbox: Prévention Santé & Paludisme</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap');
+
+        :root {
+            --bg-base: #000000;
+            --bg-surface: #0a0a0a;
+            --bg-element: #1a1a1a;
+            --border-color: rgba(255, 255, 255, 0.1);
+            --text-primary: #ffffff;
+            --text-secondary: #9ca3af;
+            --emerald: #10B981;
+            --error: #ef4444;
+            --warning: #f59e0b;
+        }
+
+        body { font-family: 'Inter', sans-serif; background-color: var(--bg-base); color: var(--text-primary); margin: 0; padding: 16px; display: flex; justify-content: center; }
+        .container { width: 100%; max-width: 500px; background-color: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 16px; padding: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        h2 { margin-top: 0; font-weight: 700; font-size: 1.5rem; margin-bottom: 8px; }
+        p.subtitle { color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 24px; line-height: 1.5; }
+
+        .risk-gauge { background: var(--bg-element); border: 1px solid var(--border-color); padding: 16px; border-radius: 12px; margin-bottom: 24px; text-align: center; }
+        .risk-title { font-size: 0.85rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
+        .bar-bg { width: 100%; height: 12px; background: rgba(255,255,255,0.05); border-radius: 6px; overflow: hidden; }
+        .bar-fill { height: 100%; background: var(--error); width: 100%; transition: width 0.5s ease, background-color 0.5s ease; }
+        .risk-pct { font-family: 'JetBrains Mono', monospace; font-size: 1.5rem; font-weight: bold; margin-top: 12px; display: block; color: var(--error); transition: color 0.5s; }
+
+        .zones { display: flex; flex-direction: column; gap: 12px; }
+        .zone { background: var(--bg-base); border: 1px solid var(--border-color); border-radius: 12px; padding: 16px; display: flex; justify-content: space-between; align-items: center; transition: all 0.3s; }
+        .zone.safe { border-color: var(--emerald); background: rgba(16, 185, 129, 0.05); }
+        .zone.safe .z-title { color: var(--emerald); text-decoration: line-through; }
+        
+        .z-info { display: flex; align-items: center; gap: 12px; }
+        .z-emoji { font-size: 1.5rem; }
+        .z-title { font-weight: bold; font-size: 0.9rem; transition: color 0.3s; line-height: 1.3; }
+
+        .btn-action { background: var(--bg-element); border: 1px solid var(--border-color); color: var(--text-primary); padding: 8px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: bold; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+        .btn-action:hover { border-color: var(--emerald); color: var(--emerald); }
+        .zone.safe .btn-action { display: none; }
+
+        .success-panel { margin-top: 24px; background: rgba(16, 185, 129, 0.1); border: 1px solid var(--emerald); padding: 16px; border-radius: 12px; text-align: center; color: var(--emerald); display: none; animation: fadeIn 0.5s; }
+        .success-panel h3 { margin: 0 0 8px 0; font-size: 1.2rem; }
+        .success-panel p { margin: 0; font-size: 0.85rem; color: var(--text-primary); line-height: 1.5; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>Assainissement Concession</h2>
+        <p class="subtitle">Éradiquez les foyers de moustiques pour protéger la famille contre le Paludisme.</p>
+
+        <div class="risk-gauge">
+            <div class="risk-title">Niveau de Risque d'Infection</div>
+            <div class="bar-bg"><div class="bar-fill" id="risk-bar"></div></div>
+            <span class="risk-pct" id="risk-pct">100% Danger</span>
+        </div>
+
+        <div class="zones" id="zones-list">
+            <div class="zone" data-weight="25">
+                <div class="z-info">
+                    <span class="z-emoji">🛞</span>
+                    <span class="z-title">Pneus abandonnés sous la pluie</span>
+                </div>
+                <button class="btn-action">Vider l'eau</button>
+            </div>
+            <div class="zone" data-weight="25">
+                <div class="z-info">
+                    <span class="z-emoji">🍲</span>
+                    <span class="z-title">Vieille marmite non couverte</span>
+                </div>
+                <button class="btn-action">Couvrir & Nettoyer</button>
+            </div>
+            <div class="zone" data-weight="25">
+                <div class="z-info">
+                    <span class="z-emoji">🌿</span>
+                    <span class="z-title">Herbes hautes proches du mur</span>
+                </div>
+                <button class="btn-action">Débroussailler</button>
+            </div>
+            <div class="zone" data-weight="25">
+                <div class="z-info">
+                    <span class="z-emoji">🛏️</span>
+                    <span class="z-title">Fenêtres et Lits non protégés</span>
+                </div>
+                <button class="btn-action">Installer Moustiquaire</button>
+            </div>
+        </div>
+
+        <div class="success-panel" id="success-panel">
+            <h3>Cour Sécurisée 🛡️</h3>
+            <p>Félicitations ! Vous avez détruit tous les gîtes larvaires et protégé les zones de sommeil. Le risque de transmission est drastiquement réduit.</p>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            let currentRisk = 100;
+            const bar = document.getElementById('risk-bar');
+            const pct = document.getElementById('risk-pct');
+            const zones = document.querySelectorAll('.zone');
+            const successPanel = document.getElementById('success-panel');
+
+            function updateGauge() {
+                bar.style.width = `${currentRisk}%`;
+                
+                if (currentRisk === 0) {
+                    bar.style.backgroundColor = 'var(--emerald)';
+                    pct.style.color = 'var(--emerald)';
+                    pct.textContent = "0% - Sécurisé";
+                    successPanel.style.display = 'block';
+                } else if (currentRisk <= 50) {
+                    bar.style.backgroundColor = 'var(--warning)';
+                    pct.style.color = 'var(--warning)';
+                    pct.textContent = `${currentRisk}% - Moyen`;
+                } else {
+                    bar.style.backgroundColor = 'var(--error)';
+                    pct.style.color = 'var(--error)';
+                    pct.textContent = `${currentRisk}% - Danger`;
+                }
+            }
+
+            zones.forEach(zone => {
+                const btn = zone.querySelector('.btn-action');
+                const weight = parseInt(zone.getAttribute('data-weight'));
+
+                btn.addEventListener('click', () => {
+                    zone.classList.add('safe');
+                    currentRisk -= weight;
+                    if(currentRisk < 0) currentRisk = 0;
+                    
+                    const emoji = zone.querySelector('.z-emoji');
+                    emoji.textContent = "✅";
+
+                    updateGauge();
+                });
+            });
+
+            updateGauge();
+        });
+    </script>
+</body>
+</html>

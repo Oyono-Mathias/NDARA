@@ -3,33 +3,7 @@ import { ArrowRight, GraduationCap, Globe2, ShieldCheck, Zap } from "lucide-reac
 
 export function Landing() {
   return (
-    <div className="min-h-screen bg-black text-white font-sans selection:bg-[#10B981] selection:text-black">
-      {/* Header */}
-      <header className="fixed top-0 w-full z-50 bg-black/50 backdrop-blur-md border-b border-white/5">
-        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-             <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-[#10B981] to-teal-600 flex items-center justify-center text-black font-black text-xl shadow-[0_0_15px_rgba(16,185,129,0.3)]">
-                N
-              </div>
-              <span className="font-serif font-bold text-2xl tracking-tight text-white drop-shadow-md">NDARA</span>
-          </div>
-          <nav className="hidden md:flex gap-8 text-sm font-bold tracking-widest uppercase text-gray-400">
-            <a href="#features" className="hover:text-white transition">Platform</a>
-            <a href="#about" className="hover:text-white transition">About</a>
-            <Link to="/bourse" className="text-[#10B981] hover:text-[#10B981]/80 transition">Bourse du Savoir</Link>
-          </nav>
-          <div className="flex items-center gap-4">
-             <Link to="/auth" className="hidden md:block text-xs font-bold uppercase tracking-widest text-[#10B981] hover:text-white transition">
-                Se Connecter
-             </Link>
-             <Link to="/auth" className="bg-[#10B981] text-black px-6 py-3 text-xs font-black uppercase tracking-widest hover:bg-[#10B981]/80 transition flex items-center gap-2">
-                 <span>Commencer</span>
-                 <ArrowRight className="w-4 h-4" />
-             </Link>
-          </div>
-        </div>
-      </header>
-
+    <>
       {/* Hero */}
       <main className="relative pt-32 pb-24 lg:pt-48 lg:pb-32 overflow-hidden">
         {/* Background Gradients */}
@@ -193,6 +167,6 @@ export function Landing() {
       <footer className="border-t border-white/5 py-12 text-center text-xs font-mono text-gray-600 font-bold uppercase tracking-widest">
             Bara ala, Tonga na ndara • NDARA AFRIQUE 2.5
       </footer>
-    </div>
+    </>
   );
 }

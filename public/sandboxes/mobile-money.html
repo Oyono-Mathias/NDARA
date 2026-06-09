@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sandbox: Mobile Money & Gestion de Caisse</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap');
+
+        :root {
+            --bg-base: #000000;
+            --bg-surface: #0a0a0a;
+            --bg-element: #1a1a1a;
+            --border-color: rgba(255, 255, 255, 0.1);
+            --text-primary: #ffffff;
+            --text-secondary: #9ca3af;
+            --emerald: #10B981;
+            --emerald-dark: #059669;
+            --error: #ef4444;
+            --warning: #f59e0b;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-base);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 16px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 500px;
+            background-color: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        h2 {
+            margin-top: 0;
+            font-weight: 700;
+            font-size: 1.5rem;
+            margin-bottom: 8px;
+        }
+
+        p.subtitle {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin-bottom: 24px;
+            line-height: 1.5;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background-color: var(--bg-element);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 16px;
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+
+        .stat-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.25rem;
+            font-weight: 700;
+        }
+
+        .stat-value.cash { color: var(--emerald); }
+        .stat-value.uv { color: #3b82f6; }
+        .stat-value.profit { color: var(--emerald); text-shadow: 0 0 10px rgba(16, 185, 129, 0.4); font-size: 1.5rem; }
+
+        .stat-card.full-width {
+            grid-column: span 2;
+            background-color: rgba(16, 185, 129, 0.05);
+            border-color: rgba(16, 185, 129, 0.2);
+        }
+
+        .form-section {
+            background-color: var(--bg-base);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 24px;
+        }
+
+        .form-title {
+            font-size: 0.9rem;
+            font-weight: 700;
+            margin-bottom: 16px;
+            color: var(--text-secondary);
+        }
+
+        .form-row {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .input-group {
+            flex: 1;
+        }
+
+        label {
+            display: block;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+        }
+
+        select, input {
+            width: 100%;
+            background-color: var(--bg-element);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 10px;
+            color: var(--text-primary);
+            font-family: 'Inter', sans-serif;
+            font-size: 0.95rem;
+            box-sizing: border-box;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        input {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        select:focus, input:focus {
+            border-color: var(--emerald);
+        }
+
+        button.btn-add {
+            width: 100%;
+            background-color: var(--emerald);
+            color: #000;
+            border: none;
+            border-radius: 8px;
+            padding: 12px;
+            font-weight: 700;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: transform 0.1s, background-color 0.2s;
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.2);
+        }
+
+        button.btn-add:active {
+            transform: scale(0.98);
+        }
+
+        button.btn-add:hover {
+            background-color: var(--emerald-dark);
+        }
+
+        .history-title {
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .history-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .history-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+        }
+
+        .item-type {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .type-depot { background-color: rgba(59, 130, 246, 0.2); color: #3b82f6; }
+        .type-retrait { background-color: rgba(245, 158, 11, 0.2); color: var(--warning); }
+        
+        .item-montant { font-weight: bold; }
+        .item-com { color: var(--emerald); font-size: 0.8rem; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>Simulateur Point de Vente MoMo</h2>
+        <p class="subtitle">Gérez votre point de caisse. Équilibrez l'argent physique (Cash) et la monnaie électronique (UV) sans faire d'erreur.</p>
+
+        <div class="dashboard">
+            <div class="stat-card">
+                <div class="stat-label">Caisse Cash</div>
+                <div class="stat-value cash" id="val-cash">500,000</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Stock Électronique (UV)</div>
+                <div class="stat-value uv" id="val-uv">500,000</div>
+            </div>
+            <div class="stat-card full-width">
+                <div class="stat-label">Bénéfice de la journée (Commissions)</div>
+                <div class="stat-value profit" id="val-profit">0</div>
+            </div>
+        </div>
+
+        <div class="form-section">
+            <div class="form-title">Nouvelle Transaction</div>
+            <div class="form-row">
+                <div class="input-group">
+                    <label>Opération</label>
+                    <select id="op-type">
+                        <option value="depot">Dépôt (Le client donne du Cash)</option>
+                        <option value="retrait">Retrait (Le client envoie des UV)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="input-group">
+                    <label>Montant (F CFA)</label>
+                    <input type="number" id="op-montant" placeholder="Ex: 10000">
+                </div>
+                <div class="input-group">
+                    <label>Commission gérant</label>
+                    <input type="number" id="op-com" placeholder="Ex: 100" value="0">
+                </div>
+            </div>
+            <button class="btn-add" id="btn-valider">Valider la transaction</button>
+        </div>
+
+        <div>
+            <div class="history-title">Historique du jour</div>
+            <ul class="history-list" id="history">
+                <!-- Les transactions s'ajouteront ici -->
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // State
+            let cash = 500000;
+            let uv = 500000;
+            let profit = 0;
+
+            // DOM
+            const valCash = document.getElementById('val-cash');
+            const valUv = document.getElementById('val-uv');
+            const valProfit = document.getElementById('val-profit');
+            
+            const btnValider = document.getElementById('btn-valider');
+            const typeSelect = document.getElementById('op-type');
+            const montantInput = document.getElementById('op-montant');
+            const comInput = document.getElementById('op-com');
+            const historyList = document.getElementById('history');
+
+            function formatNumber(num) {
+                return num.toLocaleString('fr-FR');
+            }
+
+            function updateDashboard() {
+                valCash.textContent = formatNumber(cash);
+                valUv.textContent = formatNumber(uv);
+                valProfit.textContent = formatNumber(profit);
+
+                // Alertes visuelles si on tombe bas
+                valCash.style.color = cash < 0 ? 'var(--error)' : 'var(--emerald)';
+                valUv.style.color = uv < 0 ? 'var(--error)' : '#3b82f6';
+            }
+
+            btnValider.addEventListener('click', () => {
+                const type = typeSelect.value;
+                const montant = parseInt(montantInput.value) || 0;
+                const com = parseInt(comInput.value) || 0;
+
+                if (montant <= 0) {
+                    alert('Veuillez entrer un montant valide');
+                    return;
+                }
+
+                if (type === 'depot') {
+                    // Dépôt : Le client donne du billet (Cash augmente). On transfère des UV (UV diminue).
+                    cash += montant;
+                    uv -= montant;
+                } else if (type === 'retrait') {
+                    // Retrait : Le client donne des UV (UV augmente). On donne du Cash (Cash diminue).
+                    uv += montant;
+                    cash -= montant;
+                }
+
+                // La commission est toujours gardée en profit par le gérant
+                profit += com;
+
+                // On ajoute à l'historique
+                const li = document.createElement('li');
+                li.className = 'history-item';
+                
+                const typeBadge = document.createElement('span');
+                typeBadge.className = `item-type type-${type}`;
+                typeBadge.textContent = type === 'depot' ? 'DÉPÔT' : 'RETRAIT';
+
+                const rightCol = document.createElement('div');
+                rightCol.style.textAlign = 'right';
+
+                const mtSpan = document.createElement('div');
+                mtSpan.className = 'item-montant';
+                mtSpan.textContent = formatNumber(montant) + ' CFA';
+
+                const comSpan = document.createElement('div');
+                comSpan.className = 'item-com';
+                comSpan.textContent = '+ ' + formatNumber(com) + ' coms';
+
+                rightCol.appendChild(mtSpan);
+                if (com > 0) rightCol.appendChild(comSpan);
+
+                li.appendChild(typeBadge);
+                li.appendChild(rightCol);
+
+                historyList.insertBefore(li, historyList.firstChild);
+
+                // Reset Forms (sauf commission pour aller plus vite)
+                montantInput.value = '';
+
+                updateDashboard();
+            });
+
+            // Initial render
+            updateDashboard();
+        });
+    </script>
+</body>
+</html>

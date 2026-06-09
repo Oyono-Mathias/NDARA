@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sandbox: Business Plan & Rentabilité</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap');
+
+        :root {
+            --bg-base: #000000;
+            --bg-surface: #0a0a0a;
+            --bg-element: #1a1a1a;
+            --border-color: rgba(255, 255, 255, 0.1);
+            --text-primary: #ffffff;
+            --text-secondary: #9ca3af;
+            --emerald: #10B981;
+            --error: #ef4444;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-base);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 16px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 500px;
+            background-color: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        h2 {
+            margin-top: 0;
+            font-weight: 700;
+            font-size: 1.5rem;
+            margin-bottom: 8px;
+        }
+
+        p.subtitle {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin-bottom: 24px;
+            line-height: 1.5;
+        }
+
+        .slider-group {
+            margin-bottom: 20px;
+            background-color: var(--bg-element);
+            border: 1px solid var(--border-color);
+            padding: 16px;
+            border-radius: 12px;
+        }
+
+        .slider-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .slider-label {
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+
+        .slider-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            font-weight: 700;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 4px 8px;
+            border-radius: 6px;
+        }
+
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 20px;
+            width: 20px;
+            border-radius: 50%;
+            background: var(--emerald);
+            cursor: pointer;
+            margin-top: -8px;
+            box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+        }
+
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: var(--border-color);
+            border-radius: 2px;
+        }
+
+        .result-panel {
+            margin-top: 24px;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .result-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border-color);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+        }
+
+        .result-row:last-child {
+            border-bottom: none;
+        }
+
+        .result-label {
+            font-family: 'Inter', sans-serif;
+            color: var(--text-secondary);
+        }
+
+        .final-result {
+            padding: 20px;
+            text-align: center;
+            background-color: var(--bg-element);
+            transition: all 0.3s ease;
+        }
+
+        .final-label {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+            font-weight: 700;
+        }
+
+        .final-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 2.5rem;
+            font-weight: 700;
+        }
+
+        /* Classes dynamiques pour le résultat */
+        .profit .final-result {
+            background-color: rgba(16, 185, 129, 0.1);
+        }
+        .profit .final-label { color: var(--emerald); }
+        .profit .final-value { color: var(--emerald); text-shadow: 0 0 15px rgba(16, 185, 129, 0.4); }
+
+        .loss .final-result {
+            background-color: rgba(239, 68, 68, 0.1);
+        }
+        .loss .final-label { color: var(--error); }
+        .loss .final-value { color: var(--error); text-shadow: 0 0 15px rgba(239, 68, 68, 0.4); }
+
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>Simulateur de Business Plan</h2>
+        <p class="subtitle">Ajustez vos prix, quantités et charges. Votre objectif est de dégager une rentabilité positive (en Vert).</p>
+
+        <!-- Sliders -->
+        <div class="slider-group">
+            <div class="slider-header">
+                <span class="slider-label">Prix de Vente Unitaire (CFA)</span>
+                <span class="slider-value" id="val-prix">1,500</span>
+            </div>
+            <input type="range" id="slider-prix" min="100" max="10000" step="100" value="1500">
+        </div>
+
+        <div class="slider-group">
+            <div class="slider-header">
+                <span class="slider-label">Quantité Vendue par Mois</span>
+                <span class="slider-value" id="val-qte">100</span>
+            </div>
+            <input type="range" id="slider-qte" min="10" max="1000" step="10" value="100">
+        </div>
+
+        <div class="slider-group">
+            <div class="slider-header">
+                <span class="slider-label">Coût Variable Unitaire (CFA)</span>
+                <span class="slider-value" id="val-cvu">800</span>
+            </div>
+            <input type="range" id="slider-cvu" min="50" max="8000" step="50" value="800">
+        </div>
+
+        <div class="slider-group" style="border-left: 2px solid #3b82f6;">
+            <div class="slider-header">
+                <span class="slider-label">Coûts Fixes Mensuels (Loyer, Salaire...)</span>
+                <span class="slider-value" id="val-cf">50,000</span>
+            </div>
+            <input type="range" id="slider-cf" min="0" max="500000" step="5000" value="50000">
+        </div>
+
+        <!-- Result -->
+        <div class="result-panel" id="panel-res">
+            <div class="result-row">
+                <span class="result-label">Chiffre d'Affaires</span>
+                <span id="res-ca">150,000 CFA</span>
+            </div>
+            <div class="result-row">
+                <span class="result-label">Coûts Variables Totaux</span>
+                <span id="res-cvt" style="color: #9ca3af;">- 80,000 CFA</span>
+            </div>
+            <div class="result-row">
+                <span class="result-label">Coûts Fixes</span>
+                <span id="res-cf" style="color: #9ca3af;">- 50,000 CFA</span>
+            </div>
+            <div class="final-result">
+                <div class="final-label" id="final-label">RÉSULTAT NET</div>
+                <div class="final-value" id="final-value">0</div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            
+            // Inputs
+            const sliderPrix = document.getElementById('slider-prix');
+            const sliderQte = document.getElementById('slider-qte');
+            const sliderCvu = document.getElementById('slider-cvu');
+            const sliderCf = document.getElementById('slider-cf');
+
+            // Value displays
+            const valPrix = document.getElementById('val-prix');
+            const valQte = document.getElementById('val-qte');
+            const valCvu = document.getElementById('val-cvu');
+            const valCf = document.getElementById('val-cf');
+
+            // Result displays
+            const resCa = document.getElementById('res-ca');
+            const resCvt = document.getElementById('res-cvt');
+            const resCf = document.getElementById('res-cf');
+            const finalValue = document.getElementById('final-value');
+            const finalLabel = document.getElementById('final-label');
+            const panelRes = document.getElementById('panel-res');
+
+            function formatNumber(num) {
+                return num.toLocaleString('fr-FR');
+            }
+
+            function calculate() {
+                const prix = parseInt(sliderPrix.value);
+                const qte = parseInt(sliderQte.value);
+                const cvu = parseInt(sliderCvu.value);
+                const cf = parseInt(sliderCf.value);
+
+                // Update labels
+                valPrix.textContent = formatNumber(prix);
+                valQte.textContent = formatNumber(qte);
+                valCvu.textContent = formatNumber(cvu);
+                valCf.textContent = formatNumber(cf);
+
+                // Calculate Math
+                const ca = prix * qte;
+                const cvt = cvu * qte;
+                const coutTotal = cvt + cf;
+                const resultat = ca - coutTotal;
+
+                // Update result text
+                resCa.textContent = formatNumber(ca) + ' CFA';
+                resCvt.textContent = '- ' + formatNumber(cvt) + ' CFA';
+                resCf.textContent = '- ' + formatNumber(cf) + ' CFA';
+                
+                finalValue.textContent = (resultat > 0 ? '+ ' : '') + formatNumber(resultat);
+
+                // Update colors (Profit vs Loss)
+                panelRes.classList.remove('profit', 'loss');
+                if (resultat > 0) {
+                    panelRes.classList.add('profit');
+                    finalLabel.textContent = "BÉNÉFICE NET";
+                } else if (resultat < 0) {
+                    panelRes.classList.add('loss');
+                    finalLabel.textContent = "PERTE NETTE";
+                } else {
+                    finalLabel.textContent = "SEUIL DE RENTABILITÉ";
+                }
+            }
+
+            // Listeners
+            sliderPrix.addEventListener('input', calculate);
+            sliderQte.addEventListener('input', calculate);
+            sliderCvu.addEventListener('input', calculate);
+            sliderCf.addEventListener('input', calculate);
+
+            // Init
+            calculate();
+        });
+    </script>
+</body>
+</html>

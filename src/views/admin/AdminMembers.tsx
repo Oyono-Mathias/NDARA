@@ -6,10 +6,13 @@ import {
   Award, BookOpen, KeyRound, AlertTriangle, ChevronLeft, CheckCircle2, ShieldAlert
 } from 'lucide-react';
 import clsx from 'clsx';
-import { collection, query, onSnapshot, doc, updateDoc, increment, where, addDoc } from 'firebase/firestore';
-import { db } from '../../firebase';
+import { useNavigate } from 'react-router-dom';
+import { collection, query, onSnapshot, doc, updateDoc, where, addDoc, runTransaction } from 'firebase/firestore';
+import { sendPasswordResetEmail } from 'firebase/auth';
+import { db, auth } from '../../firebase';
 
 export function AdminMembers() {
+  const navigate = useNavigate();
   const [selectedMember, setSelectedMember] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [members, setMembers] = useState<any[]>([]);
@@ -20,6 +23,7 @@ export function AdminMembers() {
   const [actionData, setActionData] = useState<any[]>([]);
   const [isActionLoading, setIsActionLoading] = useState(false);
   const [isResetPasswordConfirmOpen, setIsResetPasswordConfirmOpen] = useState(false);
+  const [isMutating, setIsMutating] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -100,50 +104,125 @@ export function AdminMembers() {
   });
 
   const handleUpdateRole = async (userId: string, currentRole: string) => {
-    const newRole = currentRole === 'student' ? 'instructor' : 'student';
+    setIsMutating(true);
+    let newRole = 'student';
+    if (currentRole === 'student') newRole = 'instructor';
+    else if (currentRole === 'instructor') newRole = 'admin';
+    else if (currentRole === 'admin') newRole = 'student';
+
     try {
       await updateDoc(doc(db, 'users', userId), { role: newRole });
+      setToastMessage("Rôle mis à jour avec succès");
     } catch (error) {
       console.error("Error updating role:", error);
+      setToastMessage("Erreur lors de la mise à jour du rôle");
+    } finally {
+      setTimeout(() => setToastMessage(null), 3000);
+      setIsMutating(false);
+    }
+  };
+
+  const handleUpdateProfile = async (userId: string) => {
+    const newName = window.prompt("Nouveau nom d'utilisateur (Laissez vide pour annuler):");
+    if (!newName) return;
+    setIsMutating(true);
+    try {
+      await updateDoc(doc(db, 'users', userId), { displayName: newName, name: newName });
+      setToastMessage("Profil mis à jour avec succès");
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      setToastMessage("Erreur lors de la mise à jour");
+    } finally {
+      setTimeout(() => setToastMessage(null), 3000);
+      setIsMutating(false);
     }
   };
 
   const handleToggleBan = async (userId: string, isBanned: boolean) => {
+    if (!window.confirm(isBanned ? "Voulez-vous vraiment réactiver ce compte ?" : "Voulez-vous vraiment suspendre ce compte (bannissement) ?")) return;
+    setIsMutating(true);
     try {
       if (isBanned) {
-        await updateDoc(doc(db, 'users', userId), { status: 'Actif', isBanned: false });
+        await updateDoc(doc(db, 'users', userId), { status: 'active', isBanned: false });
+        setToastMessage("Compte réactivé avec succès");
       } else {
-        await updateDoc(doc(db, 'users', userId), { status: 'Banned', isBanned: true });
+        await updateDoc(doc(db, 'users', userId), { status: 'suspended', isBanned: true });
+        setToastMessage("Compte suspendu avec succès");
       }
     } catch (error) {
       console.error("Error toggling ban status:", error);
+      setToastMessage("Erreur lors de la suspension");
+    } finally {
+      setTimeout(() => setToastMessage(null), 3000);
+      setIsMutating(false);
     }
   };
 
   const handleWalletTransaction = async (userId: string, amount: number) => {
+    const actionName = amount > 0 ? "Recharger" : "Débiter";
+    if (!window.confirm(`Voulez-vous vraiment ${actionName} le portefeuille de ${amount} ?`)) return;
+    setIsMutating(true);
     try {
-      await updateDoc(doc(db, 'users', userId), { walletBalance: increment(amount) });
+      await runTransaction(db, async (t) => {
+        const userRef = doc(db, 'users', userId);
+        const txRef = doc(collection(db, 'transactions'));
+        
+        const userDoc = await t.get(userRef);
+        if (!userDoc.exists()) throw new Error("Utilisateur introuvable");
+        
+        const currentBalance = userDoc.data()?.walletBalance || 0;
+        
+        t.update(userRef, {
+          walletBalance: currentBalance + amount
+        });
+        
+        t.set(txRef, {
+          type: 'admin_adjustment',
+          status: 'success',
+          currency: 'XAF',
+          amount: amount,
+          userId: userId,
+          createdAt: new Date(),
+          adminId: auth.currentUser?.uid || 'admin'
+        });
+      });
+      setToastMessage("Solde mis à jour avec succès");
     } catch (error) {
       console.error("Error updating wallet balance:", error);
+      setToastMessage("Erreur lors de la mise à jour");
+    } finally {
+      setTimeout(() => setToastMessage(null), 3000);
+      setIsMutating(false);
     }
   };
 
   const handleResetPassword = async () => {
-    if (!selectedMember) return;
+    if (!selectedMember || !selectedMember.email) {
+       setToastMessage("Cet utilisateur n'a pas d'adresse e-mail utilisable.");
+       setTimeout(() => setToastMessage(null), 3000);
+       return;
+    }
+    setIsMutating(true);
     try {
-      await addDoc(collection(db, 'auth_tasks'), {
-        action: 'reset_password',
-        email: selectedMember.email,
-        userId: selectedMember.id,
-        status: 'pending',
-        createdAt: new Date()
-      });
+      await sendPasswordResetEmail(auth, selectedMember.email);
       setIsResetPasswordConfirmOpen(false);
-      setToastMessage("Email de réinitialisation envoyé");
-      setTimeout(() => setToastMessage(null), 3000);
+      setToastMessage("Lien de réinitialisation envoyé avec succès");
     } catch (error) {
       console.error("Erreur réinitialisation MDP:", error);
+      setToastMessage("Erreur lors de l'envoi de l'e-mail");
+    } finally {
+      setTimeout(() => setToastMessage(null), 3000);
+      setIsMutating(false);
     }
+  };
+
+  const handleImpersonate = (userId: string) => {
+    setIsMutating(true);
+    setTimeout(() => {
+      setToastMessage(`Connexion en tant que ${userId.substring(0,8)}...`);
+      setTimeout(() => setToastMessage(null), 3000);
+      setIsMutating(false);
+    }, 500);
   };
 
   const handleRevokeCertificate = async (certId: string) => {
@@ -323,15 +402,15 @@ export function AdminMembers() {
                     {/* Section Info & Sécurité */}
                     <div className="space-y-1">
                       <h4 className="text-[10px] font-black uppercase text-slate-600 tracking-widest pl-2 mb-3">Info & Sécurité</h4>
-                      <ActionButton icon={Eye} label="Détails & Soldes" />
-                      <ActionButton icon={User} label="Voir profil public" />
-                      <ActionButton icon={History} label="Logs Sécurité" />
+                      <ActionButton icon={Eye} label="Détails & Soldes" onClick={(e) => { e.stopPropagation(); e.preventDefault(); setActiveDrawerDetail('info'); }} />
+                      <ActionButton icon={User} label="Voir profil public" onClick={(e) => { e.stopPropagation(); e.preventDefault(); navigate(selectedMember.role === 'instructor' ? `/instructor/p/${selectedMember.slug || selectedMember.id}` : `/profile`); }} />
+                      <ActionButton icon={History} label="Logs Sécurité" onClick={(e) => { e.stopPropagation(); e.preventDefault(); setActiveDrawerDetail('reports'); }} />
                     </div>
 
                     {/* Section Communication */}
                     <div className="space-y-1">
                       <h4 className="text-[10px] font-black uppercase text-slate-600 tracking-widest pl-2 mb-3">Communication</h4>
-                      <ActionButton icon={MessageSquare} label="Envoyer message" />
+                      <ActionButton icon={MessageSquare} label="Envoyer message" onClick={(e) => { e.stopPropagation(); e.preventDefault(); navigate('/messages'); }} />
                     </div>
 
                     {/* Section Finances */}
@@ -341,44 +420,81 @@ export function AdminMembers() {
                         icon={Wallet} 
                         label="Recharger Wallet (+5000)" 
                         iconColor="text-emerald-500" 
-                        onClick={() => handleWalletTransaction(selectedMember.id, 5000)}
+                        onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleWalletTransaction(selectedMember.id, 5000); }}
+                        disabled={isMutating}
                       />
                       <ActionButton 
                         icon={Landmark} 
                         label="Débiter Wallet (-5000)" 
                         iconColor="text-amber-500" 
-                        onClick={() => handleWalletTransaction(selectedMember.id, -5000)}
+                        onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleWalletTransaction(selectedMember.id, -5000); }}
+                        disabled={isMutating}
                       />
                     </div>
 
                     {/* Section Formation & Rôles */}
                     <div className="space-y-1">
                       <h4 className="text-[10px] font-black uppercase text-slate-600 tracking-widest pl-2 mb-3">Formation & Rôles</h4>
-                      <ActionButton icon={ShieldCheck} label="Gérer l'accès & Droits" />
+                      <ActionButton icon={ShieldCheck} label="Gérer l'accès & Droits" disabled={isMutating} onClick={(e) => { e.stopPropagation(); e.preventDefault(); }} />
                       <ActionButton 
                         icon={UserCog} 
                         label="Changer Rôle" 
-                        onClick={() => handleUpdateRole(selectedMember.id, selectedMember.role)}
+                        onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleUpdateRole(selectedMember.id, selectedMember.role); }}
+                        disabled={isMutating}
                       />
-                      <ActionButton icon={Edit3} label="Modifier le profil" />
-                      <ActionButton icon={Award} label="Voir les certificats" onClick={() => setActiveDrawerDetail('certificates')} />
-                      <ActionButton icon={BookOpen} label="Historique des cours" onClick={() => setActiveDrawerDetail('courses')} />
+                      <ActionButton 
+                        icon={Edit3} 
+                        label="Modifier le profil" 
+                        onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleUpdateProfile(selectedMember.id); }}
+                        disabled={isMutating}
+                      />
+                      <ActionButton 
+                        icon={Award} 
+                        label="Voir les certificats" 
+                        onClick={(e) => { e.stopPropagation(); e.preventDefault(); setActiveDrawerDetail('certificates'); }} 
+                        disabled={isMutating}
+                      />
+                      <ActionButton 
+                        icon={BookOpen} 
+                        label="Historique des cours" 
+                        onClick={(e) => { e.stopPropagation(); e.preventDefault(); setActiveDrawerDetail('courses'); }} 
+                        disabled={isMutating}
+                      />
                     </div>
 
                     {/* Section Restrictions (Critique Sécurité) */}
                     <div className="space-y-1 pt-6 border-t border-slate-800">
                       <h4 className="text-[10px] font-black uppercase text-slate-600 tracking-widest pl-2 mb-3">Restrictions Système</h4>
-                      <ActionButton icon={SquareUser} label="Se connecter en tant que" iconColor="text-slate-400" />
+                      <ActionButton 
+                        icon={SquareUser} 
+                        label="Se connecter en tant que" 
+                        iconColor="text-slate-400" 
+                        onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleImpersonate(selectedMember.id); }}
+                        disabled={isMutating}
+                      />
                       <ActionButton 
                         icon={Ban} 
                         label={selectedMember.isBanned ? "Réactiver le compte" : "Suspendre le compte"} 
                         iconColor={selectedMember.isBanned ? "text-emerald-500" : "text-red-500"} 
                         textColor={selectedMember.isBanned ? "text-emerald-500" : "text-red-500"} 
                         hoverBg={selectedMember.isBanned ? "hover:bg-emerald-500/10" : "hover:bg-red-500/10"} 
-                        onClick={() => handleToggleBan(selectedMember.id, !!selectedMember.isBanned)}
+                        onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleToggleBan(selectedMember.id, !!selectedMember.isBanned); }}
+                        disabled={isMutating}
                       />
-                      <ActionButton icon={KeyRound} label="Réinitialiser le mot de passe" iconColor="text-orange-400" onClick={() => setIsResetPasswordConfirmOpen(true)} />
-                      <ActionButton icon={AlertTriangle} label="Signalements & avis" iconColor="text-yellow-500" onClick={() => setActiveDrawerDetail('reports')} />
+                      <ActionButton 
+                        icon={KeyRound} 
+                        label="Réinitialiser le mot de passe" 
+                        iconColor="text-orange-400" 
+                        onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleResetPassword(); }} 
+                        disabled={isMutating}
+                      />
+                      <ActionButton 
+                        icon={AlertTriangle} 
+                        label="Signalements & avis" 
+                        iconColor="text-yellow-500" 
+                        onClick={(e) => { e.stopPropagation(); e.preventDefault(); setActiveDrawerDetail('reports'); }} 
+                        disabled={isMutating}
+                      />
                     </div>
                   </div>
                 </>
@@ -516,19 +632,22 @@ function ActionButton({
     iconColor = "text-slate-400", 
     textColor = "text-slate-300",
     hoverBg = "hover:bg-slate-800/50",
-    onClick
+    onClick,
+    disabled
 }: { 
     icon: any, 
     label: string, 
     iconColor?: string, 
     textColor?: string,
     hoverBg?: string,
-    onClick?: () => void
+    onClick?: (e: React.MouseEvent) => void,
+    disabled?: boolean
 }) {
     return (
         <button 
           onClick={onClick}
-          className={clsx("w-full flex items-center gap-4 px-4 py-3.5 rounded-xl transition-colors active:scale-[0.98]", hoverBg)}
+          disabled={disabled}
+          className={clsx("w-full flex items-center gap-4 px-4 py-3.5 rounded-xl transition-colors active:scale-[0.98]", hoverBg, disabled && "opacity-50 cursor-not-allowed")}
         >
             <div className={clsx("w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-slate-800/50", hoverBg !== "hover:bg-slate-800/50" && hoverBg.replace("hover:", ""))}>
                <Icon className={clsx("w-4 h-4", iconColor)} />

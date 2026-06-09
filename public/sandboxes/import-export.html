@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sandbox: Import-Export & Logistique</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap');
+
+        :root {
+            --bg-base: #000000;
+            --bg-surface: #0a0a0a;
+            --bg-element: #1a1a1a;
+            --border-color: rgba(255, 255, 255, 0.1);
+            --text-primary: #ffffff;
+            --text-secondary: #9ca3af;
+            --emerald: #10B981;
+            --emerald-dark: #059669;
+            --error: #ef4444;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-base);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 16px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 500px;
+            background-color: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        h2 {
+            margin-top: 0;
+            font-weight: 700;
+            font-size: 1.5rem;
+            margin-bottom: 8px;
+        }
+
+        p.subtitle {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin-bottom: 24px;
+            line-height: 1.5;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+            background: var(--bg-base);
+            padding: 4px;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+        }
+
+        .tab {
+            flex: 1;
+            text-align: center;
+            padding: 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+
+        .tab.active {
+            background-color: var(--emerald);
+            color: #000;
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.3);
+        }
+
+        .tab:not(.active):hover {
+            background-color: var(--bg-element);
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        label {
+            display: block;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        input {
+            width: 100%;
+            background-color: var(--bg-element);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 12px;
+            color: var(--text-primary);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1rem;
+            box-sizing: border-box;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        input:focus {
+            border-color: var(--emerald);
+        }
+
+        .dimensions-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 12px;
+        }
+
+        #bateau-view, #avion-view {
+            display: none;
+        }
+
+        #bateau-view.active, #avion-view.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .result-card {
+            margin-top: 24px;
+            background-color: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .result-label {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+
+        .result-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--emerald);
+            text-shadow: 0 0 10px rgba(16, 185, 129, 0.4);
+        }
+
+        .info-box {
+            margin-top: 16px;
+            background-color: var(--bg-element);
+            border: 1px solid var(--border-color);
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+
+        /* SVG icon */
+        .info-icon {
+            flex-shrink: 0;
+            width: 20px;
+            height: 20px;
+            color: var(--emerald);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>Calculateur Logistique</h2>
+        <p class="subtitle">Simulez vos coûts d'expédition. Le transitaire gérera la douane, concentrez-vous sur la rentabilité de votre fret.</p>
+
+        <div class="tabs">
+            <div class="tab active" id="tab-bateau">🚢 BATEAU (CBM)</div>
+            <div class="tab" id="tab-avion">✈️ AVION (KG)</div>
+        </div>
+
+        <!-- VUE BATEAU -->
+        <div id="bateau-view" class="active">
+            <div class="info-box">
+                <svg class="info-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                Le transport maritime espace se facture au Mètre Cube (CBM). 1 CBM = 1m x 1m x 1m.
+            </div>
+
+            <br>
+            <label>Dimensions du carton (en cm)</label>
+            <div class="dimensions-grid">
+                <div class="form-group">
+                    <input type="number" id="longueur" placeholder="Long." value="100">
+                </div>
+                <div class="form-group">
+                    <input type="number" id="largeur" placeholder="Larg." value="100">
+                </div>
+                <div class="form-group">
+                    <input type="number" id="hauteur" placeholder="Haut." value="100">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Tarif transitaire au CBM ($ ou € ou CFA)</label>
+                <input type="number" id="prix-cbm" placeholder="Ex: 350" value="350">
+            </div>
+
+            <div class="result-card">
+                <div class="result-label">Volume total</div>
+                <div class="result-value" id="cbm-value">1.00 <span style="font-size: 1rem;">CBM</span></div>
+                <br>
+                <div class="result-label">Coût estimé du fret</div>
+                <div class="result-value" id="total-bateau">350.00</div>
+            </div>
+        </div>
+
+        <!-- VUE AVION -->
+        <div id="avion-view">
+           <div class="info-box">
+                <svg class="info-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+                </svg>
+                Le transport aérien est ultra-rapide mais facturé au Poids Brut (KG). Idéal pour les petits objets de valeur.
+            </div>
+            <br>
+
+            <div class="form-group">
+                <label>Poids brut total (en KG)</label>
+                <input type="number" id="poids" placeholder="Ex: 25" value="25">
+            </div>
+
+            <div class="form-group">
+                <label>Tarif transitaire au KG ($ ou € ou CFA)</label>
+                <input type="number" id="prix-kg" placeholder="Ex: 12" value="12">
+            </div>
+
+            <div class="result-card">
+                <div class="result-label">Coût estimé du fret</div>
+                <div class="result-value" id="total-avion">300.00</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const tabBateau = document.getElementById('tab-bateau');
+            const tabAvion = document.getElementById('tab-avion');
+            const viewBateau = document.getElementById('bateau-view');
+            const viewAvion = document.getElementById('avion-view');
+
+            // Elements Bateau
+            const inputLongueur = document.getElementById('longueur');
+            const inputLargeur = document.getElementById('largeur');
+            const inputHauteur = document.getElementById('hauteur');
+            const inputPrixCbm = document.getElementById('prix-cbm');
+            const cbmValue = document.getElementById('cbm-value');
+            const totalBateauValue = document.getElementById('total-bateau');
+
+            // Elements Avion
+            const inputPoids = document.getElementById('poids');
+            const inputPrixKg = document.getElementById('prix-kg');
+            const totalAvionValue = document.getElementById('total-avion');
+
+            // Switch Tabs
+            tabBateau.addEventListener('click', () => {
+                tabBateau.classList.add('active');
+                tabAvion.classList.remove('active');
+                viewBateau.classList.add('active');
+                viewAvion.classList.remove('active');
+            });
+
+            tabAvion.addEventListener('click', () => {
+                tabAvion.classList.add('active');
+                tabBateau.classList.remove('active');
+                viewAvion.classList.add('active');
+                viewBateau.classList.remove('active');
+            });
+
+            // Calcul Bateau
+            function calculateBateau() {
+                const L = parseFloat(inputLongueur.value) || 0;
+                const W = parseFloat(inputLargeur.value) || 0;
+                const H = parseFloat(inputHauteur.value) || 0;
+                const prix = parseFloat(inputPrixCbm.value) || 0;
+
+                // CBM = (L * W * H in cm) / 1,000,000
+                const cbm = (L * W * H) / 1000000;
+                const total = cbm * prix;
+
+                cbmValue.innerHTML = `${cbm.toFixed(3)} <span style="font-size: 1rem;">CBM</span>`;
+                totalBateauValue.textContent = total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            }
+
+            // Calcul Avion
+            function calculateAvion() {
+                const poids = parseFloat(inputPoids.value) || 0;
+                const prix = parseFloat(inputPrixKg.value) || 0;
+
+                const total = poids * prix;
+                totalAvionValue.textContent = total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            }
+
+            // Listeners
+            inputLongueur.addEventListener('input', calculateBateau);
+            inputLargeur.addEventListener('input', calculateBateau);
+            inputHauteur.addEventListener('input', calculateBateau);
+            inputPrixCbm.addEventListener('input', calculateBateau);
+
+            inputPoids.addEventListener('input', calculateAvion);
+            inputPrixKg.addEventListener('input', calculateAvion);
+
+            // Init
+            calculateBateau();
+            calculateAvion();
+        });
+    </script>
+</body>
+</html>

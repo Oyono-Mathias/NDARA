@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sandbox: Agriculture Intelligente & Irrigation</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap');
+
+        :root {
+            --bg-base: #000000;
+            --bg-surface: #0a0a0a;
+            --bg-element: #1a1a1a;
+            --border-color: rgba(255, 255, 255, 0.1);
+            --text-primary: #ffffff;
+            --text-secondary: #9ca3af;
+            --emerald: #10B981;
+            --emerald-dark: #059669;
+            --error: #ef4444;
+            --warning: #f59e0b;
+            --blue: #3b82f6;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-base);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 16px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 500px;
+            background-color: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        h2 { margin-top: 0; font-weight: 700; font-size: 1.5rem; margin-bottom: 8px; }
+        p.subtitle { color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 24px; line-height: 1.5; }
+
+        .weather-panel {
+            background-color: var(--bg-element);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 24px;
+            transition: all 0.3s ease;
+        }
+
+        .weather-icon { font-size: 3rem; margin-bottom: 8px; }
+        .weather-title { font-weight: bold; font-size: 1.2rem; }
+        
+        .health-bar-container {
+            background: var(--bg-base);
+            border-radius: 8px;
+            height: 20px;
+            width: 100%;
+            margin-top: 12px;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+        }
+        
+        .health-bar {
+            height: 100%;
+            background: var(--emerald);
+            width: 100%;
+            transition: width 0.3s ease, background-color 0.3s ease;
+        }
+
+        .actions {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .btn-action {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            background-color: var(--bg-element);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 14px;
+            font-weight: 500;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-action:hover { border-color: var(--emerald); background-color: rgba(16, 185, 129, 0.05); }
+        .btn-action:active { transform: scale(0.98); }
+
+        .day-counter {
+            font-family: 'JetBrains Mono', monospace;
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            margin-bottom: 12px;
+        }
+
+        .feedback {
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            text-align: center;
+            min-height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 10px;
+            border: 1px solid transparent;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>Simulateur d'Irrigation</h2>
+        <p class="subtitle">Gérez l'arrosage de votre parcelle. Maintenez la santé de vos plantes à 100% face aux aléas climatiques.</p>
+
+        <div class="day-counter" id="day-counter">JOUR 1 / 10</div>
+
+        <div class="weather-panel" id="weather-panel">
+            <div class="weather-icon" id="w-icon">☀️</div>
+            <div class="weather-title" id="w-title">Soleil Ardent</div>
+            
+            <div style="margin-top:20px; font-size:0.8rem; color:var(--text-secondary); text-align:left;">Santé de la plantation</div>
+            <div class="health-bar-container">
+                <div class="health-bar" id="health-bar"></div>
+            </div>
+        </div>
+
+        <div class="actions">
+            <button class="btn-action" id="btn-water">💧 Ouvrir les vannes (Irriguer)</button>
+            <button class="btn-action" id="btn-save">🛑 Ne rien faire (Économiser l'eau)</button>
+        </div>
+
+        <div class="feedback" id="feedback">En attente de votre décision...</div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            let day = 1;
+            let maxDays = 10;
+            let health = 100;
+            
+            const weathers = [
+                { id: 'sun', icon: '☀️', title: 'Soleil Ardent' },
+                { id: 'rain', icon: '🌧️', title: 'Pluie Tropicale' },
+                { id: 'drought', icon: '🏜️', title: 'Sécheresse Extrême' }
+            ];
+            
+            let currentWeather = weathers[0];
+
+            const dayCounter = document.getElementById('day-counter');
+            const wIcon = document.getElementById('w-icon');
+            const wTitle = document.getElementById('w-title');
+            const healthBar = document.getElementById('health-bar');
+            const btnWater = document.getElementById('btn-water');
+            const btnSave = document.getElementById('btn-save');
+            const feedback = document.getElementById('feedback');
+            const weatherPanel = document.getElementById('weather-panel');
+
+            function updateUI() {
+                dayCounter.textContent = `JOUR ${day} / ${maxDays}`;
+                wIcon.textContent = currentWeather.icon;
+                wTitle.textContent = currentWeather.title;
+                
+                healthBar.style.width = `${Math.max(0, health)}%`;
+                if (health > 70) healthBar.style.backgroundColor = 'var(--emerald)';
+                else if (health > 30) healthBar.style.backgroundColor = 'var(--warning)';
+                else healthBar.style.backgroundColor = 'var(--error)';
+
+                if (currentWeather.id === 'sun') {
+                    weatherPanel.style.borderColor = 'var(--warning)';
+                    weatherPanel.style.backgroundColor = 'rgba(245, 158, 11, 0.05)';
+                } else if (currentWeather.id === 'rain') {
+                    weatherPanel.style.borderColor = 'var(--blue)';
+                    weatherPanel.style.backgroundColor = 'rgba(59, 130, 246, 0.05)';
+                } else {
+                    weatherPanel.style.borderColor = 'var(--error)';
+                    weatherPanel.style.backgroundColor = 'rgba(239, 68, 68, 0.05)';
+                }
+
+                if (health <= 0) {
+                    endGame("Vos plantes sont mortes. La récolte est perdue.", false);
+                } else if (day > maxDays) {
+                    endGame(`Félicitations ! Récolte réussie avec une santé de ${health}%.`, true);
+                }
+            }
+
+            function setFeedback(msg, type) {
+                feedback.textContent = msg;
+                if (type === 'success') {
+                    feedback.style.color = 'var(--emerald)';
+                    feedback.style.backgroundColor = 'rgba(16, 185, 129, 0.1)';
+                    feedback.style.borderColor = 'var(--emerald)';
+                } else if (type === 'error') {
+                    feedback.style.color = 'var(--error)';
+                    feedback.style.backgroundColor = 'rgba(239, 68, 68, 0.1)';
+                    feedback.style.borderColor = 'var(--error)';
+                } else {
+                    feedback.style.color = 'var(--text-secondary)';
+                    feedback.style.backgroundColor = 'var(--bg-element)';
+                    feedback.style.borderColor = 'var(--border-color)';
+                }
+            }
+
+            function nextDay(action) {
+                if (health <= 0 || day > maxDays) return;
+
+                let msg = "";
+                let type = "neutral";
+
+                if (currentWeather.id === 'sun' || currentWeather.id === 'drought') {
+                    if (action === 'water') {
+                        msg = "Bonne décision. Les plantes ont reçu l'eau nécessaire pour survivre à la chaleur.";
+                        type = "success";
+                    } else {
+                        health -= (currentWeather.id === 'drought' ? 40 : 25);
+                        msg = "Attention ! Il fait trop chaud, les plantes fanent sans irrigation.";
+                        type = "error";
+                    }
+                } else if (currentWeather.id === 'rain') {
+                    if (action === 'water') {
+                        health -= 30;
+                        msg = "Mauvais choix ! Vous avez noyé les plantes. L'excès d'eau fait pourrir les racines.";
+                        type = "error";
+                    } else {
+                        msg = "Parfait. Vous avez laissé la nature faire son travail et économisé de l'énergie.";
+                        type = "success";
+                        health = Math.min(100, health + 10);
+                    }
+                }
+
+                setFeedback(msg, type);
+                
+                day++;
+                if (day <= maxDays && health > 0) {
+                    currentWeather = weathers[Math.floor(Math.random() * weathers.length)];
+                }
+                updateUI();
+            }
+
+            function endGame(msg, isWin) {
+                btnWater.disabled = true;
+                btnSave.disabled = true;
+                btnWater.style.opacity = '0.5';
+                btnSave.style.opacity = '0.5';
+                setFeedback(msg, isWin ? 'success' : 'error');
+            }
+
+            btnWater.addEventListener('click', () => nextDay('water'));
+            btnSave.addEventListener('click', () => nextDay('save'));
+
+            updateUI();
+        });
+    </script>
+</body>
+</html>

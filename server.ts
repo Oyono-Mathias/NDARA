@@ -40,6 +40,59 @@ async function startServer() {
 
   app.use(express.json());
 
+  // ----- AUTH MIDDLEWARE -----
+  const isAuthenticated = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({ error: "Missing or invalid Authorization header" });
+    }
+    const idToken = authHeader.split("Bearer ")[1];
+    try {
+      const { admin } = await import("./src/lib/firebaseAdmin.js");
+      const decodedToken = await admin.auth().verifyIdToken(idToken);
+      (req as any).user = decodedToken;
+      next();
+    } catch (error) {
+      console.error("Auth middleware error:", error);
+      res.status(403).json({ error: "Unauthorized access" });
+    }
+  };
+
+  const isAdmin = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    await isAuthenticated(req, res, async () => {
+      const user = (req as any).user;
+      try {
+        const { adminDb } = await import("./src/lib/firebaseAdmin.js");
+        const userDoc = await adminDb.collection("users").doc(user.uid).get();
+        if (userDoc.exists && userDoc.data()?.role === "admin") {
+          next();
+        } else {
+          res.status(403).json({ error: "Admin access required" });
+        }
+      } catch (error) {
+         res.status(500).json({ error: "Failed to verify admin status" });
+      }
+    });
+  };
+
+  // ----- STORAGE ROUTES -----
+  app.post("/api/storage/upload", isAdmin, async (req, res) => {
+    try {
+      const { fileName, folder, contentType } = req.body;
+      if (!fileName) {
+        return res.status(400).json({ error: "fileName is required" });
+      }
+      
+      const { storageService } = await import("./src/lib/StorageService.js");
+      const result = await storageService.generateUploadUrl(fileName, folder, contentType);
+      
+      res.json(result);
+    } catch (error: any) {
+      console.error("Storage upload error:", error);
+      res.status(500).json({ error: "Failed to generate upload URL." });
+    }
+  });
+
   // API routes
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok", app: "Ndara Afrique" });
@@ -100,7 +153,7 @@ Sois concis, clair, et encourageant.`;
       res.json({ reply: response.text });
     } catch (error: any) {
       console.error("Gemini Error:", error);
-      res.status(500).json({ error: "Erreur IA." });
+      res.status(503).json({ error: "L'assistant IA Mathias est actuellement très sollicité (haute demande). Veuillez réessayer dans quelques instants." });
     }
   });
 
@@ -141,7 +194,7 @@ Réponds obligatoirement en format JSON avec cette structure exacte :
       res.json(JSON.parse(response.text));
     } catch (error: any) {
       console.error("Gemini Grading Error:", error);
-      res.status(500).json({ error: "Erreur lors de la génération de la correction." });
+      res.status(503).json({ error: "L'IA est actuellement saturée. Impossible de corriger la copie pour le moment. Veuillez réessayer." });
     }
   });
 
@@ -182,7 +235,7 @@ Réponds simplement au format JSON avec cette structure :
       res.json(JSON.parse(response.text));
     } catch (error: any) {
       console.error("Gemini Auto-Answer Error:", error);
-      res.status(500).json({ error: "Erreur lors de la génération de la réponse automatique." });
+      res.status(503).json({ error: "L'IA Mathias est surchargée en ce moment. Veuillez réessayer plus tard." });
     }
   });
 
@@ -224,7 +277,7 @@ Tu ne dois pas donner la réponse brute immédiatement, mais guider les étudian
       res.json({ reply: response.text });
     } catch (error: any) {
       console.error("Gemini Squad Tutor Error:", error);
-      res.status(500).json({ error: "Erreur IA Tuteur Squad." });
+      res.status(503).json({ error: "Le Tuteur Squad IA est en surcharge. Veuillez réessayer dans quelques minutes." });
     }
   });
 
