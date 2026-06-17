@@ -10,6 +10,7 @@ export function AdminMarketControl() {
   const [ebooks, setEbooks] = useState<any[]>([]);
   const [templates, setTemplates] = useState<any[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusMsg, setStatusMsg] = useState<{type: 'success'|'error', text: string} | null>(null);
 
@@ -32,10 +33,13 @@ export function AdminMarketControl() {
       setOrders(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
 
+    const timer = setTimeout(() => setIsLoading(false), 800);
+
     return () => {
       unsubEbooks();
       unsubTemplates();
       unsubOrders();
+      clearTimeout(timer);
     };
   }, []);
 
@@ -74,6 +78,22 @@ export function AdminMarketControl() {
       setStatusMsg({ type: 'error', text: `Erreur lors de l'annulation de l'ordre.` });
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="p-6 max-w-6xl mx-auto space-y-8 animate-in fade-in duration-700 font-sans">
+        <div className="space-y-2">
+          <div className="h-10 w-64 bg-slate-800 rounded-lg animate-pulse"></div>
+          <div className="h-4 w-96 bg-slate-800/80 rounded animate-pulse"></div>
+        </div>
+        <div className="flex flex-col md:flex-row gap-4 mb-6">
+           <div className="h-14 w-full md:w-96 bg-slate-800/50 rounded-2xl animate-pulse"></div>
+           <div className="h-14 flex-1 bg-slate-800/50 rounded-2xl animate-pulse"></div>
+        </div>
+        <div className="bg-slate-800/30 border border-slate-700/50 rounded-3xl h-[400px] animate-pulse"></div>
+      </div>
+    );
+  }
 
   const renderDigitalAssets = (items: any[], collectionName: string) => {
     const filtered = items.filter(item => 

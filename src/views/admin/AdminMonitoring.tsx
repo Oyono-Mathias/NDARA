@@ -100,9 +100,33 @@ export function AdminMonitoring() {
         }
     };
 
-    if (!hasMounted) return null;
+  if (!hasMounted) return null;
 
+  if (loadingLogs && !logs.length) {
     return (
+      <div className="space-y-8 animate-in fade-in duration-700 pb-20 relative font-sans -m-4 md:-m-10 p-4 md:p-10 min-h-screen">
+        <div className="space-y-2 relative z-10">
+          <div className="h-8 w-64 bg-slate-800 rounded-lg animate-pulse"></div>
+          <div className="h-4 w-96 bg-slate-800/80 rounded animate-pulse"></div>
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 relative z-10 mb-8 mt-8">
+           {[...Array(4)].map((_, i) => (
+             <div key={i} className="bg-slate-800/40 border border-slate-700/50 rounded-2xl p-4 h-32 animate-pulse"></div>
+           ))}
+        </div>
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 relative z-10">
+           <div className="xl:col-span-1 space-y-4">
+              <div className="bg-slate-800/40 border border-slate-700/50 rounded-3xl h-64 animate-pulse"></div>
+           </div>
+           <div className="xl:col-span-2 space-y-4">
+              <div className="bg-slate-800/40 border border-slate-700/50 rounded-3xl h-[400px] animate-pulse"></div>
+           </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
         <div className="space-y-8 pb-24 animate-in fade-in duration-1000 relative bg-[#050505] -m-4 md:-m-10 p-4 md:p-10 min-h-screen overflow-hidden">
             {/* Visual Effects: Matrix/Cyber Style */}
             <div className="absolute inset-0 pointer-events-none opacity-10 z-0">

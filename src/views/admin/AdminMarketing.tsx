@@ -28,7 +28,11 @@ export function AdminMarketing() {
   const [emailTemplates, setEmailTemplates] = useState<any[]>([]);
   const [isLoadingEmails, setIsLoadingEmails] = useState(true);
 
+  const [isLoading, setIsLoading] = useState(true);
+
   useEffect(() => {
+    // Artificial delay for general layout consistency
+    const timer = setTimeout(() => setIsLoading(false), 800);
     // Fetch email templates
     const q = query(collection(db, 'email_templates'), orderBy('name', 'asc'));
     const unsub = onSnapshot(q, (snap) => {
@@ -43,7 +47,10 @@ export function AdminMarketing() {
       setIsLoadingEmails(false);
     });
 
-    return () => unsub();
+    return () => {
+       unsub();
+       clearTimeout(timer);
+    };
   }, []);
 
   const handleSendPush = async () => {
@@ -51,12 +58,11 @@ export function AdminMarketing() {
     
     setIsSending(true);
     try {
-      await addDoc(collection(db, 'marketing_campaigns'), {
+      await addDoc(collection(db, 'announcements'), {
         title: pushTitle,
-        message: pushMessage,
-        targetSegment: pushTarget,
-        type: 'push_notification',
-        status: 'scheduled',
+        content: pushMessage,
+        targetRole: pushTarget,
+        targetSquad: 'all',
         createdAt: new Date()
       });
       
@@ -71,6 +77,22 @@ export function AdminMarketing() {
       setIsSending(false);
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-8 animate-in fade-in duration-700 pb-20 relative font-sans">
+        <div className="space-y-2 relative z-10">
+          <div className="h-8 w-64 bg-slate-800 rounded-lg animate-pulse"></div>
+          <div className="h-4 w-96 bg-slate-800/80 rounded animate-pulse"></div>
+        </div>
+        <div className="flex gap-4 mb-6 relative z-10">
+           <div className="h-12 w-48 bg-slate-800/50 rounded-2xl animate-pulse"></div>
+           <div className="h-12 w-48 bg-slate-800/50 rounded-2xl animate-pulse"></div>
+        </div>
+        <div className="bg-slate-800/30 border border-slate-700/50 rounded-3xl h-[400px] animate-pulse relative z-10"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 animate-in fade-in duration-700 pb-24 relative font-sans">

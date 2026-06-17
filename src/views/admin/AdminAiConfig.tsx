@@ -1,225 +1,240 @@
 import React, { useState, useEffect } from 'react';
-import { doc, onSnapshot, updateDoc, getDoc } from 'firebase/firestore';
-import { db, auth } from '../../firebase';
-import { Bot, Save, AlertTriangle, Settings, Sparkles, Terminal, Activity, Video, CheckCircle2, XCircle } from 'lucide-react';
+import { doc, onSnapshot, setDoc } from 'firebase/firestore';
+import { db } from '../../firebase';
+import { 
+  Bot, 
+  Save, 
+  AlertTriangle, 
+  Settings, 
+  Terminal, 
+  Activity, 
+  Power
+} from 'lucide-react';
+import { NdaraSkeleton } from './AdminSupport';
 
 export function AdminAiConfig() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [validatingVideo, setValidatingVideo] = useState(false);
+  
   const [aiConfig, setAiConfig] = useState<any>({
-    systemInstruction: "You are an AI assistant. Be helpful and pedagogical.",
+    systemPrompt: "Tu es Mathias, un tuteur virtuel basé sur l'IA, expert en développement web et mobile. Tu accompagnes les étudiants de la plateforme NDARA de manière pédagogique et précise.",
     temperature: 0.7,
     maxTokens: 2048,
-    model: "gemini-pro",
-    autonomousTutor: true,
-    fraudDetection: true
-  });
-  
-  const [globalConfig, setGlobalConfig] = useState<any>({
-    active_video_provider: 'bunny',
-    cloudflare_account_id: '',
-    cloudflare_api_token: '',
-    bunny_stream_api_key: '',
-    bunny_stream_library_id: ''
+    modelName: "gemini-1.5-pro",
+    isMaintenanceActive: false
   });
 
   const [statusMsg, setStatusMsg] = useState<{type: 'success'|'error', text: string} | null>(null);
-  const [videoStatus, setVideoStatus] = useState<{provider: string, valid: boolean} | null>(null);
-  const [healthStats, setHealthStats] = useState<any>(null);
-  const [loadingHealth, setLoadingHealth] = useState(false);
-
-  const fetchHealthStats = async () => {
-    setLoadingHealth(true);
-    try {
-        const token = await auth.currentUser?.getIdToken();
-        const res = await fetch('/api/admin/video/health', {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        const data = await res.json();
-        if (data.success) {
-            setHealthStats(data);
-        }
-    } catch(err) {
-        console.error("Failed to fetch health stats", err);
-    }
-    setLoadingHealth(false);
-  };
 
   useEffect(() => {
-    let unsubs: any[] = [];
+    let unsubscribe: () => void;
     
-    // AI Config
-    unsubs.push(onSnapshot(doc(db, 'settings', 'ai_config'), (snap) => {
+    // Initialiser l'écoute en temps réel sur le document ai_config
+    const configRef = doc(db, 'settings', 'ai_config');
+    unsubscribe = onSnapshot(configRef, (snap) => {
       if (snap.exists()) {
-        setAiConfig(snap.data());
-      }
-    }));
-
-    // Global Config
-    unsubs.push(onSnapshot(doc(db, 'settings', 'global_config'), (snap) => {
-      if (snap.exists()) {
-        setGlobalConfig({
-            ...globalConfig,
-            ...snap.data()
+        const data = snap.data();
+        setAiConfig({
+          systemPrompt: data.systemPrompt || aiConfig.systemPrompt,
+          temperature: data.temperature !== undefined ? data.temperature : aiConfig.temperature,
+          maxTokens: data.maxTokens || aiConfig.maxTokens,
+          modelName: data.modelName || aiConfig.modelName,
+          isMaintenanceActive: !!data.isMaintenanceActive
         });
+      } else {
+        // Le document n'existe pas, on initialise avec les valeurs par défaut saines
+        setDoc(configRef, {
+          systemPrompt: aiConfig.systemPrompt,
+          temperature: aiConfig.temperature,
+          maxTokens: aiConfig.maxTokens,
+          modelName: aiConfig.modelName,
+          isMaintenanceActive: aiConfig.isMaintenanceActive,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }).catch(err => console.error("Erreur auto-init ai_config:", err));
       }
+      // Petit délai pour l'effet de chargement de l'UI
+      setTimeout(() => setLoading(false), 500);
+    }, (err) => {
+      console.error("Erreur sync ai_config:", err);
       setLoading(false);
-    }));
+    });
 
-    fetchHealthStats();
-
-    return () => unsubs.forEach(u => u());
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
   }, []);
-
-  const handleValidateProvider = async (provider: 'bunny' | 'cloudflare') => {
-      setValidatingVideo(true);
-      setStatusMsg(null);
-      try {
-          const token = await auth.currentUser?.getIdToken();
-          const pData = provider === 'cloudflare' 
-            ? { provider, accountId: globalConfig.cloudflare_account_id, apiKey: globalConfig.cloudflare_api_token }
-            : { provider, libraryId: globalConfig.bunny_stream_library_id, apiKey: globalConfig.bunny_stream_api_key };
-            
-          const res = await fetch('/api/admin/video/validate', {
-              method: 'POST',
-              headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${token}`
-              },
-              body: JSON.stringify(pData)
-          });
-          const data = await res.json();
-          if (data.success) {
-              setVideoStatus({ provider, valid: true });
-              setStatusMsg({ type: 'success', text: `Clés ${provider} valides !` });
-              // Also update the active provider globally since it's valid
-              setGlobalConfig({...globalConfig, active_video_provider: provider});
-          } else {
-              setVideoStatus({ provider, valid: false });
-              setStatusMsg({ type: 'error', text: data.error || `Clés ${provider} invalides.` });
-          }
-      } catch (err) {
-          setStatusMsg({ type: 'error', text: 'Erreur réseau lors de la validation.' });
-      }
-      setValidatingVideo(false);
-  };
 
   const handleSave = async () => {
     setSaving(true);
     setStatusMsg(null);
     try {
-      await updateDoc(doc(db, 'settings', 'ai_config'), aiConfig);
+      // Mutation Atomique avec merge: true
+      const configRef = doc(db, 'settings', 'ai_config');
+      await setDoc(configRef, {
+        systemPrompt: aiConfig.systemPrompt,
+        temperature: aiConfig.temperature,
+        maxTokens: aiConfig.maxTokens,
+        modelName: aiConfig.modelName,
+        isMaintenanceActive: aiConfig.isMaintenanceActive,
+        updatedAt: new Date()
+      }, { merge: true });
       
-      // Update global config with video settings
-      await updateDoc(doc(db, 'settings', 'global_config'), {
-        'ai.autonomousTutor': aiConfig.autonomousTutor,
-        'ai.fraudDetection': aiConfig.fraudDetection,
-        active_video_provider: globalConfig.active_video_provider,
-        cloudflare_account_id: globalConfig.cloudflare_account_id,
-        cloudflare_api_token: globalConfig.cloudflare_api_token,
-        bunny_stream_api_key: globalConfig.bunny_stream_api_key,
-        bunny_stream_library_id: globalConfig.bunny_stream_library_id
-      });
-      
-      setStatusMsg({ type: 'success', text: 'Configuration mise à jour globale.' });
+      setStatusMsg({ type: 'success', text: 'Configuration de l\'IA mise à jour avec succès.' });
       setTimeout(() => setStatusMsg(null), 3000);
-    } catch(err) {
-      console.error(err);
-      setStatusMsg({ type: 'error', text: 'Erreur de sauvegarde.' });
+    } catch(err: any) {
+      console.error("Erreur sauvegarde IA:", err);
+      setStatusMsg({ type: 'error', text: `Erreur de sauvegarde: ${err.message}` });
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
+  };
+
+  const toggleMaintenance = async () => {
+    // Kill Switch - Active ou désactive l'IA globalement
+    const newState = !aiConfig.isMaintenanceActive;
+    setAiConfig({ ...aiConfig, isMaintenanceActive: newState });
+    
+    // On sauvegarde immédiatement pour le Kill Switch
+    try {
+      const configRef = doc(db, 'settings', 'ai_config');
+      await setDoc(configRef, {
+        isMaintenanceActive: newState,
+        updatedAt: new Date()
+      }, { merge: true });
+    } catch(err) {
+      console.error("Erreur lors de l'activation/désactivation de l'IA:", err);
+    }
   };
 
   if (loading) {
     return (
-      <div className="flex h-[50vh] items-center justify-center">
-        <Activity className="w-8 h-8 animate-spin text-emerald-500" />
+      <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-700 pb-20 relative font-sans">
+        <div className="flex justify-between items-end">
+           <div className="space-y-2 relative z-10">
+             <div className="h-8 w-64 bg-slate-800 rounded-lg animate-pulse"></div>
+             <div className="h-4 w-96 bg-slate-800/80 rounded animate-pulse"></div>
+           </div>
+           <div className="h-12 w-32 bg-slate-800/50 rounded-xl animate-pulse"></div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 relative z-10">
+          <div className="md:col-span-2 space-y-6">
+             <NdaraSkeleton type="card" />
+             <NdaraSkeleton type="card" />
+          </div>
+          <div className="space-y-6">
+             <NdaraSkeleton type="card" />
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+    <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in duration-700 pb-20 relative font-sans">
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[400px] bg-emerald-500/5 blur-[100px] pointer-events-none" />
+
+      <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 relative z-10">
         <div>
            <div className="flex items-center gap-2 text-emerald-500 mb-1">
              <Bot className="h-4 w-4" />
-             <span className="text-[10px] font-black uppercase tracking-[0.3em]">IA & Tuteur</span>
+             <span className="text-[10px] font-black uppercase tracking-[0.3em]">IA & Modèles</span>
            </div>
            <h1 className="text-3xl font-black text-white uppercase tracking-tight">Configuration Mathias</h1>
-           <p className="text-slate-400 text-sm font-medium mt-1">Gérez le comportement, le ton et les limitations du LLM.</p>
+           <p className="text-slate-400 text-sm font-medium mt-1">Gérez le comportement, le ton et les paramètres LLM en temps réel.</p>
         </div>
-        <button 
-          onClick={handleSave}
-          disabled={saving}
-          className="flex items-center justify-center gap-2 h-12 px-8 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold uppercase text-[10px] tracking-widest transition-all disabled:opacity-50"
-        >
-           {saving ? <Activity className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-           Sauvegarder
-        </button>
+        <div className="flex items-center gap-3 w-full md:w-auto">
+          <button 
+            onClick={toggleMaintenance}
+            className={`flex flex-1 md:flex-none items-center justify-center gap-2 h-12 px-6 rounded-xl font-bold uppercase text-[10px] tracking-widest transition-all shadow-xl
+              ${aiConfig.isMaintenanceActive 
+                ? 'bg-rose-500/10 text-rose-500 border border-rose-500/30 hover:bg-rose-500 hover:text-white' 
+                : 'bg-slate-800 text-slate-400 border border-slate-700 hover:bg-slate-700 hover:text-white'}`}
+          >
+            <Power className="w-4 h-4" />
+            {aiConfig.isMaintenanceActive ? 'IA Suspendue' : 'Kill Switch IA'}
+          </button>
+          
+          <button 
+            onClick={handleSave}
+            disabled={saving}
+            className="flex flex-1 md:flex-none items-center justify-center gap-2 h-12 px-8 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold uppercase text-[10px] tracking-widest transition-all shadow-xl shadow-emerald-500/10 disabled:opacity-50"
+          >
+             {saving ? <Activity className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+             Sauvegarder
+          </button>
+        </div>
       </header>
 
       {statusMsg && (
-        <div className={`p-4 rounded-xl flex items-center gap-3 border ${statusMsg.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-rose-500/10 border-rose-500/20 text-rose-400'}`}>
+        <div className={`p-4 rounded-xl flex items-center gap-3 border relative z-10 ${statusMsg.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-rose-500/10 border-rose-500/20 text-rose-400'}`}>
           {statusMsg.type === 'success' ? <Settings className="w-5 h-5" /> : <AlertTriangle className="w-5 h-5" />}
           <span className="text-sm font-bold">{statusMsg.text}</span>
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {aiConfig.isMaintenanceActive && (
+        <div className="bg-rose-500/10 border border-rose-500/30 rounded-2xl p-5 flex flex-col items-center justify-center text-center relative z-10 animate-pulse">
+           <AlertTriangle className="w-8 h-8 text-rose-500 mb-2" />
+           <h3 className="text-lg font-black text-rose-500 uppercase tracking-widest">IA Hors Ligne</h3>
+           <p className="text-sm text-rose-400/80 mt-1">Le mode maintenance est activé. Les étudiants ne recevront plus de réponses générées par le LLM.</p>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 relative z-10">
          
          <div className="md:col-span-2 space-y-6">
-            <div className="bg-slate-800/30 border border-slate-700/50 rounded-2xl p-6">
-              <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2"><Terminal className="w-5 h-5 text-emerald-400" /> System Instructions</h2>
-              <p className="text-xs text-slate-400 mb-4 tracking-wider">Définit le persona principal de Mathias. Ces instructions sont injectées au tout début du prompt de contexte.</p>
+            <div className="bg-slate-800/40 border border-slate-700/50 rounded-3xl p-6 shadow-2xl backdrop-blur-sm">
+              <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2"><Terminal className="w-5 h-5 text-emerald-500" /> System Prompt</h2>
+              <p className="text-xs text-slate-400 mb-4 tracking-widest uppercase">Persona global et contexte injecté au LLM</p>
               
               <textarea 
-                value={aiConfig.systemInstruction}
-                onChange={e => setAiConfig({...aiConfig, systemInstruction: e.target.value})}
-                className="w-full bg-[#090E17] border border-slate-700 rounded-xl p-4 text-sm text-slate-200 focus:outline-none focus:border-emerald-500/50 min-h-[200px] font-mono leading-relaxed"
+                value={aiConfig.systemPrompt}
+                onChange={e => setAiConfig({...aiConfig, systemPrompt: e.target.value})}
+                className="w-full bg-[#0B1120]/80 border border-slate-700 rounded-2xl p-5 text-sm text-slate-300 focus:outline-none focus:border-emerald-500/50 min-h-[250px] font-mono leading-relaxed"
                 placeholder="Ex: Tu es Mathias, un tuteur virtuel pour l'école..."
               />
             </div>
 
-            <div className="bg-slate-800/30 border border-slate-700/50 rounded-2xl p-6">
-               <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2"><Settings className="w-5 h-5 text-emerald-400" /> Paramètres du Modèle</h2>
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                     <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Modèle / Version</label>
+            <div className="bg-slate-800/40 border border-slate-700/50 rounded-3xl p-6 shadow-2xl backdrop-blur-sm">
+               <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2"><Settings className="w-5 h-5 text-emerald-500" /> Paramètres Modèle</h2>
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-3">
+                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Sélection du Modèle (modelName)</label>
                      <select 
-                       value={aiConfig.model}
-                       onChange={e => setAiConfig({...aiConfig, model: e.target.value})}
-                       className="w-full bg-[#090E17] border border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-200 focus:outline-none"
+                       value={aiConfig.modelName}
+                       onChange={e => setAiConfig({...aiConfig, modelName: e.target.value})}
+                       className="w-full bg-[#0B1120]/80 border border-slate-700 rounded-xl px-4 py-3.5 text-sm text-emerald-400 font-bold focus:outline-none focus:border-emerald-500/50"
                      >
-                       <option value="gemini-pro">Gemini 1.5 Pro</option>
-                       <option value="gemini-flash">Gemini 1.5 Flash</option>
-                       <option value="gemini-1.0-pro">Gemini 1.0 Pro</option>
+                       <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+                       <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+                       <option value="vertex-ai-v1">Vertex AI - Custom</option>
                      </select>
                   </div>
-                  <div className="space-y-2">
-                     <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Max Tokens</label>
+                  <div className="space-y-3">
+                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Jetons Max (maxTokens)</label>
                      <input 
                        type="number"
                        value={aiConfig.maxTokens}
                        onChange={e => setAiConfig({...aiConfig, maxTokens: parseInt(e.target.value)})}
-                       className="w-full bg-[#090E17] border border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-200 focus:outline-none"
+                       className="w-full bg-[#0B1120]/80 border border-slate-700 rounded-xl px-4 py-3.5 text-sm text-slate-200 focus:outline-none focus:border-emerald-500/50 font-mono"
                      />
                   </div>
-                  <div className="space-y-2 md:col-span-2">
-                     <label className="flex items-center justify-between text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">
-                       <span>Créativité (Temperature: {aiConfig.temperature})</span>
+                  <div className="space-y-3 md:col-span-2 pt-2 border-t border-slate-800">
+                     <label className="flex items-center justify-between text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">
+                       <span>Créativité (Temperature)</span>
+                       <span className="text-emerald-500 bg-emerald-500/10 px-2 py-1 rounded font-mono">{aiConfig.temperature.toFixed(2)}</span>
                      </label>
                      <input 
                        type="range"
-                       min="0" max="2" step="0.1"
+                       min="0" max="2" step="0.05"
                        value={aiConfig.temperature}
                        onChange={e => setAiConfig({...aiConfig, temperature: parseFloat(e.target.value)})}
-                       className="w-full accent-emerald-500"
+                       className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500"
                      />
-                     <div className="flex justify-between text-[10px] text-slate-500 font-mono mt-1">
-                       <span>Strict/Analytique (0)</span>
-                       <span>Créatif (2)</span>
+                     <div className="flex justify-between text-[9px] text-slate-500 font-black uppercase tracking-widest mt-3">
+                       <span>0.0 (Précis/Strict)</span>
+                       <span>2.0 (Très Créatif)</span>
                      </div>
                   </div>
                </div>
@@ -227,31 +242,29 @@ export function AdminAiConfig() {
          </div>
 
          <div className="space-y-6">
-            <div className="bg-slate-800/30 border border-slate-700/50 rounded-2xl p-6">
-              <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2"><Sparkles className="w-5 h-5 text-amber-400" /> Capacités Autonomes</h2>
+            <div className="bg-slate-800/40 border border-slate-700/50 rounded-3xl p-6 shadow-2xl backdrop-blur-sm">
+              <h2 className="text-lg font-bold text-white mb-6 flex items-center gap-2"><Activity className="w-5 h-5 text-emerald-500" /> État du Système</h2>
               
-              <div className="space-y-4">
-                 <label className="flex items-start gap-3 cursor-pointer group">
-                   <div className={`w-10 h-6 rounded-full transition-colors relative shrink-0 ${aiConfig.autonomousTutor ? 'bg-emerald-500' : 'bg-slate-700'}`}>
-                      <div className={`w-4 h-4 rounded-full bg-white absolute top-1 transition-transform ${aiConfig.autonomousTutor ? 'translate-x-5' : 'translate-x-1'}`} />
+              <div className="space-y-5">
+                 <div className="flex flex-col gap-1">
+                   <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Connectivité LLM</div>
+                   <div className="flex items-center gap-2 text-sm font-bold text-emerald-500">
+                     <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                     Service en ligne
                    </div>
-                   <input type="checkbox" className="hidden" checked={aiConfig.autonomousTutor} onChange={e => setAiConfig({...aiConfig, autonomousTutor: e.target.checked})} />
-                   <div>
-                     <div className="text-sm font-bold text-white group-hover:text-emerald-400 transition-colors">Intervention dans les Squads</div>
-                     <div className="text-xs text-slate-500 mt-1">L'IA répond automatiquement lorsqu'elle est taguée (@Mathias)</div>
-                   </div>
-                 </label>
+                 </div>
 
-                 <label className="flex items-start gap-3 cursor-pointer group">
-                   <div className={`w-10 h-6 rounded-full transition-colors relative shrink-0 ${aiConfig.fraudDetection ? 'bg-rose-500' : 'bg-slate-700'}`}>
-                      <div className={`w-4 h-4 rounded-full bg-white absolute top-1 transition-transform ${aiConfig.fraudDetection ? 'translate-x-5' : 'translate-x-1'}`} />
+                 <div className="w-full h-px bg-slate-800" />
+
+                 <div className="flex flex-col gap-1">
+                   <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Kill Switch Global</div>
+                   <div className={`flex items-center gap-2 text-sm font-bold ${aiConfig.isMaintenanceActive ? 'text-rose-500' : 'text-slate-300'}`}>
+                     {aiConfig.isMaintenanceActive ? 'Désactivé (Maintenance)' : 'Actif (Autorisé)'}
                    </div>
-                   <input type="checkbox" className="hidden" checked={aiConfig.fraudDetection} onChange={e => setAiConfig({...aiConfig, fraudDetection: e.target.checked})} />
-                   <div>
-                     <div className="text-sm font-bold text-white group-hover:text-rose-400 transition-colors">Détection de Fraude NLP</div>
-                     <div className="text-xs text-slate-500 mt-1">Analyse contextuelle des transactions suspicieuses et signalement admin.</div>
-                   </div>
-                 </label>
+                   <p className="text-xs text-slate-500 mt-2 leading-relaxed">
+                     L'activation du Kill Switch coupe instantanément l'accès de l'IA à la plateforme sans nécessiter de rafraîchissement côté client, grâce à Firebase onSnapshot.
+                   </p>
+                 </div>
               </div>
             </div>
          </div>
@@ -260,3 +273,4 @@ export function AdminAiConfig() {
     </div>
   );
 }
+

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { 
-  collection, query, where, getDocs, 
+  collection, query, where, getDocs, onSnapshot,
   limit, orderBy, getCountFromServer, getAggregateFromServer, sum, average 
 } from 'firebase/firestore';
 import { db } from '../../firebase';
@@ -59,15 +59,9 @@ export function AdminDashboard() {
           avg: average('progress')
         });
 
-        // 5. Dernières transactions (Limit 5 reads)
-        const recentTxSnap = await getDocs(query(paymentsRef, orderBy('createdAt', 'desc'), limit(5)));
-        const transactions = recentTxSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
         // 6. Chart Data (Group recent successful payments by month)
-        // We fetch all successful payments (could limit by date in a real large app to save reads)
         const allCompletedTxSnap = await getDocs(query(paymentsRef, where('status', 'in', ['Completed', 'succeeded', 'paid'])));
         
-        // Initialize last 6 months
         const months = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
         const sixMonthsData = [];
         const today = new Date();
@@ -101,7 +95,6 @@ export function AdminDashboard() {
             coursesCount: coursesSnap.data().count,
             avgCompletion: completionSnap.data().avg || 0,
           });
-          setRecentTransactions(transactions);
           setChartData(sixMonthsData);
           setLoading(false);
         }
@@ -113,15 +106,40 @@ export function AdminDashboard() {
 
     fetchDashboardData();
 
+    // 5. Récents Paiements Écoute Active (Realtime)
+    const unsubTx = onSnapshot(query(collection(db, 'payments'), orderBy('createdAt', 'desc'), limit(5)), (snap) => {
+       const txs = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+       if (isMounted) setRecentTransactions(txs);
+    });
+
     return () => {
       isMounted = false;
+      unsubTx();
     };
   }, [isUserLoading, role]);
 
   if (loading) {
     return (
-      <div className="flex h-full w-full items-center justify-center min-h-[500px]">
-        <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
+      <div className="space-y-6 lg:space-y-8 animate-in fade-in duration-500 pb-20 font-sans">
+        <div className="space-y-2">
+          <div className="h-8 w-64 bg-slate-800 rounded-lg animate-pulse"></div>
+          <div className="h-4 w-96 bg-slate-800/80 rounded animate-pulse"></div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 lg:gap-6">
+          {[...Array(4)].map((_, i) => (
+             <div key={i} className="bg-slate-800/20 border border-slate-700/30 rounded-3xl p-6 h-32 animate-pulse flex flex-col justify-between">
+                <div className="w-10 h-10 rounded-2xl bg-slate-800"></div>
+                <div className="space-y-2">
+                  <div className="h-3 w-20 bg-slate-800 rounded"></div>
+                  <div className="h-6 w-32 bg-slate-800 rounded"></div>
+                </div>
+             </div>
+          ))}
+        </div>
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+           <div className="xl:col-span-2 bg-slate-800/20 border border-slate-700/30 rounded-3xl p-6 h-[400px] animate-pulse"></div>
+           <div className="bg-slate-800/20 border border-slate-700/30 rounded-3xl p-6 h-[400px] animate-pulse"></div>
+        </div>
       </div>
     );
   }

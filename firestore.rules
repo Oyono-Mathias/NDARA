@@ -15,7 +15,7 @@ service cloud.firestore {
     function isAdmin() {
       return isAuthenticated() && (
         ("admin" in request.auth.token && request.auth.token.admin == true) || 
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'ceo'])
       );
     }
     
@@ -55,7 +55,9 @@ service cloud.firestore {
     }
     
     match /payments/{paymentId} {
-      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow read: if isAdmin() 
+        || (isAuthenticated() && "instructorId" in resource.data && resource.data.instructorId == request.auth.uid) 
+        || (isAuthenticated() && "userId" in resource.data && resource.data.userId == request.auth.uid);
       allow write: if false; // Géré par le serveur Stripe/API
     }
 
@@ -72,7 +74,7 @@ service cloud.firestore {
 
     // === 5. COURS (courses) ===
     match /courses/{courseId} {
-      allow read: if resource.data.status == 'Published' || isAdmin() || (isAuthenticated() && resource.data.instructorId == request.auth.uid);
+      allow read: if isAdmin() || resource.data.status == 'Published' || (isAuthenticated() && resource.data.instructorId == request.auth.uid);
       
       // Autorise les créateurs, mais sécurise la propriété
       allow create: if isAuthenticated() && request.resource.data.instructorId == request.auth.uid;
@@ -95,7 +97,9 @@ service cloud.firestore {
 
     // === 6. ENROLLMENTS (Inscriptions) ===
     match /enrollments/{enrollmentId} {
-      allow read: if isAuthenticated() && (resource.data.studentId == request.auth.uid || resource.data.instructorId == request.auth.uid || isAdmin());
+      allow read: if isAdmin() 
+        || (isAuthenticated() && "studentId" in resource.data && resource.data.studentId == request.auth.uid) 
+        || (isAuthenticated() && "instructorId" in resource.data && resource.data.instructorId == request.auth.uid);
       
       // La création initiale (paiement du cours) DOIT être faite par le backend.
       allow create: if false; 
@@ -160,8 +164,69 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isAdmin();
     }
+    // === 11. ANNONCES ET MARKETING ===
+    match /announcements/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+    match /course_announcements/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isInstructor() || isAdmin();
+    }
+    match /squads/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
     match /marketing_campaigns/{docId} {
       allow read, write: if isAdmin();
+    }
+    match /email_templates/{docId} {
+      allow read, write: if isAdmin();
+    }
+    match /moderation_queue/{docId} {
+      allow read, write: if isAdmin();
+    }
+    match /security_audit_logs/{docId} {
+      allow read, write: if isAdmin();
+    }
+    match /market_templates/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+    match /market_orders/{docId} {
+      allow read: if isAuthenticated() && (resource.data == null || resource.data.buyerId == request.auth.uid || isAdmin());
+      allow write: if isAdmin() || isAuthenticated();
+    }
+    match /system_logs/{docId} {
+      allow read, write: if isAdmin();
+    }
+    match /support_tickets/{docId} {
+      allow read, write: if isAdmin();
+      allow create: if isAuthenticated();
+    }
+    match /faq_entries/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /payouts/{docId} {
+      allow read, write: if isAdmin();
+    }
+    match /market_ebooks/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+    match /certificates/{docId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow write: if isAdmin();
+    }
+    match /reports/{docId} {
+      allow read, write: if isAdmin();
+      allow create: if isAuthenticated();
+    }
+    match /squad_messages/{docId} {
+      allow read: if isAuthenticated(); // simplify, or check squad membership if available
+      allow create: if isAuthenticated();
+      allow update, delete: if isAdmin();
     }
   }
 }

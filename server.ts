@@ -501,72 +501,40 @@ Tu ne dois pas donner la réponse brute immédiatement, mais guider les étudian
     }
   });
 
-  app.get("/api/admin/video/health", isAuthenticated, requireRole(['admin']), async (req: any, res: any) => {
+  app.post("/api/admin/video/ping", isAuthenticated, requireRole(['admin']), async (req: any, res: any) => {
     try {
-        const { adminDb } = await import("./src/lib/firebaseAdmin.js");
-        
-        let totalVideos = 0;
-        let bunnyCount = 0;
-        let cloudflareCount = 0;
-
-        const coursesSnap = await adminDb.collection('courses').get();
-        coursesSnap.docs.forEach(doc => {
-            const data = doc.data();
-            if (data.content && Array.isArray(data.content)) {
-                data.content.forEach((module: any) => {
-                    if (module.lessons && Array.isArray(module.lessons)) {
-                        module.lessons.forEach((lesson: any) => {
-                            if (lesson.videoUrl || lesson.videoId) {
-                                totalVideos++;
-                                if (lesson.provider === 'cloudflare') {
-                                    cloudflareCount++;
-                                } else {
-                                    bunnyCount++; // Bunny is the implicit default
-                                }
-                            }
-                        });
-                    }
-                });
-            }
-        });
-
-        const confDoc = await adminDb.collection('settings').doc('global_config').get();
-        const config = confDoc.exists ? confDoc.data() : null;
+        const { bunnyApiKey, bunnyLibraryId, cfAccountId, cfApiToken } = req.body;
         
         let bunnyPing = -1;
         let cfPing = -1;
 
-        if (config?.bunny_stream_api_key && config?.bunny_stream_library_id) {
+        if (bunnyApiKey && bunnyLibraryId) {
             const start = Date.now();
             try {
-                const bRes = await fetch(`https://video.bunnycdn.com/library/${config.bunny_stream_library_id}/videos?page=1&itemsPerPage=1`, {
-                    headers: { 'AccessKey': config.bunny_stream_api_key, 'accept': 'application/json' }
+                const bRes = await fetch(`https://video.bunnycdn.com/library/${bunnyLibraryId}/videos?page=1&itemsPerPage=1`, {
+                    headers: { 'AccessKey': bunnyApiKey, 'accept': 'application/json' }
                 });
                 if (bRes.ok) bunnyPing = Date.now() - start;
             } catch (e) {}
         }
 
-        if (config?.cloudflare_account_id && config?.cloudflare_api_token) {
+        if (cfAccountId && cfApiToken) {
              const start = Date.now();
              try {
-                const cRes = await fetch(`https://api.cloudflare.com/client/v4/accounts/${config.cloudflare_account_id}/stream`, {
-                    headers: { 'Authorization': `Bearer ${config.cloudflare_api_token}`, 'Content-Type': 'application/json' }
+                const cRes = await fetch(`https://api.cloudflare.com/client/v4/accounts/${cfAccountId}/stream`, {
+                    headers: { 'Authorization': `Bearer ${cfApiToken}`, 'Content-Type': 'application/json' }
                 });
                 if (cRes.ok) cfPing = Date.now() - start;
              } catch (e) {}
         }
 
-        const activeProvider = config?.active_video_provider || 'bunny';
-
         res.json({
             success: true,
-            stats: { totalVideos, bunnyCount, cloudflareCount },
-            ping: { bunny: bunnyPing, cloudflare: cfPing },
-            activeProvider
+            ping: { bunny: bunnyPing, cloudflare: cfPing }
         });
 
     } catch (err: any) {
-        console.error("Health endpoint error:", err);
+        console.error("Ping endpoint error:", err);
         res.status(500).json({ success: false, error: "Internal Error" });
     }
   });

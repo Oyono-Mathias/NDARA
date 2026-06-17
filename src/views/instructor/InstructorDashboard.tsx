@@ -53,38 +53,64 @@ export function InstructorDashboard() {
             try {
                 // 1. Total Inscriptions et Taux de Complétion (< 2 reads total !)
                 const enrollmentsRef = collection(db, 'enrollments');
-                const totalStudentsSnap = await getCountFromServer(
-                    query(enrollmentsRef, where('instructorId', '==', instructor.uid))
-                );
-                const totalStudents = totalStudentsSnap.data().count;
+                let totalStudents = 0;
+                try {
+                    const totalStudentsSnap = await getCountFromServer(
+                        query(enrollmentsRef, where('instructorId', '==', instructor.uid))
+                    );
+                    totalStudents = totalStudentsSnap.data().count;
+                } catch(err) {
+                    console.error("Query enrollments failed (totalStudents):", err);
+                    throw err;
+                }
 
                 let successRate = 100;
                 if (totalStudents > 0) {
-                    const completedSnap = await getCountFromServer(
-                        query(enrollmentsRef, where('instructorId', '==', instructor.uid), where('progress', '==', 100))
-                    );
-                    successRate = Math.round((completedSnap.data().count / totalStudents) * 100);
+                    try {
+                        const completedSnap = await getCountFromServer(
+                            query(enrollmentsRef, where('instructorId', '==', instructor.uid), where('progress', '==', 100))
+                        );
+                        successRate = Math.round((completedSnap.data().count / totalStudents) * 100);
+                    } catch(err) {
+                        console.error("Query enrollments failed (successRate):", err);
+                        throw err;
+                    }
                 }
 
                 // 2. Chiffre d'Affaires Global (Server-side aggregation < 1 read)
                 const paymentsRef = collection(db, 'payments');
-                const revenueSnap = await getAggregateFromServer(
-                    query(paymentsRef, where('instructorId', '==', instructor.uid), where('status', '==', 'Completed')), 
-                    { totalRevenue: sum('amount') }
-                );
-                const totalRevenue = revenueSnap.data().totalRevenue || 0;
-
-                // 3. Construction des graphiques avec limite de sécurité (Derniers 200 paiements)
-                // Évite la facturation pour l'historique de toute une vie uniquement pour la mini-courbe "6 derniers mois"
-                const qChartPayments = query(
-                    paymentsRef, 
-                    where('instructorId', '==', instructor.uid), 
-                    where('status', '==', 'Completed'),
-                    orderBy('date', 'desc'),
-                    limit(200)
-                );
-                const recentPaymentsSnap = await getDocs(qChartPayments);
-                const recentPayments = recentPaymentsSnap.docs.map(d => d.data());
+                let totalRevenue = 0;
+                let recentPayments: any[] = [];
+                try {
+                    const qChartPayments = query(
+                        paymentsRef, 
+                        where('instructorId', '==', instructor.uid), 
+                        where('status', '==', 'Completed'),
+                        orderBy('date', 'desc'),
+                        limit(200)
+                    );
+                    const recentPaymentsSnap = await getDocs(qChartPayments);
+                    recentPayments = recentPaymentsSnap.docs.map(d => d.data());
+                    
+                    // Fallback using the fetched documents if aggregation is not supported or skipped
+                    totalRevenue = recentPayments.reduce((acc, p) => acc + (p.amount || 0), 0);
+                    
+                    try {
+                        const revenueSnap = await getAggregateFromServer(
+                            query(paymentsRef, where('instructorId', '==', instructor.uid), where('status', '==', 'Completed')), 
+                            { totalRevenue: sum('amount') }
+                        );
+                        if (revenueSnap.data().totalRevenue) {
+                            totalRevenue = revenueSnap.data().totalRevenue;
+                        }
+                    } catch (aggErr) {
+                        console.warn("Aggregate server failed, using local calculation (fallback):", aggErr);
+                        // totalRevenue is already calculated from recentPayments
+                    }
+                } catch(err) {
+                    console.error("Query payments failed (list + aggregate):", err);
+                    // Do not throw, keep totalRevenue = 0
+                }
 
                 const now = new Date();
                 const chartData = [];

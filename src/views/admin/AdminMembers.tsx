@@ -7,9 +7,10 @@ import {
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useNavigate } from 'react-router-dom';
-import { collection, query, onSnapshot, doc, updateDoc, where, addDoc, runTransaction } from 'firebase/firestore';
+import { collection, query, onSnapshot, doc, updateDoc, where, addDoc, runTransaction, limit } from 'firebase/firestore';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { db, auth } from '../../firebase';
+import { NdaraSkeleton, EmptyState } from './AdminSupport';
 
 export function AdminMembers() {
   const navigate = useNavigate();
@@ -27,7 +28,11 @@ export function AdminMembers() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    const q = query(collection(db, 'users'));
+    const q = query(
+      collection(db, 'users'), 
+      where('role', '==', 'student'),
+      limit(100)
+    );
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const usersData: any[] = [];
       snapshot.forEach((doc) => {
@@ -235,8 +240,16 @@ export function AdminMembers() {
 
   if (isLoading) {
     return (
-      <div className="flex h-[80vh] items-center justify-center bg-[#090E17]">
-        <Loader2 className="w-12 h-12 animate-spin text-emerald-500" />
+      <div className="space-y-6 animate-in fade-in duration-500 pb-20 relative">
+        <div className="space-y-2">
+          <div className="h-8 w-64 bg-slate-800 rounded-lg animate-pulse"></div>
+          <div className="h-4 w-96 bg-slate-800/80 rounded animate-pulse"></div>
+        </div>
+        <div className="flex flex-col sm:flex-row gap-4 mb-6">
+           <div className="h-12 flex-1 bg-slate-800/50 rounded-2xl animate-pulse"></div>
+           <div className="h-12 w-32 bg-slate-800/50 rounded-2xl animate-pulse"></div>
+        </div>
+        <NdaraSkeleton type="table" />
       </div>
     );
   }
@@ -332,9 +345,9 @@ export function AdminMembers() {
           </table>
           
           {filteredMembers.length === 0 && (
-              <div className="p-10 text-center text-slate-500 text-sm font-bold uppercase tracking-widest">
-                  Aucun membre trouvé.
-              </div>
+             <div className="mt-6">
+                <EmptyState title="Aucun membre" message="Aucun utilisateur ne correspond à ces critères." icon={Users} />
+             </div>
           )}
         </div>
       </div>

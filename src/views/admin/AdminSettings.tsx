@@ -105,16 +105,56 @@ export function AdminSettings() {
   const [videoStatus, setVideoStatus] = useState<{provider: string, valid: boolean} | null>(null);
   const [statusMsg, setStatusMsg] = useState<{type: 'success'|'error', text: string} | null>(null);
 
-  const fetchHealthStats = async () => {
+  const fetchHealthStats = async (currentConfig: any = config) => {
     setLoadingHealth(true);
     try {
         const token = await auth.currentUser?.getIdToken();
-        const res = await fetch('/api/admin/video/health', {
-            headers: { 'Authorization': `Bearer ${token}` }
+        const res = await fetch('/api/admin/video/ping', {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}` 
+            },
+            body: JSON.stringify({
+                bunnyApiKey: currentConfig.bunny_stream_api_key,
+                bunnyLibraryId: currentConfig.bunny_stream_library_id,
+                cfAccountId: currentConfig.cloudflare_account_id,
+                cfApiToken: currentConfig.cloudflare_api_token
+            })
         });
         const data = await res.json();
+        
+        let totalVideos = 0;
+        let bunnyCount = 0;
+        let cloudflareCount = 0;
+
+        const { collection, getDocs } = await import('firebase/firestore');
+        const coursesSnap = await getDocs(collection(db, 'courses'));
+        coursesSnap.docs.forEach((docSnap: any) => {
+            const courseData = docSnap.data();
+            if (courseData.content && Array.isArray(courseData.content)) {
+                courseData.content.forEach((module: any) => {
+                    if (module.lessons && Array.isArray(module.lessons)) {
+                        module.lessons.forEach((lesson: any) => {
+                            if (lesson.videoUrl || lesson.videoId) {
+                                totalVideos++;
+                                if (lesson.provider === 'cloudflare') {
+                                    cloudflareCount++;
+                                } else {
+                                    bunnyCount++;
+                                }
+                            }
+                        });
+                    }
+                });
+            }
+        });
+
         if (data.success) {
-            setHealthStats(data);
+            setHealthStats({
+                stats: { totalVideos, bunnyCount, cloudflareCount },
+                ping: data.ping
+            });
         }
     } catch(err) {
         console.error("Failed to fetch health stats", err);
@@ -127,8 +167,10 @@ export function AdminSettings() {
       try {
         const docRef = doc(db, 'settings', 'global_config');
         const docSnap = await getDoc(docRef);
+        let loadedConfig = {};
         if (docSnap.exists()) {
-          setConfig(docSnap.data());
+          loadedConfig = docSnap.data();
+          setConfig(loadedConfig);
         } else {
           const defaultConfig = {
             platform_name: "Ndara Afrique",
@@ -182,9 +224,11 @@ export function AdminSettings() {
             internal_telemetry: true,
             ga4_id: ""
           };
+          loadedConfig = defaultConfig;
           setConfig(defaultConfig);
           await setDoc(docRef, defaultConfig);
         }
+        fetchHealthStats(loadedConfig);
       } catch (error) {
         console.error("Error fetching settings: ", error);
       } finally {
@@ -192,7 +236,6 @@ export function AdminSettings() {
       }
     };
     fetchSettings();
-    fetchHealthStats();
   }, []);
 
   const activeHub = HUBS.find(h => h.id === activeHubId)!;
@@ -247,8 +290,24 @@ export function AdminSettings() {
 
   if (isLoading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-[#090E17]">
-        <Loader2 className="w-12 h-12 animate-spin text-emerald-500" />
+      <div className="flex flex-col lg:flex-row min-h-screen bg-[#090E17] text-white -m-4 md:-m-10 font-sans animate-in fade-in duration-700">
+        <aside className="hidden lg:flex flex-col w-72 bg-slate-900 border-r border-slate-800/50 h-screen sticky top-0 z-20 flex-shrink-0 animate-pulse">
+           <div className="p-8"><div className="w-48 h-8 bg-slate-800 rounded"></div></div>
+           <div className="flex-1 p-4 space-y-4">
+              {[...Array(6)].map((_, i) => <div key={i} className="w-full h-14 bg-slate-800/50 rounded-xl"></div>)}
+           </div>
+        </aside>
+        <main className="flex-1 p-6 lg:p-12">
+          <div className="space-y-4 max-w-3xl">
+             <div className="h-10 w-64 bg-slate-800 rounded animate-pulse"></div>
+             <div className="flex gap-4 border-b border-slate-800/50 pb-4">
+               {[...Array(3)].map((_, i) => <div key={i} className="w-24 h-6 bg-slate-800 rounded animate-pulse"></div>)}
+             </div>
+             <div className="space-y-6 pt-4">
+               {[...Array(4)].map((_, i) => <div key={i} className="h-24 w-full bg-slate-800/30 rounded-2xl animate-pulse"></div>)}
+             </div>
+          </div>
+        </main>
       </div>
     );
   }
