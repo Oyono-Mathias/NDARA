@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { formatImageUrl } from "../lib/utils";
 import { 
   ChevronLeft, 
   RotateCcw, 
@@ -255,7 +256,7 @@ export function BourseView() {
               <div className="flex items-start justify-between mb-2">
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 rounded-xl bg-slate-800 flex items-center justify-center text-xl overflow-hidden shadow-inner">
-                    {c.thumbnail ? <img src={c.thumbnail} alt={c.title} className="w-full h-full object-cover" /> : '📈'}
+                    {c.thumbnail ? <img src={formatImageUrl(c.thumbnail)} alt={c.title} className="w-full h-full object-cover" /> : '📈'}
                   </div>
                   <div>
                     <h3 className="text-sm font-bold text-white mb-0.5">{c.title}</h3>

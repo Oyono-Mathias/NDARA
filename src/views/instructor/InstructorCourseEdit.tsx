@@ -149,7 +149,7 @@ export function InstructorCourseEdit() {
                 </div>
             )}
 
-            {!isDraft && !isPublished && saveSuccess && (
+            {saveSuccess && (
                  <div className="flex items-center gap-2 text-emerald-500 bg-emerald-500/5 px-4 py-2 rounded-xl border border-emerald-500/20">
                     <CheckCircle2 className="h-5 w-5" />
                     <span className="text-xs font-bold uppercase tracking-widest">Enregistré</span>
@@ -176,7 +176,7 @@ export function InstructorCourseEdit() {
             
             {activeTab === 'details' && (
                 <div className="mt-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
-                    <CourseForm mode="edit" initialData={course} onSubmit={handleUpdateCourse} />
+                    <CourseForm mode="edit" initialData={course} onSubmit={handleUpdateCourse} isSubmitting={isSaving} />
                 </div>
             )}
 

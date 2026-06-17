@@ -2,6 +2,21 @@ import { doc, runTransaction, collection, addDoc, getDocs, query, where, Timesta
 import { serverDb } from '../firebaseServer';
 import { WalletTransaction, TransactionType, TransactionStatus } from '../types/wallet';
 
+async function logSecurityAlert(details: string, action: string) {
+  try {
+    console.error(`[CRITICAL SECURITY ALERT] ${details}`);
+    await addDoc(collection(serverDb, 'system_logs'), {
+      eventType: 'SECURITY_ALERT',
+      details: details,
+      action: action,
+      timestamp: Timestamp.now(),
+      level: 'critical'
+    });
+  } catch(e) {
+    console.error('Failed to log security alert', e);
+  }
+}
+
 /**
  * Ensures wallet balance keys exist on a user's document.
  */
@@ -18,13 +33,13 @@ export async function ensureWalletInitialized(userId: string) {
     const balance = data.balance !== undefined ? data.balance : 0;
     const affiliateBalance = data.affiliateBalance !== undefined ? data.affiliateBalance : 0;
     const pendingBalance = data.pendingBalance !== undefined ? data.pendingBalance : 0;
+    const pendingAffiliateBalance = data.pendingAffiliateBalance !== undefined ? data.pendingAffiliateBalance : 0;
     
     transaction.update(userRef, {
       balance,
       affiliateBalance,
       pendingBalance,
-      // fallback compatible
-      pendingAffiliateBalance: pendingBalance
+      pendingAffiliateBalance
     });
   });
 }
@@ -32,13 +47,22 @@ export async function ensureWalletInitialized(userId: string) {
 /**
  * Safely deposits money into a user's main available balance.
  */
-export async function depositFunds(userId: string, amount: number, description = 'Rechargement de compte') {
+export async function depositFunds(userId: string, amount: number, description = 'Rechargement de compte', externalTransactionId?: string) {
   if (amount <= 0) throw new Error('Le montant du rechargement doit être supérieur à 0.');
   
   const userRef = doc(serverDb, 'users', userId);
-  const txRef = doc(collection(serverDb, 'users', userId, 'transactions'));
   
   return await runTransaction(serverDb, async (transaction) => {
+    const txRef = externalTransactionId ? doc(serverDb, 'users', userId, 'transactions', externalTransactionId) : doc(collection(serverDb, 'users', userId, 'transactions'));
+    
+    if (externalTransactionId) {
+      const existingTxSnap = await transaction.get(txRef);
+      if (existingTxSnap.exists()) {
+         const userSnap = await transaction.get(userRef);
+         return { success: true, nextBalance: userSnap.data()?.balance, transactionId: txRef.id, idempotent: true };
+      }
+    }
+
     const userSnap = await transaction.get(userRef);
     if (!userSnap.exists()) {
       throw new Error('Utilisateur non trouvé.');
@@ -117,7 +141,13 @@ export async function transferFunds(senderId: string, receiverUsernameOrId: stri
     const receiverBalance = receiverData.balance || 0;
     
     // 3. Atomically update balances
-    transaction.update(senderRef, { balance: senderBalance - amount });
+    const nextSenderBalance = senderBalance - amount;
+    if (nextSenderBalance < 0) {
+       logSecurityAlert(`Solde expéditeur négatif évité: UID=${senderId}, Amount: ${amount}`, 'TRANSFER_BLOCKED');
+       throw new Error(`Solde insuffisant (Alerte de Sécurité).`);
+    }
+    
+    transaction.update(senderRef, { balance: nextSenderBalance });
     transaction.update(receiverRef, { balance: receiverBalance + amount });
     
     // 4. Log transaction entries for both parties
@@ -161,7 +191,8 @@ export async function purchaseCourseWithEscrow(
   price: number, 
   courseId: string, 
   courseTitle: string, 
-  sellerId: string
+  sellerId: string,
+  purchaseId?: string
 ) {
   if (price <= 0) throw new Error('Le prix du cours doit être un montant positif.');
   
@@ -170,6 +201,15 @@ export async function purchaseCourseWithEscrow(
   
   return await runTransaction(serverDb, async (transaction) => {
     // 1. Get student profile & balance
+    const studentTxRef = purchaseId ? doc(serverDb, 'users', studentId, 'transactions', purchaseId) : doc(collection(serverDb, 'users', studentId, 'transactions'));
+    
+    if (purchaseId) {
+      const existingTx = await transaction.get(studentTxRef);
+      if (existingTx.exists()) {
+         return { success: true, idempotent: true };
+      }
+    }
+
     const studentSnap = await transaction.get(studentRef);
     if (!studentSnap.exists()) {
       throw new Error('Profil de l\'étudiant introuvable.');
@@ -210,6 +250,12 @@ export async function purchaseCourseWithEscrow(
     
     // 3. Update Student Balance (deduct primary price)
     const finalStudentBalance = studentBalance - price;
+    
+    if (finalStudentBalance < 0) {
+      logSecurityAlert(`Solde étudiant négatif évité: UID=${studentId}, Prix=${price}, Solde=${studentBalance}`, 'COURSE_PURCHASE_BLOCKED');
+      throw new Error(`Solde Ndara insuffisant (Alerte Sécurité).`);
+    }
+
     transaction.update(studentRef, {
       balance: finalStudentBalance
     });
@@ -217,14 +263,13 @@ export async function purchaseCourseWithEscrow(
     // 4. Update Seller Pending Balance (course sales go to 14-day escrow pendingBalance)
     const finalSellerPending = (sellerData.pendingBalance || 0) + sellerAmount;
     transaction.update(sellerRef, {
-      pendingBalance: finalSellerPending,
-      pendingAffiliateBalance: finalSellerPending
+      pendingBalance: finalSellerPending
     });
     
     // 5. Update Referrer Pending Balance if applicable
     if (referrerRef && referrerSnap) {
       const referrerData = referrerSnap.data();
-      const finalReferrerPending = (referrerData.pendingBalance || 0) + affiliateAmount;
+      const finalReferrerAffiliatePending = (referrerData.pendingAffiliateBalance || 0) + affiliateAmount;
       
       // Update stats
       const affStats = referrerData.affiliateStats || { clicks: 0, registrations: 0, sales: 0, earnings: 0 };
@@ -232,8 +277,7 @@ export async function purchaseCourseWithEscrow(
       affStats.earnings = (affStats.earnings || 0) + affiliateAmount;
       
       transaction.update(referrerRef, {
-        pendingBalance: finalReferrerPending,
-        pendingAffiliateBalance: finalReferrerPending,
+        pendingAffiliateBalance: finalReferrerAffiliatePending,
         affiliateStats: affStats
       });
     }
@@ -243,7 +287,6 @@ export async function purchaseCourseWithEscrow(
     const releaseTime = new Date(creationTime.getTime() + (14 * 24 * 60 * 60 * 1000)); // 14 days escrow hold
     
     // 7. Write Ledger Transactions
-    const studentTxRef = doc(collection(serverDb, 'users', studentId, 'transactions'));
     const studentTx: WalletTransaction = {
       id: studentTxRef.id,
       userId: studentId,
@@ -256,7 +299,7 @@ export async function purchaseCourseWithEscrow(
     };
     transaction.set(studentTxRef, studentTx);
     
-    const sellerTxRef = doc(collection(serverDb, 'users', sellerId, 'transactions'));
+    const sellerTxRef = purchaseId ? doc(serverDb, 'users', sellerId, 'transactions', `${purchaseId}_seller`) : doc(collection(serverDb, 'users', sellerId, 'transactions'));
     const sellerTx: WalletTransaction = {
       id: sellerTxRef.id,
       userId: sellerId,
@@ -272,7 +315,7 @@ export async function purchaseCourseWithEscrow(
     transaction.set(sellerTxRef, sellerTx);
     
     if (referrerId && referrerRef && referrerSnap) {
-      const referrerTxRef = doc(collection(serverDb, 'users', referrerId, 'transactions'));
+      const referrerTxRef = purchaseId ? doc(serverDb, 'users', referrerId, 'transactions', `${purchaseId}_affiliate`) : doc(collection(serverDb, 'users', referrerId, 'transactions'));
       const referrerTx: WalletTransaction = {
         id: referrerTxRef.id,
         userId: referrerId,
@@ -336,18 +379,18 @@ export async function releaseExpiredEscrows(userId: string) {
         if (freshTx.status !== 'pending') return; // Avoid double spend / race
         
         const userData = userSnap.data();
-        const currentPending = userData.pendingBalance || 0;
         const freshAmount = freshTx.amount;
         
-        let updateObj: any = {
-          pendingBalance: Math.max(0, currentPending - freshAmount),
-          pendingAffiliateBalance: Math.max(0, currentPending - freshAmount)
-        };
+        let updateObj: any = {};
         
         if (freshTx.type === 'affiliate_payout') {
+          const currentPendingAffiliate = userData.pendingAffiliateBalance || 0;
+          updateObj.pendingAffiliateBalance = Math.max(0, currentPendingAffiliate - freshAmount);
           // Add to affiliateBalance
           updateObj.affiliateBalance = (userData.affiliateBalance || 0) + freshAmount;
         } else {
+          const currentPending = userData.pendingBalance || 0;
+          updateObj.pendingBalance = Math.max(0, currentPending - freshAmount);
           // Add to main balance (for instructor course sales)
           updateObj.balance = (userData.balance || 0) + freshAmount;
         }
@@ -380,7 +423,8 @@ export async function requestPayout(
   amount: number,
   provider: string,
   phone: string,
-  method = 'mobile_money'
+  method = 'mobile_money',
+  payoutId?: string
 ) {
   if (amount < 5000) throw new Error('Le montant minimum de retrait est de 5 000 FCFA.');
   
@@ -388,6 +432,15 @@ export async function requestPayout(
   const payoutRequestsColl = collection(serverDb, 'payout_requests');
   
   return await runTransaction(serverDb, async (transaction) => {
+    const payoutReqRef = payoutId ? doc(payoutRequestsColl, payoutId) : doc(payoutRequestsColl);
+    if (payoutId) {
+      const existingReq = await transaction.get(payoutReqRef);
+      if (existingReq.exists()) {
+        const nextBalance = (await transaction.get(userRef)).data()?.balance;
+        return { success: true, payoutRequestId: existingReq.id, transactionId: existingReq.data().transactionId, nextBalance, idempotent: true };
+      }
+    }
+
     // 1. Get user document
     const userSnap = await transaction.get(userRef);
     if (!userSnap.exists()) {
@@ -421,6 +474,11 @@ export async function requestPayout(
     }
     
     // Update user document
+    if (nextBalance < 0 || nextAffiliate < 0) {
+      logSecurityAlert(`Solde négatif évité lors d'un retrait: UID=${userId}, Balance: ${nextBalance}, Affiliate: ${nextAffiliate}`, 'PAYOUT_BLOCKED');
+      throw new Error(`Erreur de retrait - Sécurité système.`);
+    }
+
     transaction.update(userRef, {
       balance: nextBalance,
       affiliateBalance: nextAffiliate
@@ -440,7 +498,6 @@ export async function requestPayout(
     transaction.set(txRef, txObj);
     
     // Create request document in payout_requests collection
-    const payoutReqRef = doc(payoutRequestsColl);
     const payoutReqObj = {
       id: payoutReqRef.id,
       instructorId: userId,
@@ -508,13 +565,18 @@ export async function processApprovedPayout(requestId: string, status: 'complete
       
       return { success: true, status: 'completed', amount };
     } else {
-      // Rejection: refund deducted funds back to the user's primary balance!
+      // Rejection: refund deducted funds back to their respective origin balances
       transaction.update(payoutReqRef, { status: 'rejected' });
       
       if (userSnap.exists()) {
         const userData = userSnap.data();
-        const freshBalance = (userData.balance || 0) + amount;
-        transaction.update(userRef, { balance: freshBalance });
+        const deductedBalance = payoutData.deductedFromBalance || 0;
+        const deductedAffiliate = payoutData.deductedFromAffiliate || 0;
+        
+        transaction.update(userRef, { 
+          balance: (userData.balance || 0) + deductedBalance,
+          affiliateBalance: (userData.affiliateBalance || 0) + deductedAffiliate
+        });
       }
       
       if (userTxSnap.exists()) {
@@ -570,6 +632,11 @@ export async function purchaseBourseLicense(
     
     // 3. Deduct total price + fee from buyer
     const nextBuyerBalance = buyerBalance - totalDeduction;
+    if (nextBuyerBalance < 0) {
+      logSecurityAlert(`Solde négatif évité pour achat licence: UID=${buyerId}`, 'PURCHASE_LICENSE_BLOCKED');
+      throw new Error(`Solde insuffisant (Alerte Sécurité).`);
+    }
+
     transaction.update(buyerRef, {
       balance: nextBuyerBalance
     });

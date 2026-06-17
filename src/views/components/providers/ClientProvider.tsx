@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from "react";
 // Importation ajustée vers le code source client existant (si en plein refactoring croisé)
-import { auth } from "../../src/firebase"; 
+import { auth } from "../../../firebase"; 
 import { onAuthStateChanged, User } from "firebase/auth";
 
 interface AuthContextType {

@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useRole } from '../context/RoleContext';
-import { cn } from '../lib/utils';
+import { cn, formatImageUrl } from '../lib/utils';
 import { db } from '../firebase';
 
 const CATEGORIES = [
@@ -33,7 +33,7 @@ function CourseCard({ course, instructor, variant }: any) {
     <Link to={`/student/courses/${course.id}`} className="block">
         <div className="glass rounded-[2rem] p-4 card-hover flex gap-4 bg-[#111111] border border-white/5 relative overflow-hidden">
             <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-2xl overflow-hidden bg-card shrink-0 relative">
-                <img src={course.image || 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&q=80'} alt={course.title} className="w-full h-full object-cover opacity-80" />
+                <img src={course.thumbnail ? formatImageUrl(course.thumbnail) : 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&q=80'} alt={course.title} className="w-full h-full object-cover opacity-80" />
             </div>
             <div className="flex-1 py-1 flex flex-col">
                 <span className="text-primary text-[10px] font-bold uppercase tracking-wider mb-1">{course.category || 'Formation'}</span>

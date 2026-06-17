@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
-import { db } from '../../firebase';
-import { Bot, Save, AlertTriangle, Settings, Sparkles, Terminal, Activity } from 'lucide-react';
+import { doc, onSnapshot, updateDoc, getDoc } from 'firebase/firestore';
+import { db, auth } from '../../firebase';
+import { Bot, Save, AlertTriangle, Settings, Sparkles, Terminal, Activity, Video, CheckCircle2, XCircle } from 'lucide-react';
 
 export function AdminAiConfig() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [validatingVideo, setValidatingVideo] = useState(false);
   const [aiConfig, setAiConfig] = useState<any>({
     systemInstruction: "You are an AI assistant. Be helpful and pedagogical.",
     temperature: 0.7,
@@ -14,20 +15,95 @@ export function AdminAiConfig() {
     autonomousTutor: true,
     fraudDetection: true
   });
+  
+  const [globalConfig, setGlobalConfig] = useState<any>({
+    active_video_provider: 'bunny',
+    cloudflare_account_id: '',
+    cloudflare_api_token: '',
+    bunny_stream_api_key: '',
+    bunny_stream_library_id: ''
+  });
+
   const [statusMsg, setStatusMsg] = useState<{type: 'success'|'error', text: string} | null>(null);
+  const [videoStatus, setVideoStatus] = useState<{provider: string, valid: boolean} | null>(null);
+  const [healthStats, setHealthStats] = useState<any>(null);
+  const [loadingHealth, setLoadingHealth] = useState(false);
+
+  const fetchHealthStats = async () => {
+    setLoadingHealth(true);
+    try {
+        const token = await auth.currentUser?.getIdToken();
+        const res = await fetch('/api/admin/video/health', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (data.success) {
+            setHealthStats(data);
+        }
+    } catch(err) {
+        console.error("Failed to fetch health stats", err);
+    }
+    setLoadingHealth(false);
+  };
 
   useEffect(() => {
-    const unsub = onSnapshot(doc(db, 'settings', 'ai_config'), (snap) => {
+    let unsubs: any[] = [];
+    
+    // AI Config
+    unsubs.push(onSnapshot(doc(db, 'settings', 'ai_config'), (snap) => {
       if (snap.exists()) {
         setAiConfig(snap.data());
       }
+    }));
+
+    // Global Config
+    unsubs.push(onSnapshot(doc(db, 'settings', 'global_config'), (snap) => {
+      if (snap.exists()) {
+        setGlobalConfig({
+            ...globalConfig,
+            ...snap.data()
+        });
+      }
       setLoading(false);
-    }, (error) => {
-      console.error(error);
-      setLoading(false);
-    });
-    return () => unsub();
+    }));
+
+    fetchHealthStats();
+
+    return () => unsubs.forEach(u => u());
   }, []);
+
+  const handleValidateProvider = async (provider: 'bunny' | 'cloudflare') => {
+      setValidatingVideo(true);
+      setStatusMsg(null);
+      try {
+          const token = await auth.currentUser?.getIdToken();
+          const pData = provider === 'cloudflare' 
+            ? { provider, accountId: globalConfig.cloudflare_account_id, apiKey: globalConfig.cloudflare_api_token }
+            : { provider, libraryId: globalConfig.bunny_stream_library_id, apiKey: globalConfig.bunny_stream_api_key };
+            
+          const res = await fetch('/api/admin/video/validate', {
+              method: 'POST',
+              headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify(pData)
+          });
+          const data = await res.json();
+          if (data.success) {
+              setVideoStatus({ provider, valid: true });
+              setStatusMsg({ type: 'success', text: `Clés ${provider} valides !` });
+              // Also update the active provider globally since it's valid
+              setGlobalConfig({...globalConfig, active_video_provider: provider});
+          } else {
+              setVideoStatus({ provider, valid: false });
+              setStatusMsg({ type: 'error', text: data.error || `Clés ${provider} invalides.` });
+          }
+      } catch (err) {
+          setStatusMsg({ type: 'error', text: 'Erreur réseau lors de la validation.' });
+      }
+      setValidatingVideo(false);
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -35,13 +111,18 @@ export function AdminAiConfig() {
     try {
       await updateDoc(doc(db, 'settings', 'ai_config'), aiConfig);
       
-      // Also update the global_config if we want backwards compatibility
+      // Update global config with video settings
       await updateDoc(doc(db, 'settings', 'global_config'), {
         'ai.autonomousTutor': aiConfig.autonomousTutor,
-        'ai.fraudDetection': aiConfig.fraudDetection
+        'ai.fraudDetection': aiConfig.fraudDetection,
+        active_video_provider: globalConfig.active_video_provider,
+        cloudflare_account_id: globalConfig.cloudflare_account_id,
+        cloudflare_api_token: globalConfig.cloudflare_api_token,
+        bunny_stream_api_key: globalConfig.bunny_stream_api_key,
+        bunny_stream_library_id: globalConfig.bunny_stream_library_id
       });
       
-      setStatusMsg({ type: 'success', text: 'Configuration IA mise à jour.' });
+      setStatusMsg({ type: 'success', text: 'Configuration mise à jour globale.' });
       setTimeout(() => setStatusMsg(null), 3000);
     } catch(err) {
       console.error(err);

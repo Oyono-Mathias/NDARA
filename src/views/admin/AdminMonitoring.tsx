@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import clsx from 'clsx';
 import { collection, query, orderBy, limit, onSnapshot, doc, updateDoc, setDoc } from 'firebase/firestore';
-import { db } from '../../firebase';
+import { db, auth } from '../../firebase';
 
 export function AdminMonitoring() {
     const [hasMounted, setHasMounted] = useState(true);
@@ -23,6 +23,7 @@ export function AdminMonitoring() {
     const [settings, setSettings] = useState({
         ai: { autoCorrection: true, autonomousTutor: true, fraudDetection: true }
     });
+    const [tvlData, setTvlData] = useState<any>(null);
 
     useEffect(() => {
         // Fetch System Logs
@@ -57,6 +58,27 @@ export function AdminMonitoring() {
                 setDoc(doc(db, 'settings', 'global_config'), { ai: settings.ai }, { merge: true });
             }
         });
+        
+        // Fetch TVL Data
+        const fetchTvl = async () => {
+            try {
+                // Wait for auth to be ready
+                const token = await auth.currentUser?.getIdToken();
+                if (!token) return;
+                
+                const response = await fetch('/api/wallet/tvl', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    setTvlData(data);
+                }
+            } catch (err) {
+                console.error("Failed to fetch TVL:", err);
+            }
+        };
+        fetchTvl();
 
         return () => {
             unsubLogs();
@@ -101,6 +123,40 @@ export function AdminMonitoring() {
                     V.2.5.0 • SECURED
                 </div>
             </header>
+
+            {/* --- TVL & TRESORERIE --- */}
+            {tvlData && (
+                <section className="relative z-10 mb-8 w-full bg-slate-900/60 border border-emerald-500/30 rounded-3xl p-6 shadow-2xl overflow-hidden">
+                   <div className="absolute top-0 right-0 p-4 opacity-10">
+                        <Database className="w-32 h-32 text-emerald-500" />
+                   </div>
+                   <div className="relative">
+                       <h2 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] mb-4">Total Value Locked (Trésorerie Globale)</h2>
+                       <div className="text-4xl md:text-5xl font-black text-white mb-6 font-mono tracking-tighter">
+                           {tvlData.tvl.toLocaleString()} <span className="text-emerald-500 text-2xl">FCFA</span>
+                       </div>
+                       
+                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 border-t border-white/5 pt-6">
+                           <div>
+                               <p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1">Disponible</p>
+                               <p className="text-lg font-bold text-white font-mono">{tvlData.breakdown.available.toLocaleString()} F</p>
+                           </div>
+                           <div>
+                               <p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1">Affiliation</p>
+                               <p className="text-lg font-bold text-emerald-400 font-mono">{tvlData.breakdown.affiliate.toLocaleString()} F</p>
+                           </div>
+                           <div>
+                               <p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1">Séquestre (Ventes)</p>
+                               <p className="text-lg font-bold text-yellow-400 font-mono">{tvlData.breakdown.escrow.toLocaleString()} F</p>
+                           </div>
+                           <div>
+                               <p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1">Séquestre (Parrainage)</p>
+                               <p className="text-lg font-bold text-orange-400 font-mono">{tvlData.breakdown.escrowAffiliate.toLocaleString()} F</p>
+                           </div>
+                       </div>
+                   </div>
+                </section>
+            )}
 
             {/* --- LIVE STATS GRID (Android-First Progress Bars) --- */}
             <section className="grid grid-cols-2 lg:grid-cols-4 gap-4 relative z-10">

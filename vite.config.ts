@@ -10,9 +10,11 @@ export default defineConfig(() => {
       react(), 
       tailwindcss(),
       VitePWA({
+        strategies: 'injectManifest',
+        srcDir: 'src',
+        filename: 'sw.ts',
         registerType: 'autoUpdate',
-        includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
-        workbox: {
+        injectManifest: {
           maximumFileSizeToCacheInBytes: 5 * 1024 * 1024
         },
         manifest: {
@@ -44,9 +46,10 @@ export default defineConfig(() => {
       })
     ],
     resolve: {
-      alias: {
-        '@': path.resolve(__dirname, '.'),
-      },
+      alias: [
+        { find: /^@\/components\/(.*)/, replacement: path.resolve(__dirname, './src/views/components/$1') },
+        { find: '@', replacement: path.resolve(__dirname, './src') }
+      ],
     },
     server: {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.

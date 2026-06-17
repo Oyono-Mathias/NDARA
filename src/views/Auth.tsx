@@ -105,6 +105,9 @@ export function AuthView() {
       console.error(err);
       if (err.code === 'auth/popup-blocked') {
           setError("Le popup de connexion a été bloqué par votre navigateur. Autorisez-le ou ouvrez la page dans un nouvel onglet.");
+      } else if (err.code === 'auth/popup-closed-by-user') {
+          // ignore error since user just closed it
+          setError("La connexion a été annulée. Veuillez réessayer.");
       } else {
           setError("Une erreur est survenue lors de l'authentification.");
       }

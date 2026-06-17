@@ -2,8 +2,11 @@ import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { db } from "../firebase";
 import { collection, query, where, getDocs, onSnapshot, doc, updateDoc, getDoc, addDoc, serverTimestamp } from "firebase/firestore";
-import { Play, Pause, Maximize, SkipForward, SkipBack, Settings, CheckCircle2, ListVideo, PlayCircle, Loader2, ArrowLeft, Trophy, MessageCircleQuestion, Send, Bot } from "lucide-react";
+import { VideoPlayer } from "../components/ui/VideoPlayer";
+import { Play, Pause, Maximize, SkipForward, SkipBack, Settings, CheckCircle2, ListVideo, PlayCircle, Loader2, ArrowLeft, Trophy, MessageCircleQuestion, Send, Bot, Download, Smartphone } from "lucide-react";
 import { useRole } from "../context/RoleContext";
+import { downloadVideoForOffline } from "../lib/offlineSync";
+import { isVideoOffline, saveVideoOfflineState, removeVideoOffline } from "../lib/offlineStorage";
 
 function StudentQnaForm({ courseId, chapterId }: { courseId: string, chapterId: string }) {
     const { currentUser } = useRole();
@@ -83,16 +86,79 @@ export function CoursePlayer() {
   const [activeLesson, setActiveLesson] = useState<number>(0);
   const [isUpdatingProgress, setIsUpdatingProgress] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
+  
+  // États pour le téléchargement hors connexion
+  const [downloadStatus, setDownloadStatus] = useState<'idle' | 'downloading' | 'completed'>('idle');
+  const [downloadProgress, setDownloadProgress] = useState(0);
+
+  const content = course?.content || [];
+  const currentModuleData = content[activeModule];
+  const currentLessonData = currentModuleData?.lessons?.[activeLesson];
+
+  // Vérifier le statut hors ligne au chargement de la leçon
+  useEffect(() => {
+    if (currentLessonData?.videoUrl) {
+      const parts = currentLessonData.videoUrl.split('/').filter(Boolean);
+      const videoId = parts[parts.length - 1];
+      if (isVideoOffline(videoId)) {
+        setDownloadStatus('completed');
+      } else {
+        setDownloadStatus('idle');
+      }
+    } else {
+      setDownloadStatus('idle');
+    }
+  }, [currentLessonData?.videoUrl]);
+
+  const handleDownload = async () => {
+    if (downloadStatus === 'idle') {
+      try {
+        setDownloadStatus('downloading');
+        setDownloadProgress(0);
+        
+        let videoId = currentLessonData?.videoUrl;
+        if (videoId) {
+            // Extraire l'ID depuis l'URL Bunny
+            const parts = videoId.split('/').filter(Boolean);
+            videoId = parts[parts.length - 1];
+            
+            const cdnHostname = import.meta.env.VITE_BUNNY_STREAM_CDN_HOSTNAME || "vz-a8b9c7d6.b-cdn.net"; // Par défaut ou via var env
+            
+            // Lancement du téléchargement (interception via le SW)
+            await downloadVideoForOffline(videoId, cdnHostname, (progress) => {
+                setDownloadProgress(progress);
+            });
+            
+            // Sauvegarder dans IndexedDB/LocalStorage
+            saveVideoOfflineState({
+              videoId,
+              courseId: course.id,
+              courseTitle: course.title,
+              lessonId: `m${activeModule}_l${activeLesson}`,
+              lessonTitle: currentLessonData.title,
+              downloadedAt: Date.now()
+            });
+
+            setDownloadStatus('completed');
+        } else {
+            console.error("Aucune URL de vidéo valide pour le téléchargement.");
+            setDownloadStatus('idle');
+        }
+      } catch (e) {
+        console.error("Échec du téléchargement", e);
+        setDownloadStatus('idle');
+      }
+    }
+  };
 
   useEffect(() => {
     if (!slug) return;
     
     // First, get the course
-    const qCourse = query(collection(db, "courses"), where("slug", "==", slug));
-    
-    getDocs(qCourse).then(snap => {
-        if (!snap.empty) {
-            const courseData = { id: snap.docs[0].id, ...snap.docs[0].data() };
+    const courseRef = doc(db, "courses", slug);
+    getDoc(courseRef).then(docSnap => {
+        if (docSnap.exists()) {
+            const courseData = { id: docSnap.id, ...docSnap.data() };
             setCourse(courseData);
             
             // Then subscribe to the enrollment to get real-time progress
@@ -111,6 +177,9 @@ export function CoursePlayer() {
         } else {
             setLoading(false);
         }
+    }).catch(err => {
+        console.error(err);
+        setLoading(false);
     });
 
   }, [slug, currentUser?.uid]);
@@ -172,9 +241,6 @@ export function CoursePlayer() {
     return <div className="text-center py-20 text-white font-bold">Formation introuvable.</div>;
   }
 
-  const content = course.content || [];
-  const currentModuleData = content[activeModule];
-  const currentLessonData = currentModuleData?.lessons?.[activeLesson];
   const completedLessons = enrollment?.completedLessons || [];
 
   return (
@@ -225,11 +291,10 @@ export function CoursePlayer() {
 
           <div className="relative w-full aspect-video bg-black rounded-3xl overflow-hidden border border-white/10 group shadow-[0_0_30px_rgba(16,185,129,0.15)] glow-green flex items-center justify-center">
             {currentLessonData?.videoUrl ? (
-              <video 
+              <VideoPlayer 
                 src={currentLessonData.videoUrl} 
-                controls 
+                provider={currentLessonData.provider}
                 className="w-full h-full object-cover"
-                autoPlay
               />
             ) : (
               <div className="text-center relative z-10 p-6 flex flex-col items-center">
@@ -267,6 +332,57 @@ export function CoursePlayer() {
             )}
           </div>
           
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-slate-900/50 rounded-2xl border border-white/5 mb-6 gap-4">
+            <div className="flex-1">
+              {(currentLessonData && currentLessonData.provider !== 'cloudflare') && (
+                <button 
+                  onClick={handleDownload}
+                  disabled={downloadStatus !== 'idle'}
+                  className={`px-5 py-2.5 text-sm font-bold uppercase tracking-wide rounded-xl flex items-center gap-2 transition-all border ${
+                    downloadStatus === 'completed' 
+                      ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-400' 
+                      : downloadStatus === 'downloading'
+                      ? 'bg-amber-500/10 border-amber-500/20 text-amber-500'
+                      : 'bg-primary/10 hover:bg-primary/20 text-primary border-primary/20'
+                  }`}
+                >
+                  {downloadStatus === 'idle' && (
+                    <>
+                      <Download className="w-4 h-4" />
+                      Télécharger pour hors connexion
+                    </>
+                  )}
+                  {downloadStatus === 'downloading' && (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Téléchargement... {downloadProgress}%
+                    </>
+                  )}
+                  {downloadStatus === 'completed' && (
+                    <>
+                      <CheckCircle2 className="w-4 h-4" />
+                      Disponible hors ligne
+                    </>
+                  )}
+                </button>
+              )}
+              
+              {downloadStatus === 'downloading' && (
+                <div className="w-full sm:w-64 h-1.5 bg-slate-800 rounded-full mt-3 overflow-hidden">
+                  <div 
+                    className="h-full bg-amber-500 transition-all duration-300 ease-out rounded-full" 
+                    style={{ width: `${downloadProgress}%` }}
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2 text-xs text-slate-400">
+              <Smartphone className="w-4 h-4" />
+              <span className="hidden sm:inline">Stockage local chiffré</span>
+            </div>
+          </div>
+
           <div className="p-6 bg-slate-900 rounded-3xl border border-white/5 text-slate-300 text-sm leading-relaxed">
              <h3 className="font-bold text-white mb-2">Description du cours</h3>
              <p>{course.description || "Aucune description fournie."}</p>

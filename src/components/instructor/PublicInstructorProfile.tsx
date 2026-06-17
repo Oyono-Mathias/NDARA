@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { formatImageUrl } from '../../lib/utils';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { Star, Users, BookOpen, ExternalLink, BadgeCheck } from 'lucide-react';
@@ -101,7 +102,7 @@ export function PublicInstructorProfile({ instructorId }: { instructorId: string
                                 <div key={course.id} onClick={() => navigate(`/student/courses/${course.id}`)} className="bg-[#1e293b] rounded-3xl border border-white/5 overflow-hidden group cursor-pointer hover:border-primary/50 transition">
                                     <div className="aspect-video bg-slate-800 relative overflow-hidden">
                                         {course.thumbnail ? (
-                                            <img src={course.thumbnail} alt={course.title} className="w-full h-full object-cover group-hover:scale-105 transition duration-500" />
+                                            <img src={formatImageUrl(course.thumbnail)} alt={course.title} className="w-full h-full object-cover group-hover:scale-105 transition duration-500" />
                                         ) : (
                                             <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-800 to-slate-900">
                                                 <BookOpen className="w-12 h-12 text-slate-700" />

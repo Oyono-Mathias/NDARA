@@ -156,7 +156,7 @@ export function AdminInstructors() {
   );
 }
 
-function ApplicationRow({ instructor }: { instructor: any }) {
+function ApplicationRow({ instructor }: { instructor: any, key?: React.Key }) {
   const [isMutating, setIsMutating] = useState(false);
 
   const handleAction = async (action: "approved" | "rejected") => {

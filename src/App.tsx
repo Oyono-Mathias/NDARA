@@ -55,6 +55,7 @@ import { StudentSquadDetails } from "./views/StudentSquadDetails";
 import { UniversalPlayground } from "./views/UniversalPlayground";
 import { TemplateMarket } from "./views/TemplateMarket";
 import { EbookMarket } from "./views/EbookMarket";
+import OfflineDownloads from "./views/OfflineDownloads";
 
 // Layouts
 import { PublicLayout } from "./layouts/PublicLayout";
@@ -139,6 +140,7 @@ export default function App() {
           <Route path="bourse" element={<BourseView />} />
           <Route path="bourse/:id" element={<BourseLicenseDetail />} />
           <Route path="profile" element={<ProfileView />} />
+          <Route path="downloads" element={<OfflineDownloads />} />
           <Route
             path="course-redirect/:slug"
             element={<StudentCourseRedirect />}

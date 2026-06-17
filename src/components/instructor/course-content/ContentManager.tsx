@@ -1,14 +1,25 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { db } from '../../../firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { Plus, Video, Trash2, GripVertical, Loader2 } from 'lucide-react';
+import { Plus, Video, Trash2, GripVertical, Loader2, Upload } from 'lucide-react';
+import { uploadToR2 } from '../../../lib/r2Upload';
 
 export function ContentManager({ courseId }: { courseId: string }) {
     const [content, setContent] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [uploadingLessons, setUploadingLessons] = useState<{[key: string]: number}>({});
+    const [activeVideoProvider, setActiveVideoProvider] = useState<'bunny' | 'cloudflare'>('bunny');
+    const fileInputRefs = useRef<{[key: string]: HTMLInputElement | null}>({});
 
     useEffect(() => {
+        // Obtenir la configuration globale
+        getDoc(doc(db, 'settings', 'global_config')).then(snap => {
+            if (snap.exists() && snap.data().active_video_provider) {
+                setActiveVideoProvider(snap.data().active_video_provider);
+            }
+        });
+
         getDoc(doc(db, 'courses', courseId)).then(snap => {
             if (snap.exists()) {
                 setContent(snap.data().content || []);
@@ -16,6 +27,42 @@ export function ContentManager({ courseId }: { courseId: string }) {
             setLoading(false);
         });
     }, [courseId]);
+
+    const handleVideoUpload = async (file: File, modIdx: number, lesIdx: number) => {
+        if (!file) return;
+        const lesId = content[modIdx].lessons[lesIdx].id;
+        
+        try {
+            setUploadingLessons(prev => ({ ...prev, [lesId]: 0 }));
+            
+            let result;
+            if (activeVideoProvider === 'cloudflare') {
+                const { uploadVideoToCloudflare } = await import('../../../lib/cloudflareUpload');
+                result = await uploadVideoToCloudflare(file, (p) => {
+                    setUploadingLessons(prev => ({ ...prev, [lesId]: p }));
+                });
+            } else {
+                const { uploadVideoToBunny } = await import('../../../lib/bunnyUpload');
+                result = await uploadVideoToBunny(file, (p) => {
+                    setUploadingLessons(prev => ({ ...prev, [lesId]: p }));
+                });
+            }
+            
+            updateLesson(modIdx, lesIdx, 'videoUrl', result.iframeUrl);
+            updateLesson(modIdx, lesIdx, 'videoId', result.videoId);
+            updateLesson(modIdx, lesIdx, 'provider', activeVideoProvider);
+        } catch (err: any) {
+            console.error(err);
+            alert(`Erreur lors du téléversement de la vidéo: ${err.message || 'Vérifiez la configuration/connexion.'}`);
+        } finally {
+            setUploadingLessons(prev => {
+                const newUp = { ...prev };
+                delete newUp[lesId];
+                return newUp;
+            });
+        }
+    };
+
 
     const handleAddModule = () => {
         setContent([...content, { 
@@ -43,9 +90,16 @@ export function ContentManager({ courseId }: { courseId: string }) {
     };
 
     const updateLesson = (moduleIndex: number, lessonIndex: number, field: string, value: string) => {
-        const newContent = [...content];
-        newContent[moduleIndex].lessons[lessonIndex][field] = value;
-        setContent(newContent);
+        setContent(prevContent => {
+            const newContent = [...prevContent];
+            newContent[moduleIndex] = { ...newContent[moduleIndex] };
+            newContent[moduleIndex].lessons = [...newContent[moduleIndex].lessons];
+            newContent[moduleIndex].lessons[lessonIndex] = { 
+                ...newContent[moduleIndex].lessons[lessonIndex],
+                [field]: value
+            };
+            return newContent;
+        });
     };
 
     const removeModule = (moduleIndex: number) => {
@@ -120,18 +174,45 @@ export function ContentManager({ courseId }: { courseId: string }) {
                                             placeholder="Titre de la leçon"
                                         />
                                         <div className="flex gap-3">
-                                            <input 
-                                                type="text"
-                                                value={les.videoUrl}
-                                                onChange={(e) => updateLesson(modIdx, lesIdx, 'videoUrl', e.target.value)}
-                                                className="bg-black/50 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-slate-300 flex-1 focus:border-primary outline-none"
-                                                placeholder="Lien vidéo (ex: URL VdoCipher ou MP4)"
-                                            />
+                                            <div className="flex-1 flex gap-2 relative">
+                                                <input 
+                                                    type="text"
+                                                    value={les.videoUrl}
+                                                    onChange={(e) => updateLesson(modIdx, lesIdx, 'videoUrl', e.target.value)}
+                                                    className="bg-black/50 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-slate-300 w-full focus:border-primary outline-none"
+                                                    placeholder="Lien vidéo (ex: URL VdoCipher ou MP4)"
+                                                />
+                                                <input
+                                                    type="file"
+                                                    accept="video/*"
+                                                    className="hidden"
+                                                    ref={el => fileInputRefs.current[les.id] = el}
+                                                    onChange={(e) => {
+                                                        const file = e.target.files?.[0];
+                                                        if (file) handleVideoUpload(file, modIdx, lesIdx);
+                                                    }}
+                                                />
+                                                <button
+                                                    onClick={() => fileInputRefs.current[les.id]?.click()}
+                                                    disabled={typeof uploadingLessons[les.id] === 'number'}
+                                                    className="p-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-slate-300 transition shrink-0 relative"
+                                                    title="Téléverser une vidéo"
+                                                >
+                                                    {typeof uploadingLessons[les.id] === 'number' ? (
+                                                        <div className="flex items-center gap-2 px-2 text-xs font-bold text-primary">
+                                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                                            {uploadingLessons[les.id]}%
+                                                        </div>
+                                                    ) : (
+                                                        <Upload className="w-4 h-4" />
+                                                    )}
+                                                </button>
+                                            </div>
                                             <input 
                                                 type="text"
                                                 value={les.duration}
                                                 onChange={(e) => updateLesson(modIdx, lesIdx, 'duration', e.target.value)}
-                                                className="bg-black/50 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-slate-300 w-24 focus:border-primary outline-none"
+                                                className="bg-black/50 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-slate-300 w-24 focus:border-primary outline-none shrink-0"
                                                 placeholder="Durée (12:45)"
                                             />
                                         </div>

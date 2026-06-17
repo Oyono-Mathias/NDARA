@@ -4,6 +4,7 @@ import { getFirestore, collection, query, where, onSnapshot, doc, deleteDoc } fr
 import { PlusCircle, Search, SlidersHorizontal, BookOpen, Trash2, Edit2, Play, Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { db } from '../../firebase';
+import { formatImageUrl } from '../../lib/utils';
 
 export function InstructorCourses() {
   const { currentUser } = useRole();
@@ -132,7 +133,7 @@ function CourseCard({ course, onDelete }: any) {
         <div className="bg-[#1e293b] rounded-[2.5rem] p-5 relative overflow-hidden group border border-white/5 hover:border-primary/30 transition-colors shadow-2xl">
             <div className={`absolute top-0 left-0 w-full h-1 ${isDraft ? 'bg-amber-500' : 'bg-primary'} opacity-50`}></div>
             <div className="w-full h-48 rounded-[2rem] overflow-hidden bg-slate-900 mb-5 relative group-hover:shadow-[0_0_20px_rgba(16,185,129,0.15)] transition-all">
-               <img src={`https://images.unsplash.com/photo-1516321497487-e288fb19713f?auto=format&fit=crop&q=80&w=400&h=300`} alt="Course" className="w-full h-full object-cover opacity-60 group-hover:scale-105 transition-transform duration-700" />
+               <img src={course.thumbnail ? formatImageUrl(course.thumbnail) : `https://images.unsplash.com/photo-1516321497487-e288fb19713f?auto=format&fit=crop&q=80&w=400&h=300`} alt="Course" className="w-full h-full object-cover opacity-60 group-hover:scale-105 transition-transform duration-700" />
                <div className="absolute top-3 left-3">
                    <span className={`px-3 py-1 text-[10px] font-black uppercase tracking-wider rounded-lg backdrop-blur-md border border-white/10 ${isDraft ? 'bg-amber-500/20 text-amber-500' : 'bg-primary/20 text-primary'}`}>
                        {course.status || 'Draft'}
@@ -154,9 +155,9 @@ function CourseCard({ course, onDelete }: any) {
                 <Link to={`/instructor/courses/edit/${course.id}`} className="flex-1 bg-white/5 py-3 rounded-2xl text-center text-[10px] uppercase tracking-widest font-black text-white hover:bg-white/10 transition flex items-center justify-center gap-2">
                    <Edit2 className="w-4 h-4"/> Éditeur
                 </Link>
-                <button className="flex-1 bg-primary/10 py-3 rounded-2xl text-center text-[10px] uppercase tracking-widest font-black text-primary hover:bg-primary/20 transition flex items-center justify-center gap-2">
+                <Link to={`/student/courses/${course.id}`} className="flex-1 bg-primary/10 py-3 rounded-2xl text-center text-[10px] uppercase tracking-widest font-black text-primary hover:bg-primary/20 transition flex items-center justify-center gap-2">
                    <Play className="w-4 h-4"/> Aperçu
-                </button>
+                </Link>
             </div>
         </div>
     );

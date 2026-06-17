@@ -1,16 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense, lazy } from "react";
 import { motion } from "motion/react";
-import dynamic from "next/dynamic";
 import { PlayCircle, ArrowRight } from "lucide-react";
 
 // Lazy loading natif du système premium "Preview Modal". 
 // Le code du widget/simulateur ne sera téléchargé que si l'utilisateur clique sur "Aperçu".
-const PreviewModal = dynamic(() => import("./PreviewModal"), {
-  loading: () => <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center animate-pulse text-[#10B981] font-mono">CHARGEMENT DU MOTEUR D'APERÇU...</div>,
-  ssr: false, // Évite les problèmes de dimensionnement/hydratation pour les Canvas/Widgets
-});
+const PreviewModal = lazy(() => import("./PreviewModal"));
 
 export default function HeroSection() {
   const [showPreview, setShowPreview] = useState(false);
@@ -57,7 +53,11 @@ export default function HeroSection() {
       </motion.div>
 
       {/* Rendu asynchrone du modal Premium */}
-      {showPreview && <PreviewModal onClose={() => setShowPreview(false)} />}
+      {showPreview && (
+        <Suspense fallback={<div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center animate-pulse text-[#10B981] font-mono">CHARGEMENT DU MOTEUR D'APERÇU...</div>}>
+          <PreviewModal onClose={() => setShowPreview(false)} />
+        </Suspense>
+      )}
     </section>
   );
 }

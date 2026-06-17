@@ -17,7 +17,11 @@
     "jsx": "react-jsx",
     "paths": {
       "@/*": [
-        "./*"
+        "./src/*"
+      ],
+      "@/components/*": [
+        "./src/views/components/*",
+        "./src/components/*"
       ]
     },
     "allowImportingTsExtensions": true,

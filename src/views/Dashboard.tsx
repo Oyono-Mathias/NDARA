@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { formatImageUrl } from "../lib/utils";
 import { Play, BookOpen, Award, ArrowRight, Bot, Sparkles, Search, CheckCircle2, ChevronRight, Flame, Loader2, MessageCircleQuestion } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useRole } from "../context/RoleContext";
@@ -232,7 +233,7 @@ export function Dashboard() {
                         onClick={() => navigate(`/student/courses/${course.slug}`)}
                     >
                     <div className="relative w-full h-32">
-                        <img src={course.thumbnail || "https://images.unsplash.com/photo-1526379095098-d400fd0bfce8?auto=format&fit=crop&q=80"} alt={course.title} className="w-full h-full object-cover" />
+                        <img src={formatImageUrl(course.thumbnail) || "https://images.unsplash.com/photo-1526379095098-d400fd0bfce8?auto=format&fit=crop&q=80"} alt={course.title} className="w-full h-full object-cover" />
                         <div className="absolute inset-0 bg-black/30 group-hover:bg-black/40 transition-colors flex items-center justify-center">
                             <div className="w-12 h-12 rounded-full bg-primary/90 flex items-center justify-center shadow-[0_4px_20px_rgba(16,185,129,0.5)] transform scale-0 group-hover:scale-100 transition-transform">
                                 <Play className="w-5 h-5 text-black fill-current ml-1" />
@@ -271,7 +272,7 @@ export function Dashboard() {
         <div className="flex gap-4 overflow-x-auto hide-scrollbar sm:px-2 px-1 pb-4 snap-x snap-mandatory">
             {recommendedCourses.map((course, i) => (
                 <div key={course.id || i} onClick={() => navigate(`/student/courses/${course.slug}`)} className="min-w-[160px] max-w-[160px] glass-light rounded-2xl overflow-hidden border border-white/5 cursor-pointer card-hover snap-start shrink-0">
-                    <img src={course.thumbnail || "https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&q=80"} alt={course.title} className="w-full h-24 object-cover" />
+                    <img src={formatImageUrl(course.thumbnail) || "https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&q=80"} alt={course.title} className="w-full h-24 object-cover" />
                     <div className="p-3">
                         <div className="text-[9px] font-bold text-primary tracking-widest uppercase mb-1">{course.category || "Formation"}</div>
                         <h3 className="text-xs font-bold text-white mb-2 leading-snug line-clamp-2">{course.title}</h3>

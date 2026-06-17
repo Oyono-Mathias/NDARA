@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { X, Search, BookOpen, Wallet, LayoutGrid, Bot, TrendingUp, Users, MessageSquare, Award, Bookmark, User, Bell, LifeBuoy, LogOut, ArrowLeftRight, Heart, Medal, ShoppingBag, Folder, BadgeCheck, Tag, Megaphone, ClipboardCheck, FileQuestion, Star, Building, Settings, Terminal } from 'lucide-react';
+import { X, Search, BookOpen, Wallet, LayoutGrid, Bot, TrendingUp, Users, MessageSquare, Award, Bookmark, User, Bell, LifeBuoy, LogOut, ArrowLeftRight, Heart, Medal, ShoppingBag, Folder, BadgeCheck, Tag, Megaphone, ClipboardCheck, FileQuestion, Star, Building, Settings, Terminal, DownloadCloud } from 'lucide-react';
 import { useRole } from '../context/RoleContext';
 import { cn } from '../lib/utils';
 import { signOut } from 'firebase/auth';
@@ -134,6 +134,7 @@ export function Sidebar({ isOpen, onClose }: { isOpen: boolean, onClose: () => v
                                     <NavItem icon={Wallet} label="PORTEFEUILLE" to="/student/wallet" current={location.pathname} onClick={onClose} />
                                     <NavItem icon={TrendingUp} label="BOURSE" to="/student/bourse" badge="HOT" current={location.pathname} onClick={onClose} />
                                     <NavItem icon={BookOpen} label="MES COURS" to="/student/courses" current={location.pathname} onClick={onClose} />
+                                    <NavItem icon={DownloadCloud} label="TÉLÉCHARGEMENTS" to="/student/downloads" current={location.pathname} onClick={onClose} />
                                     <NavItem icon={Bot} label="TUTEUR MATHIAS" to="/student/mathias" badge="IA" current={location.pathname} onClick={onClose} />
                                     <NavItem icon={ShoppingBag} label="MARCHÉ E-BOOK" to="/student/ebooks" badge="NEW" current={location.pathname} onClick={onClose} />
                                     <NavItem icon={LayoutGrid} label="OUTILS & TEMPLATES" to="/student/tools" badge="HOT" current={location.pathname} onClick={onClose} />

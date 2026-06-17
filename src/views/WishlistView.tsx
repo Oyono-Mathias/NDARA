@@ -4,6 +4,7 @@ import { db } from '../firebase';
 import { collection, onSnapshot, query, getDocs, documentId, where } from 'firebase/firestore';
 import { Heart, ArrowRight, Sparkles, Compass } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { formatImageUrl } from '../lib/utils';
 
 export function WishlistView() {
   const { currentUser } = useRole();
@@ -88,7 +89,7 @@ export function WishlistView() {
                   <Link key={course.id} to={`/student/courses/${course.id}`} className="block">
                       <div className="glass rounded-[2rem] p-5 card-hover relative overflow-hidden flex flex-col gap-4 border border-white/5 bg-[#111111]">
                           <div className="w-full h-40 rounded-2xl bg-card overflow-hidden shrink-0 relative">
-                             <img src={course.image || 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&q=80'} alt={course.title} className="w-full h-full object-cover opacity-80 transition-all group-hover:scale-105" />
+                             <img src={course.thumbnail ? formatImageUrl(course.thumbnail) : 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&q=80'} alt={course.title} className="w-full h-full object-cover opacity-80 transition-all group-hover:scale-105" />
                              <div className="absolute top-3 right-3 bg-black/60 backdrop-blur-md rounded-full p-2">
                                 <Heart className="h-4 w-4 fill-primary text-primary" />
                              </div>

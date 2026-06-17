@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { formatImageUrl } from '../../lib/utils';
 import { collection, query, where, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { Link } from 'react-router-dom';
@@ -161,8 +162,8 @@ export function AdminCourses() {
                         <tr key={course.id} className="hover:bg-slate-800/50 transition-colors group">
                           <td className="p-4 pl-6">
                              <div className="flex items-center gap-4">
-                                {course.thumbnailUrl ? (
-                                   <img src={course.thumbnailUrl} alt="Cover" className="w-12 h-12 rounded-xl object-cover border border-slate-700" />
+                                {course.thumbnailUrl || course.thumbnail ? (
+                                   <img src={formatImageUrl(course.thumbnailUrl || course.thumbnail)} alt="Cover" className="w-12 h-12 rounded-xl object-cover border border-slate-700" />
                                 ) : (
                                   <div className="w-12 h-12 rounded-xl bg-slate-800 flex items-center justify-center shrink-0 border border-slate-700 group-hover:border-emerald-500/30 transition-colors">
                                     <FileText className="w-5 h-5 text-emerald-500" />

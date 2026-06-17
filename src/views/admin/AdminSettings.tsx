@@ -2,11 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { 
   Settings, Palette, Wrench, Users, GraduationCap, BookOpen, Award, CreditCard, 
   Landmark, ShieldCheck, Shield, Key, HardDrive, BrainCircuit, Bell, MessageSquare, 
-  Layout, TrendingUp, BarChart3, Globe, Save, Loader2, X, ChevronDown
+  Layout, TrendingUp, BarChart3, Globe, Save, Loader2, X, ChevronDown, Activity
 } from 'lucide-react';
 import clsx from 'clsx';
 import { doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
-import { db } from '../../firebase';
+import { db, auth } from '../../firebase';
 
 const HUBS = [
   {
@@ -98,6 +98,30 @@ export function AdminSettings() {
   const [config, setConfig] = useState<any>({});
   const [isLoading, setIsLoading] = useState(true);
 
+  // Health Data
+  const [healthStats, setHealthStats] = useState<any>(null);
+  const [loadingHealth, setLoadingHealth] = useState(false);
+  const [validatingVideo, setValidatingVideo] = useState(false);
+  const [videoStatus, setVideoStatus] = useState<{provider: string, valid: boolean} | null>(null);
+  const [statusMsg, setStatusMsg] = useState<{type: 'success'|'error', text: string} | null>(null);
+
+  const fetchHealthStats = async () => {
+    setLoadingHealth(true);
+    try {
+        const token = await auth.currentUser?.getIdToken();
+        const res = await fetch('/api/admin/video/health', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (data.success) {
+            setHealthStats(data);
+        }
+    } catch(err) {
+        console.error("Failed to fetch health stats", err);
+    }
+    setLoadingHealth(false);
+  };
+
   useEffect(() => {
     const fetchSettings = async () => {
       try {
@@ -138,6 +162,7 @@ export function AdminSettings() {
             dynamic_ip_block: true,
             openai_api_key: "",
             google_client_id: "",
+            active_video_provider: "bunny",
             cdn_provider: "firebase",
             max_video_size: 2000,
             auto_image_optimization: true,
@@ -167,12 +192,45 @@ export function AdminSettings() {
       }
     };
     fetchSettings();
+    fetchHealthStats();
   }, []);
 
   const activeHub = HUBS.find(h => h.id === activeHubId)!;
 
-  const handleUpdate = (key: string, value: any) => {
+  const updateObj = (key: string, value: any) => {
     setConfig((prev: any) => ({ ...prev, [key]: value }));
+  };
+
+  const handleValidateProvider = async (provider: 'bunny' | 'cloudflare') => {
+      setValidatingVideo(true);
+      setStatusMsg(null);
+      try {
+          const token = await auth.currentUser?.getIdToken();
+          const pData = provider === 'cloudflare' 
+            ? { provider, accountId: config.cloudflare_account_id, apiKey: config.cloudflare_api_token }
+            : { provider, libraryId: config.bunny_stream_library_id, apiKey: config.bunny_stream_api_key };
+            
+          const res = await fetch('/api/admin/video/validate', {
+              method: 'POST',
+              headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify(pData)
+          });
+          const data = await res.json();
+          if (data.success) {
+              setVideoStatus({ provider, valid: true });
+              setStatusMsg({ type: 'success', text: `Clés valides !` });
+              updateObj('active_video_provider', provider);
+          } else {
+              setVideoStatus({ provider, valid: false });
+              setStatusMsg({ type: 'error', text: data.error || `Clés invalides.` });
+          }
+      } catch (err) {
+          setStatusMsg({ type: 'error', text: 'Erreur réseau.' });
+      }
+      setValidatingVideo(false);
   };
 
   const handleSave = async () => {
@@ -326,7 +384,7 @@ export function AdminSettings() {
 
           <div className="flex-1 overflow-y-auto px-6 lg:px-12 py-8 pb-32 hide-scrollbar">
               <div className="max-w-3xl space-y-8 animate-in fade-in duration-300">
-                  {renderModuleForm(activeModuleId, config, handleUpdate)}
+                  {renderModuleForm(activeModuleId)}
               </div>
           </div>
 
@@ -343,11 +401,8 @@ export function AdminSettings() {
       </main>
     </div>
   );
-}
 
-// ------ UI Forms Renderers ------
-
-const renderModuleForm = (moduleId: string, config: any, updateObj: (k: string, v: any) => void) => {
+  function renderModuleForm(moduleId: string) {
     switch (moduleId) {
         /* GLOBALS */
         case 'general': return (
@@ -437,8 +492,55 @@ const renderModuleForm = (moduleId: string, config: any, updateObj: (k: string, 
         );
         case 'storage': return (
             <>
-                <SelectInput label="Fournisseur Cloud CDN" value={config.cdn_provider} onChange={(v: string) => updateObj('cdn_provider', v)} options={[{l: 'Google Cloud Storage / Firebase', v: 'firebase'}]} />
-                <TextInput type="number" label="Taille max des vidéos (Mo)" value={config.max_video_size} onChange={(v: any) => updateObj('max_video_size', Number(v))} />
+                <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 mb-6">
+                    <h3 className="text-sm font-bold text-white mb-4 flex items-center gap-2"><HardDrive className="w-4 h-4 text-emerald-400" /> Infrastructure Vidéo Globale</h3>
+                    
+                    <div className="mb-6 p-4 rounded-xl border border-slate-700 bg-[#0B0F19]">
+                      <div className="flex items-center justify-between mb-4">
+                         <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                            <Activity className="w-4 h-4 text-emerald-400" /> État des Services Vidéo
+                         </h3>
+                         <button onClick={fetchHealthStats} className="text-xs text-emerald-500 hover:text-emerald-400 transition-colors uppercase tracking-widest font-bold" disabled={loadingHealth}>
+                             {loadingHealth ? 'Actualisation...' : 'Actualiser'}
+                         </button>
+                      </div>
+                      {healthStats ? (
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="bg-slate-800 rounded-lg p-3 text-center border-b-2 border-slate-700">
+                              <div className="text-2xl font-black text-white">{healthStats.stats.totalVideos}</div>
+                              <div className="text-[10px] text-slate-400 uppercase tracking-widest mt-1">Vidéos Uploadées</div>
+                            </div>
+                            <div className="bg-slate-800 rounded-lg p-3 text-center border-b-2 border-emerald-500/50 relative overflow-hidden group">
+                              <div className="text-xl font-bold text-white mb-1 flex items-center justify-center gap-2">
+                                 {healthStats.ping.bunny !== -1 ? <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]"></span> : <span className="w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.5)]"></span>}
+                                 {healthStats.stats.bunnyCount} <span className="text-xs font-normal text-slate-400">vidéos</span>
+                              </div>
+                              <div className="text-[10px] text-slate-400 uppercase tracking-widest">Bunny Stream</div>
+                              <div className="text-[10px] text-slate-500 font-mono mt-1">{healthStats.ping.bunny !== -1 ? `${healthStats.ping.bunny}ms ping` : 'Non configuré'}</div>
+                            </div>
+                            <div className="bg-slate-800 rounded-lg p-3 text-center border-b-2 border-amber-500/50 relative overflow-hidden group">
+                              <div className="text-xl font-bold text-white mb-1 flex items-center justify-center gap-2">
+                                 {healthStats.ping.cloudflare !== -1 ? <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]"></span> : <span className="w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.5)]"></span>}
+                                 {healthStats.stats.cloudflareCount} <span className="text-xs font-normal text-slate-400">vidéos</span>
+                              </div>
+                              <div className="text-[10px] text-slate-400 uppercase tracking-widest">Cloudflare</div>
+                              <div className="text-[10px] text-slate-500 font-mono mt-1">{healthStats.ping.cloudflare !== -1 ? `${healthStats.ping.cloudflare}ms ping` : 'Non configuré'}</div>
+                            </div>
+                          </div>
+                      ) : (
+                          <div className="text-sm text-slate-500 text-center py-6 border border-dashed border-slate-700 rounded-xl">Chargement de la télémétrie...</div>
+                      )}
+                    </div>
+
+                    <Toggle 
+                        label="Flux Vidéo Réseau Actif" 
+                        description={config.active_video_provider === 'cloudflare' ? "Réseau Actif : Cloudflare Stream (Recommandé pour l'adaptabilité)" : "Réseau Actif : Bunny Stream (Mode hors ligne pris en charge)"} 
+                        checked={config.active_video_provider === 'cloudflare'} 
+                        onChange={(v: boolean) => updateObj('active_video_provider', v ? 'cloudflare' : 'bunny')} 
+                    />
+                </div>
+                <SelectInput label="Fournisseur CDN (Images & Fichiers)" value={config.cdn_provider} onChange={(v: string) => updateObj('cdn_provider', v)} options={[{l: 'Google Cloud Storage / Firebase', v: 'firebase'}]} />
+                <TextInput type="number" label="Taille max des uploads (Mo)" value={config.max_video_size} onChange={(v: any) => updateObj('max_video_size', Number(v))} />
                 <Toggle label="Optimisation automatique des images" checked={config.auto_image_optimization} onChange={(v: boolean) => updateObj('auto_image_optimization', v)} />
             </>
         );
@@ -546,6 +648,7 @@ function SelectInput({ label, value, options, onChange }: any) {
          </div>
       </div>
     )
+}
 }
 
 
