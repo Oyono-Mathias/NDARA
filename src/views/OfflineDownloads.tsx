@@ -1,41 +1,13 @@
-import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { DownloadCloud, Trash2, Video, Database } from "lucide-react";
-import { getOfflineVideos, removeVideoOffline, OfflineVideo } from "../lib/offlineStorage";
+import { useOfflineStorage } from "../hooks/useOfflineStorage";
 
 export default function OfflineDownloads() {
-  const [downloads, setDownloads] = useState<OfflineVideo[]>([]);
-  const [totalSize, setTotalSize] = useState<string>("Calcul...");
-
-  useEffect(() => {
-    loadDownloads();
-  }, []);
-
-  const loadDownloads = async () => {
-    setDownloads(getOfflineVideos());
-    
-    if ('storage' in navigator && 'estimate' in navigator.storage) {
-        try {
-            const estimate = await navigator.storage.estimate();
-            if (estimate.usage) {
-               // bytes to MB
-               const mb = (estimate.usage / (1024 * 1024)).toFixed(1);
-               // L'estimation du navigateur inclut TOUTES les données (IndexedDB, Caches, etc.)
-               // Mais c'est une bonne indication.
-               setTotalSize(`~${mb} MB`);
-            }
-        } catch (e) {
-            setTotalSize('Inconnu');
-        }
-    } else {
-        setTotalSize('Inconnu');
-    }
-  };
+  const { downloads, totalSize, removeDownload } = useOfflineStorage();
 
   const handleRemove = async (videoId: string) => {
     if (confirm("Voulez-vous vraiment supprimer cette vidéo du stockage de l'appareil ?")) {
-      await removeVideoOffline(videoId);
-      loadDownloads(); // refresh
+      await removeDownload(videoId);
     }
   };
 

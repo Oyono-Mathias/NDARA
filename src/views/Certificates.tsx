@@ -53,7 +53,7 @@ export function CertificatesView() {
                     if (courseIds.length > 0) {
                         // Max 30 conditions in 'in' clause roughly, usually fine for a few certificates
                         const chunkedIds = courseIds.slice(0, 30);
-                        const coursesQuery = query(collection(db, 'courses'), where(documentId(), 'in', chunkedIds));
+                        const coursesQuery = query(collection(db, 'courses'), where(documentId(), 'in', chunkedIds), where('status', '==', 'Published'));
                         const coursesSnap = await getDocs(coursesQuery);
                         coursesSnap.forEach(d => coursesMap.set(d.id, { id: d.id, ...d.data() }));
                     }

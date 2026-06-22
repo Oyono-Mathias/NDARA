@@ -157,7 +157,7 @@ export function AdminTransactions() {
         
         const pData = pDoc.data();
         const amount = pData.amount || 0;
-        const currentBalance = uDoc.data().walletBalance || 0;
+        const currentBalance = uDoc.data().balance || 0;
         
         if (currentBalance < amount) {
            throw new Error("Fonds insuffisants dans le portefeuille du formateur.");
@@ -167,7 +167,7 @@ export function AdminTransactions() {
         t.update(payoutRef, { status: 'paid', updatedAt: new Date() });
         
         // Déduire du portefeuille
-        t.update(userRef, { walletBalance: currentBalance - amount });
+        t.update(userRef, { balance: currentBalance - amount });
 
         // Trace comptable immuable
         t.set(txRef, {
@@ -197,6 +197,50 @@ export function AdminTransactions() {
         updatedAt: new Date() 
       });
     } catch (err) {
+      console.error(err);
+    } finally {
+      setIsProcessing(null);
+    }
+  };
+
+  const handleValidateDeposit = async (tx: any) => {
+    if (!window.confirm(`Valider l'entrée de ${tx.amount} XAF au portefeuille de l'utilisateur ?`)) return;
+    setIsProcessing(tx.id);
+    try {
+      await runTransaction(db, async (t) => {
+        const txRef = doc(db, 'transactions', tx.id);
+        const userRef = doc(db, 'users', tx.userId);
+        
+        const txDoc = await t.get(txRef);
+        if (!txDoc.exists() || txDoc.data().status !== 'pending') {
+          throw new Error("Transaction introuvable ou déjà traitée.");
+        }
+        
+        const uDoc = await t.get(userRef);
+        if (!uDoc.exists()) throw new Error("Utilisateur introuvable.");
+        
+        const currentBalance = uDoc.data().balance || 0;
+        
+        // Marquer comme validé
+        t.update(txRef, { status: 'completed', updatedAt: new Date() });
+        
+        // Créditer le portefeuille
+        t.update(userRef, { balance: currentBalance + (tx.amount || 0) });
+      });
+    } catch(err: any) {
+      console.error("Erreur validation depot:", err);
+      alert("Erreur: " + err.message);
+    } finally {
+      setIsProcessing(null);
+    }
+  };
+
+  const handleRejectDeposit = async (tx: any) => {
+    if (!window.confirm("Rejeter ce rechargement ?")) return;
+    setIsProcessing(tx.id);
+    try {
+      await updateDoc(doc(db, 'transactions', tx.id), { status: 'failed', updatedAt: new Date() });
+    } catch(err) {
       console.error(err);
     } finally {
       setIsProcessing(null);
@@ -604,9 +648,28 @@ export function AdminTransactions() {
                              </span>
                           </td>
                           <td className="p-4 pr-6 text-right">
-                             <span className="inline-flex text-[9px] font-black uppercase border border-slate-700 px-2 py-1 rounded bg-slate-800 text-slate-400">
-                               {t.status || 'COMPLETED'}
-                             </span>
+                             {t.type === 'deposit' && t.status === 'pending' ? (
+                               <div className="flex items-center justify-end gap-2">
+                                 <button 
+                                   onClick={() => handleRejectDeposit(t)}
+                                   disabled={isProcessing === t.id}
+                                   className="p-2 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-colors"
+                                 >
+                                    <XCircle className="w-4 h-4" />
+                                 </button>
+                                 <button 
+                                   onClick={() => handleValidateDeposit(t)}
+                                   disabled={isProcessing === t.id}
+                                   className="p-2 rounded-lg bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-white transition-colors flex items-center gap-2 text-[10px] uppercase font-bold tracking-widest"
+                                 >
+                                    <CheckCircle2 className="w-4 h-4" /> Approuver
+                                 </button>
+                               </div>
+                             ) : (
+                               <span className="inline-flex text-[9px] font-black uppercase border border-slate-700 px-2 py-1 rounded bg-slate-800 text-slate-400">
+                                 {t.status || 'COMPLETED'}
+                               </span>
+                             )}
                           </td>
                         </tr>
                       )})}

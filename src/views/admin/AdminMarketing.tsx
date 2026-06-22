@@ -4,16 +4,18 @@ import {
   Mail, 
   Send, 
   Smartphone, 
-  History, 
-  Edit3, 
   Eye, 
-  Frown,
+  Edit3,
   Users,
-  Loader2
+  Loader2,
+  Tag,
+  Check,
+  Plus
 } from 'lucide-react';
 import clsx from 'clsx';
-import { collection, addDoc, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { collection, addDoc, onSnapshot, query, orderBy, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
+import { NdaraSkeleton, EmptyState } from './AdminSupport';
 
 export function AdminMarketing() {
   const [activeTab, setActiveTab] = useState('push');
@@ -24,31 +26,35 @@ export function AdminMarketing() {
   const [pushTarget, setPushTarget] = useState('all');
   const [isSending, setIsSending] = useState(false);
 
+  // States for promo codes
+  const [promoCodes, setPromoCodes] = useState<any[]>([]);
+  const [newPromoCode, setNewPromoCode] = useState({ code: '', discount: 10, limit: 100 });
+  const [isCreatingPromo, setIsCreatingPromo] = useState(false);
+
   // States for emails
   const [emailTemplates, setEmailTemplates] = useState<any[]>([]);
-  const [isLoadingEmails, setIsLoadingEmails] = useState(true);
 
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Artificial delay for general layout consistency
-    const timer = setTimeout(() => setIsLoading(false), 800);
-    // Fetch email templates
-    const q = query(collection(db, 'email_templates'), orderBy('name', 'asc'));
-    const unsub = onSnapshot(q, (snap) => {
-      const templates: any[] = [];
-      snap.forEach(doc => {
-        templates.push({ id: doc.id, ...doc.data() });
-      });
-      setEmailTemplates(templates);
-      setIsLoadingEmails(false);
-    }, (err) => {
-      console.error("Erreur chargement emails:", err);
-      setIsLoadingEmails(false);
+    // 1. Fetch promo codes
+    const qPromo = query(collection(db, 'promo_codes'), orderBy('createdAt', 'desc'));
+    const unsubPromo = onSnapshot(qPromo, (snap) => {
+      setPromoCodes(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
 
+    // 2. Fetch email templates
+    const qEmail = query(collection(db, 'email_templates'), orderBy('name', 'asc'));
+    const unsubEmail = onSnapshot(qEmail, (snap) => {
+      setEmailTemplates(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+
+    // Artificial delay for general layout consistency
+    const timer = setTimeout(() => setIsLoading(false), 800);
+
     return () => {
-       unsub();
+       unsubPromo();
+       unsubEmail();
        clearTimeout(timer);
     };
   }, []);
@@ -78,9 +84,34 @@ export function AdminMarketing() {
     }
   };
 
+  const handleCreatePromoCode = async () => {
+      if (!newPromoCode.code || newPromoCode.discount <= 0) return;
+      setIsCreatingPromo(true);
+      try {
+         await addDoc(collection(db, 'promo_codes'), {
+             code: newPromoCode.code.toUpperCase(),
+             discountPercentage: newPromoCode.discount,
+             usageLimit: newPromoCode.limit,
+             usedCount: 0,
+             status: 'active',
+             createdAt: new Date()
+         });
+         setNewPromoCode({ code: '', discount: 10, limit: 100 });
+      } catch (err) {
+         console.error("Error creating promo code", err);
+      } finally {
+         setIsCreatingPromo(false);
+      }
+  };
+
+  const handlePromoStatus = async (id: string, currentStatus: string) => {
+      const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
+      await updateDoc(doc(db, 'promo_codes', id), { status: newStatus });
+  };
+
   if (isLoading) {
     return (
-      <div className="space-y-8 animate-in fade-in duration-700 pb-20 relative font-sans">
+      <div className="space-y-8 animate-in fade-in duration-700 pb-20 relative font-sans max-w-6xl mx-auto p-6">
         <div className="space-y-2 relative z-10">
           <div className="h-8 w-64 bg-slate-800 rounded-lg animate-pulse"></div>
           <div className="h-4 w-96 bg-slate-800/80 rounded animate-pulse"></div>
@@ -89,23 +120,23 @@ export function AdminMarketing() {
            <div className="h-12 w-48 bg-slate-800/50 rounded-2xl animate-pulse"></div>
            <div className="h-12 w-48 bg-slate-800/50 rounded-2xl animate-pulse"></div>
         </div>
-        <div className="bg-slate-800/30 border border-slate-700/50 rounded-3xl h-[400px] animate-pulse relative z-10"></div>
+        <NdaraSkeleton type="table" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-700 pb-24 relative font-sans">
+    <div className="space-y-8 animate-in fade-in duration-700 pb-24 relative font-sans max-w-6xl mx-auto p-6">
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[400px] bg-orange-500/5 blur-[100px] pointer-events-none" />
 
       <header className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-5 relative z-10">
         <div className="space-y-1">
           <div className="flex items-center gap-2 text-orange-500 mb-1">
             <BellRing className="h-4 w-4" />
-            <span className="text-[10px] font-black uppercase tracking-[0.3em]">Communication Systémique</span>
+            <span className="text-[10px] font-black uppercase tracking-[0.3em]">Communication & Growth</span>
           </div>
           <h1 className="text-3xl font-black text-white uppercase tracking-tight">Marketing & Push</h1>
-          <p className="text-slate-400 text-sm font-medium">Gérez les notifications mobiles et les emails transactionnels automatiques.</p>
+          <p className="text-slate-400 text-sm font-medium">Gérez les notifications mobiles, emails et codes promos de la plateforme.</p>
         </div>
       </header>
 
@@ -119,7 +150,16 @@ export function AdminMarketing() {
                 activeTab === 'push' ? "bg-slate-800 text-white shadow-sm" : "text-slate-500 hover:text-slate-300"
               )}
             >
-                <Smartphone className="h-4 w-4" /> Notifications Push
+                <Smartphone className="h-4 w-4" /> Annonces & Push
+            </button>
+            <button 
+              onClick={() => setActiveTab('promo')}
+              className={clsx(
+                "flex items-center justify-center gap-2 px-6 py-3 font-bold uppercase text-[10px] tracking-widest rounded-xl transition-all whitespace-nowrap",
+                activeTab === 'promo' ? "bg-slate-800 text-amber-500 shadow-sm" : "text-amber-500/50 hover:text-amber-500/80"
+              )}
+            >
+                <Tag className="h-4 w-4" /> Codes Promos
             </button>
             <button 
               onClick={() => setActiveTab('emails')}
@@ -141,7 +181,7 @@ export function AdminMarketing() {
                <div className="md:col-span-1 lg:col-span-2 bg-slate-800/40 border border-slate-700/50 rounded-3xl p-6 md:p-8 flex flex-col justify-between shadow-2xl relative">
                   <div className="space-y-6">
                     <div className="flex items-center justify-between mb-8">
-                       <h2 className="text-lg font-black text-white uppercase tracking-widest">Nouveau Message Push</h2>
+                       <h2 className="text-lg font-black text-white uppercase tracking-widest">Nouvelle Annonce (In-App Push)</h2>
                        <div className="w-10 h-10 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center">
                          <Send className="w-4 h-4 text-orange-500" />
                        </div>
@@ -210,7 +250,7 @@ export function AdminMarketing() {
                       disabled={isSending || !pushTitle || !pushMessage}
                       className="w-full h-16 rounded-2xl bg-orange-500 disabled:bg-slate-800 disabled:text-slate-600 text-slate-950 font-black uppercase text-sm tracking-widest transition-all shadow-[0_0_20px_rgba(249,115,22,0.2)] disabled:shadow-none flex items-center justify-center gap-3 active:scale-[0.98]"
                     >
-                       {isSending ? "ENVOI EN COURS..." : <><Send className="w-5 h-5"/> ENVOYER LA NOTIFICATION</>}
+                       {isSending ? "ENVOI EN COURS..." : <><Send className="w-5 h-5"/> DÉCLENCHER CAMPAGNE</>}
                     </button>
                   </div>
                </div>
@@ -247,17 +287,117 @@ export function AdminMarketing() {
             </div>
           )}
 
+          {activeTab === 'promo' && (
+            <div className="space-y-6">
+                <div className="bg-slate-800/40 p-4 rounded-3xl border border-slate-700/50 flex flex-col sm:flex-row gap-4 items-center">
+                   <div className="flex-1 relative w-full">
+                       <Tag className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 w-4 h-4" />
+                       <input 
+                          type="text" 
+                          placeholder="Code (ex: NDARA2024)" 
+                          value={newPromoCode.code}
+                          onChange={e => setNewPromoCode({...newPromoCode, code: e.target.value})}
+                          className="w-full bg-[#090E17] border border-slate-700 rounded-2xl py-3 pl-10 pr-4 text-sm text-white focus:outline-none focus:border-amber-500/50 uppercase"
+                       />
+                   </div>
+                   <div className="w-full sm:w-32 relative">
+                       <input 
+                          type="number" 
+                          placeholder="Réduction %" 
+                          value={newPromoCode.discount}
+                          onChange={e => setNewPromoCode({...newPromoCode, discount: Number(e.target.value)})}
+                          className="w-full bg-[#090E17] border border-slate-700 rounded-2xl py-3 px-4 text-sm text-white focus:outline-none focus:border-amber-500/50"
+                       />
+                       <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 text-xs">%</span>
+                   </div>
+                   <div className="w-full sm:w-32 relative">
+                       <input 
+                          type="number" 
+                          placeholder="Limite d'usage" 
+                          value={newPromoCode.limit}
+                          onChange={e => setNewPromoCode({...newPromoCode, limit: Number(e.target.value)})}
+                          className="w-full bg-[#090E17] border border-slate-700 rounded-2xl py-3 px-4 text-sm text-white focus:outline-none focus:border-amber-500/50"
+                       />
+                   </div>
+                   <button 
+                      onClick={handleCreatePromoCode}
+                      disabled={isCreatingPromo || !newPromoCode.code}
+                      className="w-full sm:w-auto h-12 px-6 rounded-2xl bg-amber-500 disabled:bg-slate-800 disabled:text-slate-600 text-slate-950 font-black uppercase text-xs tracking-widest transition-colors flex items-center justify-center gap-2"
+                   >
+                       {isCreatingPromo ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                       Créer
+                   </button>
+                </div>
+
+                {promoCodes.length === 0 ? (
+                    <EmptyState title="Aucun Code Promo" message="Créez votre première campagne marketing en configurant un code promo." icon={Tag} />
+                ) : (
+                    <div className="bg-slate-800/30 border border-slate-700/50 rounded-3xl overflow-hidden shadow-2xl relative">
+                      <div className="overflow-x-auto hide-scrollbar">
+                         <table className="w-full text-left border-collapse min-w-[700px]">
+                            <thead>
+                               <tr className="border-b border-slate-800 bg-slate-900/50">
+                                  <th className="p-4 pl-6 text-[10px] font-black uppercase tracking-widest text-slate-400">Code Promo</th>
+                                  <th className="p-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Réduction</th>
+                                  <th className="p-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Utilisation</th>
+                                  <th className="p-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Statut</th>
+                                  <th className="p-4 pr-6 text-right text-[10px] font-black uppercase tracking-widest text-slate-400">Activer/Désactiver</th>
+                               </tr>
+                            </thead>
+                            <tbody className="text-sm divide-y divide-slate-800">
+                               {promoCodes.map((promo) => (
+                                  <tr key={promo.id} className="hover:bg-slate-800/20 transition-colors">
+                                     <td className="p-4 pl-6 font-mono font-black text-white text-lg tracking-widest">
+                                        {promo.code}
+                                     </td>
+                                     <td className="p-4 font-black text-amber-500 text-lg">
+                                        -{promo.discountPercentage}%
+                                     </td>
+                                     <td className="p-4">
+                                        <div className="flex flex-col gap-1">
+                                            <span className="text-xs text-slate-300 font-bold">{promo.usedCount} / {promo.usageLimit}</span>
+                                            <div className="w-24 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                                                <div 
+                                                    className="h-full bg-amber-500" 
+                                                    style={{ width: `${Math.min(100, (promo.usedCount / promo.usageLimit) * 100)}%` }} 
+                                                />
+                                            </div>
+                                        </div>
+                                     </td>
+                                     <td className="p-4">
+                                        <span className={clsx(
+                                           "inline-flex text-[9px] font-black uppercase border px-2 py-0.5 rounded",
+                                           promo.status === 'active' ? "border-amber-500/50 text-amber-500 bg-amber-500/10" : "border-slate-500/50 text-slate-500 bg-slate-500/10"
+                                        )}>
+                                            {promo.status === 'active' ? 'Actif' : 'Inactif'}
+                                        </span>
+                                     </td>
+                                     <td className="p-4 pr-6 text-right">
+                                        <div className={clsx(
+                                            "w-12 h-6 rounded-full relative cursor-pointer border inline-block transition-colors",
+                                            promo.status === 'active' ? "bg-amber-500 border-amber-400" : "bg-slate-800 border-slate-700"
+                                        )} onClick={() => handlePromoStatus(promo.id, promo.status)}>
+                                           <div className={clsx(
+                                               "absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-all duration-300",
+                                               promo.status === 'active' ? "left-[26px]" : "left-1"
+                                           )} />
+                                        </div>
+                                     </td>
+                                  </tr>
+                               ))}
+                            </tbody>
+                         </table>
+                      </div>
+                    </div>
+                )}
+            </div>
+          )}
+
           {activeTab === 'emails' && (
              <div className="bg-slate-800/30 border border-slate-700/50 rounded-3xl overflow-hidden shadow-2xl relative">
               <div className="overflow-x-auto hide-scrollbar">
-                {isLoadingEmails ? (
-                  <div className="p-12 pl-6 flex justify-center items-center">
-                    <Loader2 className="w-8 h-8 text-orange-500 animate-spin" />
-                  </div>
-                ) : emailTemplates.length === 0 ? (
-                  <div className="p-12 text-center text-slate-500 text-sm font-bold uppercase tracking-widest">
-                    Aucun modèle d'email configuré.
-                  </div>
+                {emailTemplates.length === 0 ? (
+                  <EmptyState title="Aucun modèle configuré" message="Créez des templates pour vos communications emails." icon={Mail} />
                 ) : (
                   <table className="w-full text-left border-collapse min-w-[700px]">
                     <thead>

@@ -39,6 +39,7 @@ export function SupportView() {
         await addDoc(collection(db, "support_tickets"), {
             userId: currentUser.uid,
             userName: currentUser.fullName || 'User',
+            userEmail: currentUser.email || 'N/A',
             subject,
             description,
             status: 'open',
@@ -120,16 +121,72 @@ export function SupportView() {
       {tickets.length > 0 && (
           <div className="glass rounded-4xl p-6 border border-white/5 mt-6">
              <h3 className="font-serif text-xl text-white mb-6">Mes demandes récentes</h3>
-             <div className="space-y-3">
+             <div className="space-y-4">
                  {tickets.map(ticket => (
-                     <div key={ticket.id} className="p-4 bg-white/5 rounded-2xl flex items-center justify-between">
-                         <div>
-                             <div className="text-sm font-bold text-white">{ticket.subject}</div>
-                             <div className="text-xs text-slate-400">{ticket.description}</div>
+                     <div key={ticket.id} className="p-4 bg-white/5 border border-white/5 rounded-2xl flex flex-col gap-4">
+                         <div className="flex items-center justify-between">
+                           <div>
+                               <div className="text-sm font-bold text-white mb-1">{ticket.subject}</div>
+                               <div className="text-xs text-slate-400">{ticket.description}</div>
+                           </div>
+                           <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
+                             ticket.status === 'resolved' || ticket.status === 'closed' ? 'bg-emerald-500/20 text-emerald-400' :
+                             ticket.status === 'investigating' ? 'bg-blue-500/20 text-blue-400' :
+                             'bg-orange-500/20 text-orange-400'
+                           }`}>
+                               {ticket.status === 'resolved' || ticket.status === 'closed' ? 'Résolu' : ticket.status === 'investigating' ? 'En traitement' : 'Ouvert'}
+                           </div>
                          </div>
-                         <div className={`px-3 py-1 rounded-full text-xs font-bold ${ticket.status === 'open' ? 'bg-orange-500/20 text-orange-400' : 'bg-green-500/20 text-green-400'}`}>
-                             {ticket.status === 'open' ? 'En cours' : 'Fermé'}
-                         </div>
+                         
+                         {/* Replies */}
+                         {ticket.replies && ticket.replies.length > 0 && (
+                           <div className="space-y-3 pt-3 border-t border-white/5">
+                             {ticket.replies.map((reply: any, rIdx: number) => (
+                               <div key={rIdx} className={`p-3 rounded-xl text-xs max-w-[90%] ${reply.isAdmin ? 'bg-blue-500/10 border border-blue-500/20 text-blue-50 mr-auto' : 'bg-white/10 text-slate-200 ml-auto'}`}>
+                                 <div className="font-black uppercase tracking-widest text-[9px] mb-1 opacity-60">
+                                   {reply.isAdmin ? 'Support Ndara' : 'Moi'}
+                                 </div>
+                                 {reply.message}
+                               </div>
+                             ))}
+                           </div>
+                         )}
+                         
+                         {/* Action (if not resolved) */}
+                         {(ticket.status !== 'resolved' && ticket.status !== 'closed') && (
+                            <form 
+                              className="flex gap-2 mt-2" 
+                              onSubmit={async (e) => {
+                                e.preventDefault();
+                                const input = new FormData(e.currentTarget).get('reply') as string;
+                                if (!input || !input.trim()) return;
+                                
+                                import('firebase/firestore').then(({ doc, updateDoc, arrayUnion, Timestamp }) => {
+                                  updateDoc(doc(db, 'support_tickets', ticket.id), {
+                                    replies: arrayUnion({
+                                      message: input.trim(),
+                                      adminId: null,
+                                      createdAt: Timestamp.now(),
+                                      isAdmin: false
+                                    }),
+                                    status: 'open',
+                                    updatedAt: Timestamp.now()
+                                  });
+                                });
+                                e.currentTarget.reset();
+                              }}
+                            >
+                              <input 
+                                name="reply"
+                                type="text" 
+                                placeholder="Répondre..." 
+                                className="flex-1 bg-black/20 border border-white/10 rounded-lg py-2 px-3 text-white text-xs focus:outline-none focus:border-blue-500/50"
+                              />
+                              <button type="submit" className="bg-blue-500 hover:bg-blue-400 text-slate-950 px-4 rounded-lg font-black text-[10px] tracking-widest uppercase transition-colors">
+                                Envoyer
+                              </button>
+                            </form>
+                         )}
                      </div>
                  ))}
              </div>

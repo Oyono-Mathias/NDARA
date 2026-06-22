@@ -115,12 +115,18 @@ export function ContentManager({ courseId }: { courseId: string }) {
     };
 
     const saveContent = async () => {
+        if (!courseId) {
+            console.error("Erreur: L'ID de la formation est invalide.");
+            return;
+        }
+
         setSaving(true);
         try {
             await updateDoc(doc(db, 'courses', courseId), { content });
-            alert('Programme sauvegardé !');
-        } catch (e) {
-            alert('Erreur lors de la sauvegarde.');
+            alert('Programme sauvegardé avec succès !');
+        } catch (e: any) {
+            console.error("Erreur lors de la sauvegarde du programme:", e);
+            alert("Erreur lors de la sauvegarde: " + (e.message || "Permissions insuffisantes."));
         } finally {
             setSaving(false);
         }

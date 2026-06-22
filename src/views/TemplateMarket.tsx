@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import { 
   collection, query, where, onSnapshot, 
-  runTransaction, doc, serverTimestamp, getFirestore 
+  addDoc, runTransaction, doc, serverTimestamp, getFirestore 
 } from "firebase/firestore";
 import { db } from "../firebase";
 import { useRole } from "../context/RoleContext";
@@ -52,15 +52,13 @@ export function TemplateMarket() {
   // Load User's Owned Items
   useEffect(() => {
     if (!currentUser?.uid) return;
-    const userRef = doc(db, "users", currentUser.uid);
-    const unsub = onSnapshot(userRef, (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        setOwnedItems(data.ownedItems || []);
-      }
+    const qPurchases = query(collection(db, "purchases"), where("userId", "==", currentUser.uid), where("type", "==", "template"));
+    const unsub = onSnapshot(qPurchases, (snap) => {
+        const items = snap.docs.map(d => d.data().itemId);
+        setOwnedItems(items);
     });
     return () => unsub();
-  }, [currentUser]);
+  }, [currentUser?.uid]);
 
   const handleOpenModal = (template: MarketTemplate) => {
     setSelectedTemplate(template);
@@ -72,64 +70,38 @@ export function TemplateMarket() {
     setIsSubmitting(true);
 
     try {
-      await runTransaction(db, async (transaction) => {
-        const buyerRef = doc(db, "users", currentUser.uid);
-        const sellerRef = doc(db, "users", selectedTemplate.authorId);
-        
-        const buyerDoc = await transaction.get(buyerRef);
-        const sellerDoc = await transaction.get(sellerRef);
-
-        if (!buyerDoc.exists()) throw new Error("Acheteur introuvable.");
-        
-        const buyerData = buyerDoc.data();
-        const price = selectedTemplate.price;
-
-        if ((buyerData.walletBalance || 0) < price) {
-          throw new Error("Solde XAF insuffisant.");
-        }
-
-        if ((buyerData.ownedItems || []).includes(selectedTemplate.id)) {
-          throw new Error("Vous possédez déjà ce template.");
-        }
-
-        // Débit Acheteur
-        transaction.update(buyerRef, {
-          walletBalance: (buyerData.walletBalance || 0) - price,
-          ownedItems: [...(buyerData.ownedItems || []), selectedTemplate.id]
+        const response = await fetch('/api/wallet/purchase', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                studentId: currentUser.uid,
+                price: selectedTemplate.price || 0,
+                courseId: selectedTemplate.id,
+                courseTitle: 'Template: ' + selectedTemplate.title,
+                sellerId: selectedTemplate.authorId || 'admin'
+            })
         });
 
-        // Crédit Vendeur (ex: on retire 10% de frais plateforme)
-        const netRevenue = Math.floor(price * 0.9);
-        if (sellerDoc.exists()) {
-          const sellerData = sellerDoc.data();
-          transaction.update(sellerRef, {
-            walletBalance: (sellerData.walletBalance || 0) + netRevenue
-          });
+        const data = await response.json();
+        if (response.ok) {
+            await addDoc(collection(db, 'purchases'), {
+                userId: currentUser.uid,
+                itemId: selectedTemplate.id,
+                title: selectedTemplate.title,
+                type: 'template',
+                createdAt: serverTimestamp()
+            });
+
+            setIsBuyModalOpen(false);
+            setSuccessToast(true);
+            setTimeout(() => setSuccessToast(false), 4000);
+        } else {
+            alert(data.error || "Erreur lors de l'achat");
         }
-
-        // Création transaction d'historique
-        const txRef = doc(collection(db, "transactions"));
-        transaction.set(txRef, {
-          userId: currentUser.uid,
-          amount: price,
-          currency: 'XAF',
-          type: 'purchase_template',
-          itemId: selectedTemplate.id,
-          title: selectedTemplate.title,
-          sellerId: selectedTemplate.authorId,
-          status: 'pending',
-          createdAt: serverTimestamp()
-        });
-      });
-
-      setIsBuyModalOpen(false);
-      setSuccessToast(true);
-      setTimeout(() => setSuccessToast(false), 4000);
-    } catch (err: any) {
-      console.error(err);
-      alert(err.message || "Erreur de transaction.");
+    } catch (e: any) {
+        alert(e.message || "Erreur réseau");
     } finally {
-      setIsSubmitting(false);
+        setIsSubmitting(false);
     }
   };
 
@@ -243,7 +215,7 @@ export function TemplateMarket() {
                <button 
                  onClick={() => {
                     setIsBuyModalOpen(false);
-                    // Navigation logic to downloads/sandbox
+                    alert("Téléchargement du template démarré.");
                  }}
                  className="w-full p-4 rounded-xl bg-emerald-500/20 text-emerald-400 font-bold text-[15px] flex items-center justify-center gap-2"
                >

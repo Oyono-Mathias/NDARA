@@ -145,7 +145,7 @@ export function QuizView() {
     if (user?.uid && quizId) {
         try {
             const attemptId = `${user.uid}_${quizId}`;
-            const attemptRef = doc(db, `quiz_submissions`, attemptId);
+            const attemptRef = doc(db, `quiz_results`, attemptId);
             await setDoc(attemptRef, {
                 id: attemptId,
                 studentId: user.uid,
@@ -155,6 +155,7 @@ export function QuizView() {
                 courseTitle: quizData?.title || 'Formation',
                 answers,
                 score: percentageScore,
+                passed: percentageScore >= 70,
                 submittedAt: serverTimestamp(),
             });
         } catch (error) {
@@ -198,8 +199,8 @@ export function QuizView() {
                       </div>
                       <p className="text-slate-400 font-medium italic text-sm">
                           {finalScore >= 70 
-                            ? "Félicitations Ndara, ton savoir est validé !" 
-                            : "Tu peux faire mieux. Réexamine tes erreurs avec Mathias."}
+                            ? "Félicitations ! L'évaluation est réussie et validée." 
+                            : "Échec. Vous devez obtenir au moins 70% pour valider ce module. Réexaminez vos erreurs et recommencez."}
                       </p>
                   </div>
                   

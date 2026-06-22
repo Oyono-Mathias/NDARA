@@ -709,5 +709,3 @@ function SelectInput({ label, value, options, onChange }: any) {
     )
 }
 }
-
-

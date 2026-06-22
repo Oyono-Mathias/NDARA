@@ -38,8 +38,9 @@ export function CouponFormModal({ isOpen, onClose, courses }: any) {
             setDiscount('');
             setSelectedCourseIds([]);
             onClose();
-        } catch (error) {
-            console.error("Error creating coupon:", error);
+        } catch (error: any) {
+            console.error("Erreur lors de la création du coupon:", error);
+            alert("Erreur lors de la création : " + (error.message || "Permissions insuffisantes."));
         } finally {
             setIsSubmitting(false);
         }

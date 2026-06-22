@@ -142,7 +142,7 @@ export function InstructorDashboard() {
         // ONLY keep real-time for pending submissions (Limité aux 5 dernières demandes)
         const unsubDevoirs = onSnapshot(
             query(
-                collection(db, 'devoirs'), 
+                collection(db, 'assignments_submissions'), 
                 where('instructorId', '==', instructor.uid), 
                 where('status', '==', 'submitted'),
                 orderBy('submittedAt', 'desc'),

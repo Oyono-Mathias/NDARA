@@ -103,7 +103,7 @@ export function AdminLayout() {
 
         {/* Scrollable Main Content */}
         <div className="flex-1 overflow-y-auto p-4 md:p-10 hide-scrollbar">
-          <main className="w-full max-w-7xl mx-auto flex flex-col pb-24 md:pb-8">
+          <main className="w-full max-w-7xl mx-auto flex flex-col pb-32 md:pb-8">
             <Outlet />
           </main>
         </div>

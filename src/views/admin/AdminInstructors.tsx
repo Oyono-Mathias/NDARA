@@ -96,36 +96,34 @@ export function AdminInstructors() {
       </div>
 
       <div className="bg-slate-800/30 border border-slate-700/50 rounded-3xl overflow-hidden mt-6">
-        <div className="overflow-x-auto hide-scrollbar">
-          <table className="w-full text-left border-collapse min-w-[700px]">
-            <thead>
-              <tr className="border-b border-slate-700/50 text-[10px] font-black text-slate-500 uppercase tracking-widest bg-slate-900/30">
-                <th className="p-4 pl-6">Formateur</th>
-                <th className="p-4">Contact</th>
-                <th className="p-4">Rôle / Statut</th>
-                <th className="p-4">Commission</th>
-                <th className="p-4 pr-6 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="text-sm divide-y divide-slate-700/30">
-              {filteredInstructors.map((instructor) => (
-                <ApplicationRow key={instructor.id} instructor={instructor} />
-              ))}
-            </tbody>
-          </table>
-          
-          {filteredInstructors.length === 0 && (
-             <div className="mt-6 p-4">
-                <EmptyState title="Aucun membre" message="Aucun utilisateur ne correspond à ces critères ou la table est vide." icon={Users} />
-             </div>
-          )}
+        <div className="block sm:table w-full text-left border-collapse">
+          <div className="hidden sm:table-header-group text-[10px] font-black text-slate-500 uppercase tracking-widest bg-slate-900/30 border-b border-slate-700/50">
+            <div className="table-row">
+              <div className="table-cell p-4 pl-6">Formateur</div>
+              <div className="table-cell p-4">Contact</div>
+              <div className="table-cell p-4">Rôle / Statut</div>
+              <div className="table-cell p-4">Commission</div>
+              <div className="table-cell p-4 pr-6 text-right">Actions</div>
+            </div>
+          </div>
+          <div className="block sm:table-row-group text-sm divide-y divide-slate-700/30">
+            {filteredInstructors.map((instructor) => (
+              <ApplicationRow key={instructor.id} instructor={instructor} />
+            ))}
+          </div>
         </div>
+        
+        {filteredInstructors.length === 0 && (
+           <div className="mt-6 p-4">
+              <EmptyState title="Aucun membre" message="Aucun utilisateur ne correspond à ces critères ou la table est vide." icon={Users} />
+           </div>
+        )}
       </div>
     </div>
   );
 }
 
-function ApplicationRow({ instructor }: { instructor: any }) {
+const ApplicationRow: React.FC<{ instructor: any }> = ({ instructor }) => {
   const [isMutating, setIsMutating] = useState(false);
 
   const handleAction = async (action: "approved" | "rejected" | "revoke") => {
@@ -133,11 +131,11 @@ function ApplicationRow({ instructor }: { instructor: any }) {
 
     let confirmMessage = "";
     if (action === "approved") {
-      confirmMessage = `Valider le KYC de ${instructor.name || instructor.email} ? Il obtiendra le statut instructeur avec un Payout Rate initial de 70%.`;
+      confirmMessage = `Valider le KYC de ${instructor.name || instructor.displayName || instructor.email} ? Il obtiendra le statut instructeur avec un Payout Rate initial de 70%.`;
     } else if (action === "rejected") {
-      confirmMessage = `Rejeter la demande de ${instructor.name || instructor.email} ? Son compte restera étudiant.`;
+      confirmMessage = `Rejeter la demande de ${instructor.name || instructor.displayName || instructor.email} ? Son compte restera étudiant.`;
     } else {
-      confirmMessage = `Révoquer les droits d'instructeur pour ${instructor.name || instructor.email} ?`;
+      confirmMessage = `Révoquer les droits d'instructeur pour ${instructor.name || instructor.displayName || instructor.email} ?`;
     }
 
     if (!window.confirm(confirmMessage)) return;
@@ -159,6 +157,7 @@ function ApplicationRow({ instructor }: { instructor: any }) {
     } catch (error) {
       console.error("Error updating instructor status:", error);
       alert("Une erreur est survénue. Veuillez réessayer.");
+    } finally {
       setIsMutating(false);
     }
   };
@@ -167,8 +166,8 @@ function ApplicationRow({ instructor }: { instructor: any }) {
   const isApproved = instructor.role === "instructor";
 
   return (
-    <tr className="hover:bg-slate-800/50 transition-colors group">
-      <td className="p-4 pl-6">
+    <div className="block sm:table-row hover:bg-slate-800/50 transition-colors group p-4 sm:p-0">
+      <div className="block sm:table-cell sm:p-4 sm:pl-6 pb-2 sm:pb-4 border-b border-white/5 sm:border-0 mb-2 sm:mb-0">
         <div className="flex items-center gap-4">
           <div className="w-10 h-10 bg-slate-800 rounded-xl flex items-center justify-center shrink-0 border border-slate-700 overflow-hidden">
             {instructor.photoURL || instructor.avatar ? (
@@ -190,34 +189,36 @@ function ApplicationRow({ instructor }: { instructor: any }) {
             </p>
           </div>
         </div>
-      </td>
-      <td className="p-4">
+      </div>
+      <div className="flex sm:table-cell justify-between items-center sm:p-4 mb-2 sm:mb-0">
+        <span className="sm:hidden text-[10px] font-black text-slate-500 uppercase tracking-widest">Contact</span>
         <span className="text-slate-400 text-xs font-medium flex items-center gap-2">
-           <Mail className="w-3.5 h-3.5" />
            {instructor.email || "Non renseigné"}
         </span>
-      </td>
-      <td className="p-4">
+      </div>
+      <div className="flex sm:table-cell justify-between items-center sm:p-4 mb-2 sm:mb-0">
+         <span className="sm:hidden text-[10px] font-black text-slate-500 uppercase tracking-widest">Statut</span>
          <span className={clsx(
            "inline-flex items-center justify-center text-[9px] font-black px-2.5 py-1 rounded border uppercase tracking-widest",
            isApproved ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" : "text-amber-500 bg-amber-500/10 border-amber-500/20 animate-pulse"
          )}>
            {isApproved ? "Instructeur" : "KYC Attente"}
          </span>
-      </td>
-      <td className="p-4">
+      </div>
+      <div className="flex sm:table-cell justify-between items-center sm:p-4 mb-4 sm:mb-0">
+        <span className="sm:hidden text-[10px] font-black text-slate-500 uppercase tracking-widest">Commission</span>
         <span className="text-white font-bold text-xs bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700">
            {instructor.payoutRate ? `${(instructor.payoutRate * 100).toFixed(0)}%` : "N/A"}
         </span>
-      </td>
-      <td className="p-4 pr-6 text-right">
-        <div className="flex items-center justify-end gap-2">
+      </div>
+      <div className="block sm:table-cell sm:p-4 sm:pr-6 text-right">
+        <div className="flex sm:inline-flex items-center sm:justify-end gap-2 w-full sm:w-auto">
           {isPending && (
             <>
               <button
                 onClick={() => handleAction("rejected")}
                 disabled={isMutating}
-                className="w-8 h-8 rounded-lg bg-red-500/10 text-red-500 hover:text-white hover:bg-red-500 transition-all flex items-center justify-center border border-red-500/20 disabled:opacity-50"
+                className="w-10 h-10 sm:w-8 sm:h-8 rounded-lg bg-red-500/10 text-red-500 hover:text-white hover:bg-red-500 transition-all flex items-center justify-center border border-red-500/20 disabled:opacity-50"
                 title="Rejeter le KYC"
               >
                 {isMutating ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />}
@@ -225,7 +226,7 @@ function ApplicationRow({ instructor }: { instructor: any }) {
               <button
                 onClick={() => handleAction("approved")}
                 disabled={isMutating}
-                className="flex items-center gap-2 px-3 h-8 bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 rounded-lg hover:bg-emerald-500 hover:text-slate-950 transition-all text-[10px] font-black uppercase tracking-widest disabled:opacity-50"
+                className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 h-10 sm:h-8 bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 rounded-lg hover:bg-emerald-500 hover:text-slate-950 transition-all text-[10px] sm:text-xs font-black uppercase tracking-widest disabled:opacity-50"
               >
                 {isMutating ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                 Valider
@@ -236,14 +237,14 @@ function ApplicationRow({ instructor }: { instructor: any }) {
             <button
                onClick={() => handleAction("revoke")}
                disabled={isMutating}
-               className="px-3 h-8 rounded-lg bg-slate-800 text-slate-400 hover:text-red-400 hover:bg-red-500/10 hover:border-red-500/30 transition-all flex items-center justify-center border border-slate-700 text-[10px] font-black uppercase tracking-widest"
+               className="w-full sm:w-auto px-4 h-10 sm:h-8 rounded-lg bg-slate-800 text-slate-400 hover:text-red-400 hover:bg-red-500/10 hover:border-red-500/30 transition-all flex items-center justify-center border border-slate-700 text-[10px] sm:text-xs font-black uppercase tracking-widest"
             >
               Révoquer
             </button>
           )}
         </div>
-      </td>
-    </tr>
+      </div>
+    </div>
   );
 }
 

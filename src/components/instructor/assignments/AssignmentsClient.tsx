@@ -46,7 +46,7 @@ export function AssignmentsClient() {
 
         // Fetch submissions (Limité à 100 pour préserver le billing)
         const qSubmissions = query(
-            collection(db, 'devoirs'), 
+            collection(db, 'assignments_submissions'), 
             where('instructorId', '==', instructor.uid),
             limit(100)
         );
@@ -89,8 +89,9 @@ export function AssignmentsClient() {
             setNewDescription("");
             setDueDate("");
             setActiveTab('grade');
-        } catch (error) {
-            console.error(error);
+        } catch (error: any) {
+            console.error("Erreur lors de la création de l'assignment:", error);
+            alert("Erreur lors de la création : " + (error.message || "Permissions insuffisantes."));
         } finally {
             setIsCreating(false);
         }
@@ -146,7 +147,7 @@ Retourne un objet JSON strict contenant exactement :
             setFeedback(draft);
 
             // Persistance automatique dans Firestore
-            const ref = doc(db, 'devoirs', selectedSubmission.id);
+            const ref = doc(db, 'assignments_submissions', selectedSubmission.id);
             await updateDoc(ref, {
                 status: 'graded',
                 grade: data.finalGrade || 0,
@@ -175,7 +176,7 @@ Retourne un objet JSON strict contenant exactement :
         setIsGrading(true);
         setGradeSuccess(false);
         try {
-            const ref = doc(db, 'devoirs', selectedSubmission.id);
+            const ref = doc(db, 'assignments_submissions', selectedSubmission.id);
             await updateDoc(ref, {
                 status: 'graded',
                 grade: Number(grade),
@@ -190,8 +191,9 @@ Retourne un objet JSON strict contenant exactement :
                 setGrade("");
                 setFeedback("");
             }, 2000);
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error grading:", error);
+            alert("Erreur lors de la notation : " + (error.message || "Permissions insuffisantes. Le timestamp ('gradedAt') ou d'autres champs bloquent peut-être Firestore."));
         } finally {
             setIsGrading(false);
         }
@@ -308,7 +310,15 @@ Retourne un objet JSON strict contenant exactement :
 
                             <div className="p-6 bg-slate-900 border border-slate-800 rounded-2xl mb-6">
                                 <p className="text-xs text-slate-500 font-bold uppercase mb-4 tracking-widest">Travail Rendu</p>
-                                <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">{selectedSubmission.submissionContent || "Fichier joint (non géré dans cet aperçu)"}</p>
+                                <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">{selectedSubmission.submissionContent || "Sans texte descriptif."}</p>
+                                {selectedSubmission.submissionUrl && (
+                                     <div className="mt-4 pt-4 border-t border-slate-800">
+                                       <a href={selectedSubmission.submissionUrl} target="_blank" rel="noreferrer" className="inline-flex items-center text-[10px] font-bold text-primary hover:text-emerald-400 transition-colors uppercase tracking-widest">
+                                          <FileText className="h-3 w-3 mr-1" />
+                                          Télécharger / Voir la pièce jointe
+                                       </a>
+                                     </div>
+                                )}
                             </div>
 
                             <div className="space-y-4 relative z-10">

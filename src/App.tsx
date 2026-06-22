@@ -57,6 +57,8 @@ import { TemplateMarket } from "./views/TemplateMarket";
 import { EbookMarket } from "./views/EbookMarket";
 import OfflineDownloads from "./views/OfflineDownloads";
 
+import { CourseDetail } from "./views/CourseDetail";
+
 // Layouts
 import { PublicLayout } from "./layouts/PublicLayout";
 import { StudentLayout } from "./layouts/StudentLayout";
@@ -130,11 +132,14 @@ export default function App() {
 
         <Route path="/profile" element={<ProfileRedirect />} />
 
+        <Route path="/student/courses/:slug" element={<CoursePlayer />} />
+
         {/* === STUDENT ROUTES === */}
         <Route path="/student" element={<StudentLayout />}>
           <Route index element={<Dashboard />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="search" element={<SearchAndCatalog />} />
+          <Route path="catalog/:slug" element={<CourseDetail />} />
           <Route path="courses" element={<CoursesView />} />
           <Route path="wallet" element={<WalletView />} />
           <Route path="bourse" element={<BourseView />} />
@@ -145,7 +150,6 @@ export default function App() {
             path="course-redirect/:slug"
             element={<StudentCourseRedirect />}
           />
-          <Route path="courses/:slug" element={<CoursePlayer />} />
           <Route path="cart" element={<CartView />} />
           <Route path="mathias" element={<MathiasTutor />} />
           <Route path="certificates" element={<CertificatesView />} />
@@ -166,7 +170,7 @@ export default function App() {
           <Route path="support" element={<SupportView />} />
           <Route path="notifications" element={<NotificationsView />} />
           <Route path="ebooks" element={<EbookMarket />} />
-          <Route path="ebooks/:id" element={<EbookMarket />} />
+          <Route path="ebooks/:id" element={<EbookDetail />} />
           <Route path="tools" element={<TemplateMarket />} />
           <Route path="squads" element={<StudentSquads />} />
           <Route path="squads/:squadId" element={<StudentSquadDetails />} />
@@ -189,9 +193,11 @@ export default function App() {
           <Route path="instructors" element={<AdminInstructors />} />
           <Route path="squads" element={<AdminSquads />} />
           <Route path="markets" element={<AdminMarketControl />} />
+          <Route path="marketcontrol" element={<AdminMarketControl />} />
           <Route path="catalog" element={<AdminCourses />} />
           <Route path="moderation" element={<AdminModeration />} />
           <Route path="push" element={<AdminMarketing />} />
+          <Route path="marketing" element={<AdminMarketing />} />
           <Route path="countries" element={<AdminSettings />} />
           <Route path="treasury" element={<AdminTransactions />} />
           <Route path="transactions" element={<AdminTransactions />} />

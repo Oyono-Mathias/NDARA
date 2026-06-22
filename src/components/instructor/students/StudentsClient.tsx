@@ -299,7 +299,7 @@ export function StudentsClient() {
                                     {/* Action items */}
                                     <div className="flex items-center gap-2 self-end md:self-center">
                                         <button 
-                                            onClick={() => navigate(`/student/messages?chatId=${enrollment.studentId}`)}
+                                            onClick={() => navigate(`/student/messages?newChatUser=${enrollment.studentId}`)}
                                             className="h-10 px-4 bg-slate-900 hover:bg-slate-850 border border-white/5 hover:border-primary/20 hover:text-primary transition rounded-xl flex items-center justify-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-wider"
                                             title="Envoyer un message de coaching"
                                         >

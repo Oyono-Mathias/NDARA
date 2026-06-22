@@ -1,3 +1,4 @@
+/// <reference lib="webworker" />
 import { precacheAndRoute, cleanupOutdatedCaches } from 'workbox-precaching';
 import { registerRoute } from 'workbox-routing';
 import { CacheFirst, NetworkFirst } from 'workbox-strategies';
@@ -61,10 +62,102 @@ self.addEventListener('message', (event) => {
   }
   
   if (event.data && event.data.type === 'PREFETCH_VIDEO') {
-    // Cette partie sera détaillée en Phase 3 (téléchargement délibéré d'un cours complet)
     console.log("[Service Worker] Ordre de pré-téléchargement reçu pour:", event.data.url);
+    event.waitUntil(prefetchVideo(event.data.url, event.data.videoId, event.source));
   }
 });
+
+async function prefetchVideo(masterPlaylistUrl: string, videoId: string, client: any) {
+    try {
+        const masterRes = await fetch(masterPlaylistUrl);
+        if (!masterRes.ok) throw new Error("Impossible de récupérer la playlist principale");
+        
+        const masterText = await masterRes.text();
+        const lines = masterText.split('\n');
+        let targetPlaylist = '';
+        
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (line.startsWith('#EXT-X-STREAM-INF')) {
+                if (line.includes('RESOLUTION=1280x720') || line.includes('RESOLUTION=1920x1080')) {
+                     targetPlaylist = lines[i+1].trim();
+                     break;
+                } else if (!targetPlaylist) {
+                     targetPlaylist = lines[i+1].trim();
+                }
+            }
+        }
+        
+        if (!targetPlaylist) {
+          targetPlaylist = 'playlist.m3u8';
+        }
+
+        const baseUrl = masterPlaylistUrl.substring(0, masterPlaylistUrl.lastIndexOf('/'));
+        const mediaPlaylistUrl = targetPlaylist.startsWith('http') 
+            ? targetPlaylist 
+            : `${baseUrl}/${targetPlaylist}`;
+
+        await fetch(mediaPlaylistUrl).catch(() => {});
+
+        const mediaRes = await fetch(mediaPlaylistUrl);
+        if (!mediaRes.ok) throw new Error("Impossible de lire le stream vidéo");
+        
+        const mediaText = await mediaRes.text();
+        const urlDir = mediaPlaylistUrl.substring(0, mediaPlaylistUrl.lastIndexOf('/') + 1);
+
+        const mediaLines = mediaText.split('\n');
+        const segments: string[] = [];
+        
+        for (let i = 0; i < mediaLines.length; i++) {
+            const line = mediaLines[i].trim();
+            if (line && !line.startsWith('#')) {
+                 const segmentUrl = line.startsWith('http') ? line : `${urlDir}${line}`;
+                 segments.push(segmentUrl);
+            }
+        }
+
+        if (segments.length === 0) throw new Error("Aucun segment vidéo trouvé");
+
+        let completed = 0;
+        const BATCH_SIZE = 4;
+        
+        for (let i = 0; i < segments.length; i += BATCH_SIZE) {
+            const batch = segments.slice(i, i + BATCH_SIZE);
+            await Promise.all(batch.map(async (url) => {
+                try {
+                    await fetch(url, { mode: 'no-cors' }); 
+                } catch (e) {
+                    console.error("Erreur téléchargement segment:", url, e);
+                }
+            }));
+            
+            completed += batch.length;
+            if (client) {
+                client.postMessage({
+                    type: 'PREFETCH_PROGRESS',
+                    videoId: videoId,
+                    progress: Math.floor((completed / segments.length) * 100)
+                });
+            }
+        }
+        
+        if (client) {
+            client.postMessage({
+                type: 'PREFETCH_PROGRESS',
+                videoId: videoId,
+                progress: 100
+            });
+        }
+    } catch (e: any) {
+        if (client) {
+            client.postMessage({
+                type: 'PREFETCH_ERROR',
+                videoId: videoId,
+                error: e.message
+            });
+        }
+    }
+}
 
 self.addEventListener('install', () => {
   self.skipWaiting();

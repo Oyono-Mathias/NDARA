@@ -70,8 +70,14 @@ export function AnnouncementsClient() {
     };
 
     const handleDelete = async (id: string) => {
+        if (!id) return;
         if (confirm("Supprimer cette annonce ?")) {
-            await deleteDoc(doc(db, 'course_announcements', id));
+            try {
+                await deleteDoc(doc(db, 'course_announcements', id));
+            } catch (error: any) {
+                console.error("Erreur lors de la suppression de l'annonce:", error);
+                alert("Erreur lors de la suppression : " + (error.message || "Permissions insuffisantes."));
+            }
         }
     };
 

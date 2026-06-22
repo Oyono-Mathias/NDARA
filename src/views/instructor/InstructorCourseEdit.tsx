@@ -40,31 +40,38 @@ export function InstructorCourseEdit() {
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   const handleUpdateCourse = async (data: any) => {
-     if (!courseId) return;
+     if (!courseId) {
+         console.error("Erreur: ID de cours manquant ou invalide.");
+         return;
+     }
      setIsSaving(true);
      setSaveSuccess(false);
      try {
          await updateDoc(doc(db, 'courses', courseId), data);
          setSaveSuccess(true);
          setTimeout(() => setSaveSuccess(false), 3000);
-     } catch (e) {
-         console.error("Error", e);
-         alert("Erreur de sauvegarde");
+     } catch (e: any) {
+         console.error("Erreur détaillée lors de la mise à jour:", e);
+         alert("Erreur de sauvegarde: " + (e.message || "Permissions insuffisantes."));
      } finally {
          setIsSaving(false);
      }
   };
 
   const handleSubmitForReview = async () => {
-    if (!currentUser || !course) return;
+    if (!currentUser?.uid || !course?.id) {
+        console.error("Erreur: Utilisateur non connecté ou ID cours manquant.");
+        return;
+    }
     setIsSubmittingReview(true);
     
     try {
         await updateDoc(doc(db, 'courses', course.id), { status: 'Pending Review' });
         setCourse({...course, status: 'Pending Review'});
         alert("C'est envoyé ! Votre cours est en cours d'examen par nos administrateurs.");
-    } catch (e) {
-        alert("Erreur de soumission");
+    } catch (e: any) {
+        console.error("Erreur lors de la soumission pour examen:", e);
+        alert("Erreur de soumission: " + (e.message || "Permissions insuffisantes."));
     }
     
     setIsSubmittingReview(false);

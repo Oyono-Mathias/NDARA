@@ -84,7 +84,10 @@ export function InstructorWealth() {
     }, [payments, userProfile]);
 
     const handleRequestWithdrawal = async () => {
-        if (!instructor) return;
+        if (!instructor?.uid) {
+            console.error("Erreur: Utilisateur non connecté.");
+            return;
+        }
         const amountNum = parseFloat(withdrawAmount);
         
         if (isNaN(amountNum) || amountNum < 5000) {
@@ -114,8 +117,8 @@ export function InstructorWealth() {
             setWithdrawAmount('');
             setPhoneValue('');
         } catch (e: any) {
-            console.error(e);
-            alert(e.message || 'Erreur inconnue.');
+            console.error("Erreur lors de la demande de retrait:", e);
+            alert("Erreur de requête: " + (e.message || 'Permissions insuffisantes ou erreur inconnue.'));
         } finally {
             setIsSubmitting(false);
         }

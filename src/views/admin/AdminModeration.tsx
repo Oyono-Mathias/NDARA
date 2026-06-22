@@ -1,126 +1,180 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, onSnapshot, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, onSnapshot, doc, updateDoc, deleteDoc, where } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { 
   ShieldCheck, 
   Check, 
-  X, 
-  Eye, 
-  FileText,
-  Clock,
-  PlayCircle
+  Trash2, 
+  UserX,
+  AlertTriangle,
+  MessageSquare
 } from 'lucide-react';
+import { NdaraSkeleton, EmptyState } from './AdminSupport';
 
 export function AdminModeration() {
   const [items, setItems] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [statusMsg, setStatusMsg] = useState<{type: 'success'|'error', text: string} | null>(null);
 
   useEffect(() => {
-    const unsub = onSnapshot(query(collection(db, 'moderation_queue')), (snap) => {
+    const q = query(
+      collection(db, 'moderation_queue'),
+      where('status', '==', 'pending')
+    );
+    const unsub = onSnapshot(q, (snap) => {
       setItems(snap.docs.map(d => ({ id: d.id, ...d.data() })));
       setIsLoading(false);
     });
     return () => unsub();
   }, []);
 
-  const handleAction = async (id: string, action: string) => {
+  const showMsg = (type: 'success'|'error', text: string) => {
+      setStatusMsg({ type, text });
+      setTimeout(() => setStatusMsg(null), 3000);
+  };
+
+  const handleIgnore = async (id: string) => {
     try {
-       await updateDoc(doc(db, 'moderation_queue', id), { status: action });
+       await updateDoc(doc(db, 'moderation_queue', id), { status: 'ignored' });
+       showMsg('success', 'Signalement ignoré (classé sans suite).');
     } catch (err) {
-       console.error("Error updating moderation status", err);
+       console.error("Error updating", err);
+       showMsg('error', 'Erreur lors de la mise à jour.');
+    }
+  };
+
+  const handleDeleteContent = async (queueId: string, targetCollection: string, targetId: string) => {
+     if (!window.confirm('Supprimer définitivement ce contenu offensant ?')) return;
+     try {
+         // Delete actual content if we have references
+         if (targetCollection && targetId) {
+             await deleteDoc(doc(db, targetCollection, targetId));
+         }
+         // Mark queue as resolved
+         await updateDoc(doc(db, 'moderation_queue', queueId), { status: 'resolved_deleted' });
+         showMsg('success', 'Contenu supprimé avec succès.');
+     } catch (err) {
+         console.error("Error deleting", err);
+         showMsg('error', 'Erreur lors de la suppression.');
+     }
+  };
+
+  const handleBanUser = async (queueId: string, userId: string) => {
+    if (!window.confirm('Bannir définitivement cet utilisateur ? Cette action bloquera son accès.')) return;
+    try {
+        if (userId) {
+            await updateDoc(doc(db, 'users', userId), { status: 'banned', role: 'banned' });
+        }
+        await updateDoc(doc(db, 'moderation_queue', queueId), { status: 'resolved_banned' });
+        showMsg('success', 'Utilisateur banni de la plateforme.');
+    } catch (err) {
+        console.error("Error banning user", err);
+        showMsg('error', 'Erreur lors du bannissement.');
     }
   };
 
   if (isLoading) {
     return (
-      <div className="space-y-8 animate-in fade-in duration-700 pb-20 relative font-sans">
+      <div className="space-y-8 animate-in fade-in duration-700 pb-20 relative font-sans p-6 max-w-6xl mx-auto">
         <div className="space-y-2 relative z-10">
           <div className="h-8 w-64 bg-slate-800 rounded-lg animate-pulse"></div>
           <div className="h-4 w-96 bg-slate-800/80 rounded animate-pulse"></div>
         </div>
         <div className="space-y-4 relative z-10">
-          {[...Array(3)].map((_, i) => (
-             <div key={i} className="bg-slate-800/40 border border-slate-700/50 rounded-3xl h-48 animate-pulse"></div>
-          ))}
+           <NdaraSkeleton type="table" />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-700 pb-20 relative font-sans">
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[400px] bg-purple-500/5 blur-[100px] pointer-events-none" />
+    <div className="space-y-8 animate-in fade-in duration-700 pb-20 relative font-sans p-6 max-w-6xl mx-auto">
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[400px] bg-red-500/5 blur-[100px] pointer-events-none" />
 
       <header className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-5 relative z-10">
         <div className="space-y-1">
-          <div className="flex items-center gap-2 text-purple-500 mb-1">
-            <ShieldCheck className="h-4 w-4" />
-            <span className="text-[10px] font-black uppercase tracking-[0.3em]">Conformité & Qualité</span>
+          <div className="flex items-center gap-2 text-red-500 mb-1">
+            <AlertTriangle className="h-4 w-4" />
+            <span className="text-[10px] font-black uppercase tracking-[0.3em]">Salubrité & Urgences</span>
           </div>
-          <h1 className="text-3xl font-black text-white uppercase tracking-tight">Modération</h1>
-          <p className="text-slate-400 text-sm font-medium">Examinez et approuvez les nouveaux cours soumis par les instructeurs.</p>
+          <h1 className="text-3xl font-black text-white uppercase tracking-tight">Signalements</h1>
+          <p className="text-slate-400 text-sm font-medium">Gérez la file de traitement des comportements toxiques et du spam.</p>
         </div>
       </header>
+      
+      {statusMsg && (
+        <div className={`p-4 rounded-xl flex items-center gap-3 border ${statusMsg.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-rose-500/10 border-rose-500/20 text-rose-400'}`}>
+          <Check className="w-5 h-5 flex-shrink-0" />
+          <span className="text-sm font-bold">{statusMsg.text}</span>
+        </div>
+      )}
 
-      {/* Moderation Cards Queue (Mobile-First approach) */}
+      {/* Moderation Queue */}
       <div className="relative z-10 space-y-4">
         {items.length > 0 ? items.map((item) => (
-          <div key={item.id} className="bg-slate-800/40 border border-slate-700/50 rounded-3xl p-5 md:p-6 flex flex-col md:flex-row gap-6 shadow-xl relative overflow-hidden transition-all hover:bg-slate-800/60">
-            {/* Thumbnail */}
-            <div className="w-full md:w-64 h-40 md:h-full bg-slate-900 rounded-2xl border border-slate-800 flex items-center justify-center shrink-0 relative overflow-hidden">
-               <PlayCircle className="w-10 h-10 text-slate-700" />
-               <div className="absolute top-3 left-3 bg-amber-500/20 text-amber-500 border border-amber-500/30 px-2.5 py-1 rounded text-[9px] font-black uppercase tracking-widest backdrop-blur-md">
-                 {item.status || 'En attente'}
-               </div>
+          <div key={item.id} className="bg-slate-800/30 border border-slate-700/50 rounded-3xl p-5 md:p-6 flex flex-col md:flex-row gap-6 shadow-xl relative overflow-hidden transition-all hover:bg-slate-800/50">
+            {/* Warning Icon */}
+            <div className="w-16 h-16 bg-red-500/10 rounded-2xl border border-red-500/20 flex flex-col items-center justify-center shrink-0">
+               <AlertTriangle className="w-6 h-6 text-red-500 mb-1" />
+               <span className="text-[8px] font-black uppercase tracking-widest text-red-400">Toxique</span>
             </div>
 
-            {/* Course Info */}
+            {/* Warning Info */}
             <div className="flex-1 flex flex-col justify-between gap-4">
                <div>
                   <div className="flex items-center gap-2 text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">
-                    <Clock className="w-3.5 h-3.5" /> Soumis récemment
+                    <MessageSquare className="w-3.5 h-3.5" /> Plainte / Contenu Inapproprié
                   </div>
-                  <h3 className="text-xl font-bold text-white mb-2 leading-tight">{item.title || 'Contenu sans titre'}</h3>
-                  <p className="text-sm text-slate-400 line-clamp-2 md:line-clamp-3">
-                    {item.description || "Aucune description fournie."}
+                  <h3 className="text-lg font-bold text-white mb-2 leading-tight">
+                      Contenu suspecté : "{item.contentSnippet || '...'}"
+                  </h3>
+                  <p className="text-sm text-slate-400 bg-slate-900/50 p-4 rounded-xl border border-slate-800/80 font-mono">
+                    Motif : {item.reason || "Non spécifié."}
                   </p>
                </div>
 
-               {/* Instructor & Meta */}
+               {/* Meta Data */}
                <div className="flex flex-wrap items-center gap-4 bg-slate-900/50 p-3 rounded-xl border border-slate-800">
                   <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 bg-slate-800 rounded-full flex items-center justify-center">
-                      <span className="text-[10px] font-black text-slate-400">{(item.instructorName || 'I')[0].toUpperCase()}</span>
-                    </div>
-                    <span className="text-xs font-bold text-white">{item.instructorName || 'Instructeur inconnu'}</span>
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Auteur:</span>
+                    <span className="text-xs font-bold text-white">{item.authorName || item.authorId || 'Inconnu'}</span>
                   </div>
                   <div className="w-1 h-1 rounded-full bg-slate-700 hidden sm:block" />
-                  <div className="text-xs font-bold text-emerald-400">{item.price || 0} XAF</div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Signalé par:</span>
+                    <span className="text-xs font-bold text-amber-500">{item.reporterName || 'Automatique / IA'}</span>
+                  </div>
                </div>
             </div>
 
             {/* Actions (Touch friendly) */}
-            <div className="flex flex-row md:flex-col justify-end gap-3 shrink-0 pt-4 md:pt-0 border-t md:border-t-0 border-slate-700/50 md:pl-6 md:border-l">
-               <button onClick={() => handleAction(item.id, 'approuvé')} className="flex-1 md:flex-none flex items-center justify-center gap-2 h-12 md:h-10 px-4 rounded-xl bg-emerald-500 text-slate-950 font-black uppercase text-[10px] tracking-widest hover:bg-emerald-400 transition-colors shadow-lg shadow-emerald-500/20">
-                 <Check className="w-4 h-4" /> Approuver
+            <div className="flex flex-col justify-end gap-3 shrink-0 pt-4 md:pt-0 border-t md:border-t-0 border-slate-700/50 md:pl-6 md:border-l">
+               <button 
+                  onClick={() => handleDeleteContent(item.id, item.targetCollection, item.targetId)} 
+                  className="flex items-center justify-center gap-2 h-10 px-4 rounded-xl bg-orange-500/10 text-orange-500 border border-orange-500/20 font-black uppercase text-[10px] tracking-widest hover:bg-orange-500 hover:text-white transition-colors"
+               >
+                 <Trash2 className="w-4 h-4" /> Supprimer Contenu
                </button>
-               <button className="flex-1 md:flex-none flex items-center justify-center gap-2 h-12 md:h-10 px-4 rounded-xl bg-slate-800 text-slate-300 border border-slate-700 font-bold uppercase text-[10px] tracking-widest hover:bg-slate-700 transition-colors">
-                 <Eye className="w-4 h-4" /> Examiner
+               <button 
+                  onClick={() => handleBanUser(item.id, item.authorId)} 
+                  className="flex items-center justify-center gap-2 h-10 px-4 rounded-xl bg-red-500/10 text-red-500 border border-red-500/20 font-black uppercase text-[10px] tracking-widest hover:bg-red-500 hover:text-white transition-colors shadow-lg shadow-red-500/5"
+               >
+                 <UserX className="w-4 h-4" /> Bannir Utilisateur
                </button>
-               <button onClick={() => handleAction(item.id, 'rejeté')} className="flex-1 md:flex-none flex items-center justify-center gap-2 h-12 md:h-10 px-4 rounded-xl bg-red-500/10 text-red-400 border border-red-500/20 font-bold uppercase text-[10px] tracking-widest hover:bg-red-500 hover:text-white transition-colors">
-                 <X className="w-4 h-4" /> Rejeter
+               <div className="h-px bg-slate-700 my-1 w-full" />
+               <button 
+                  onClick={() => handleIgnore(item.id)} 
+                  className="flex items-center justify-center gap-2 h-10 px-4 rounded-xl bg-slate-800 text-slate-400 border border-slate-700 font-bold uppercase text-[10px] tracking-widest hover:bg-slate-700 transition-colors"
+               >
+                 <Check className="w-4 h-4" /> Classer sans suite
                </button>
             </div>
           </div>
         )) : (
-          <div className="text-center py-24 bg-slate-800/20 rounded-3xl border border-dashed border-slate-700">
-             <ShieldCheck className="w-12 h-12 text-slate-600 mx-auto mb-4" />
-             <p className="text-xs font-black uppercase tracking-widest text-slate-500">Aucun élément en file d'attente</p>
+          <div className="mt-8">
+              <EmptyState title="Aucun signalement" message="La file de modération est propre." icon={ShieldCheck} />
           </div>
         )}
-        <div className="text-center pt-8 opacity-50">
-           <p className="text-sm font-bold text-slate-500 uppercase tracking-widest">Fin de la file d'attente</p>
-        </div>
       </div>
     </div>
   );

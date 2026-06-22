@@ -117,7 +117,7 @@ export function CoursesView() {
         ) : filteredResults.length > 0 ? (
             <div className="space-y-4 animate-in fade-in duration-700">
                 {filteredResults.map((course: any) => (
-                   <Link key={course.id} to={`/student/courses/${course.id}`} className="block">
+                   <Link key={course.id} to={`/student/catalog/${course.id}`} className="block">
                       <div className="glass rounded-3xl p-5 card-hover relative overflow-hidden flex gap-4 border border-white/5 bg-[#111111]">
                           <div className="w-20 h-20 rounded-2xl bg-card overflow-hidden shrink-0 relative">
                              <img src={course.image} alt={course.title} className={`w-full h-full object-cover transition-all ${course.progress === 0 ? 'opacity-50 grayscale' : 'opacity-80'}`} />

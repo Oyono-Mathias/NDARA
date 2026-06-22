@@ -112,8 +112,14 @@ export function ResourcesClient() {
     };
 
     const handleDeleteResource = async (resId: string) => {
+        if (!resId) return;
         if (confirm("Supprimer cette ressource ?")) {
-            await deleteDoc(doc(db, 'course_resources', resId));
+            try {
+                await deleteDoc(doc(db, 'course_resources', resId));
+            } catch (error: any) {
+                console.error("Erreur lors de la suppression de la ressource:", error);
+                alert("Erreur lors de la suppression : " + (error.message || "Permissions insuffisantes."));
+            }
         }
     };
 

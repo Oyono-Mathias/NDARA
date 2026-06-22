@@ -10,17 +10,20 @@ import {
     ShieldCheck, 
     CheckSquare,
     RefreshCw,
-    Database
+    Database,
+    Power
 } from 'lucide-react';
 import clsx from 'clsx';
 import { collection, query, orderBy, limit, onSnapshot, doc, updateDoc, setDoc } from 'firebase/firestore';
 import { db, auth } from '../../firebase';
+import { NdaraSkeleton, EmptyState } from './AdminSupport';
 
 export function AdminMonitoring() {
     const [hasMounted, setHasMounted] = useState(true);
     const [logs, setLogs] = useState<any[]>([]);
     const [loadingLogs, setLoadingLogs] = useState(true);
     const [settings, setSettings] = useState({
+        maintenanceMode: false,
         ai: { autoCorrection: true, autonomousTutor: true, fraudDetection: true }
     });
     const [tvlData, setTvlData] = useState<any>(null);
@@ -43,19 +46,20 @@ export function AdminMonitoring() {
             setLoadingLogs(false);
         });
 
-        // Fetch AI Settings from global config
+        // Fetch Settings from global config
         const unsubSettings = onSnapshot(doc(db, 'settings', 'global_config'), (docSnap) => {
             if (docSnap.exists()) {
                 const data = docSnap.data();
-                if (data.ai) {
-                    setSettings(prev => ({
-                        ...prev,
-                        ai: { ...prev.ai, ...data.ai }
-                    }));
-                }
+                setSettings(prev => ({
+                    ...prev,
+                    maintenanceMode: !!data.maintenanceMode,
+                    ai: { ...prev.ai, ...data.ai }
+                }));
             } else {
-                // Initialize if it doesn't exist
-                setDoc(doc(db, 'settings', 'global_config'), { ai: settings.ai }, { merge: true });
+                setDoc(doc(db, 'settings', 'global_config'), { 
+                  maintenanceMode: false,
+                  ai: settings.ai 
+                }, { merge: true });
             }
         });
         
@@ -87,7 +91,6 @@ export function AdminMonitoring() {
     }, []);
 
     const toggleAiFeature = async (key: string, value: boolean) => {
-        // Optimistic UI update
         setSettings(prev => ({ ...prev, ai: { ...prev.ai, [key]: value } }));
         try {
             await updateDoc(doc(db, 'settings', 'global_config'), {
@@ -95,8 +98,24 @@ export function AdminMonitoring() {
             });
         } catch (error) {
             console.error("Error updating AI settings:", error);
-            // Revert on error
             setSettings(prev => ({ ...prev, ai: { ...prev.ai, [key]: !value } }));
+        }
+    };
+
+    const toggleMaintenanceMode = async (value: boolean) => {
+        const confirmMsg = value 
+          ? "ATTENTION : Activer le mode maintenance coupera l'accès à la plateforme pour tous les utilisateurs non-admins. Continuer ?"
+          : "Désactiver le mode maintenance et réouvrir la plateforme ?";
+        if (!window.confirm(confirmMsg)) return;
+
+        setSettings(prev => ({ ...prev, maintenanceMode: value }));
+        try {
+            await updateDoc(doc(db, 'settings', 'global_config'), {
+                maintenanceMode: value
+            });
+        } catch (error) {
+            console.error("Error updating maintenance settings:", error);
+            setSettings(prev => ({ ...prev, maintenanceMode: !value }));
         }
     };
 
@@ -111,15 +130,15 @@ export function AdminMonitoring() {
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 relative z-10 mb-8 mt-8">
            {[...Array(4)].map((_, i) => (
-             <div key={i} className="bg-slate-800/40 border border-slate-700/50 rounded-2xl p-4 h-32 animate-pulse"></div>
+             <NdaraSkeleton key={i} type="card" />
            ))}
         </div>
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 relative z-10">
            <div className="xl:col-span-1 space-y-4">
-              <div className="bg-slate-800/40 border border-slate-700/50 rounded-3xl h-64 animate-pulse"></div>
+              <NdaraSkeleton type="card" />
            </div>
            <div className="xl:col-span-2 space-y-4">
-              <div className="bg-slate-800/40 border border-slate-700/50 rounded-3xl h-[400px] animate-pulse"></div>
+              <NdaraSkeleton type="table" />
            </div>
         </div>
       </div>
@@ -137,14 +156,34 @@ export function AdminMonitoring() {
             <header className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-emerald-500/20 pb-6 gap-4">
                 <div className="flex items-center gap-4">
                     <div className="relative">
-                        <div className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_15px_#10b981]" />
+                        <div className={clsx(
+                           "w-3 h-3 rounded-full animate-pulse shadow-[0_0_15px_#10b981]",
+                           settings.maintenanceMode ? "bg-red-500 shadow-[0_0_15px_#ef4444]" : "bg-emerald-500"
+                        )} />
                     </div>
                     <h1 className="text-2xl font-black text-white tracking-[0.2em] uppercase">
-                        SYSTEM<span className="text-emerald-500">.OS</span>
+                        SYSTEM<span className={settings.maintenanceMode ? "text-red-500" : "text-emerald-500"}>.OS</span>
                     </h1>
                 </div>
-                <div className="border border-emerald-500/30 text-emerald-500 font-mono text-[10px] px-3 py-1 rounded uppercase tracking-widest font-bold">
-                    V.2.5.0 • SECURED
+                <div className="flex items-center gap-4">
+                    <button 
+                        onClick={() => toggleMaintenanceMode(!settings.maintenanceMode)}
+                        className={clsx(
+                          "flex items-center gap-2 border font-mono text-[10px] px-4 py-2 rounded uppercase tracking-widest font-bold transition-all",
+                          settings.maintenanceMode 
+                            ? "bg-red-500 text-white border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.5)]" 
+                            : "bg-slate-800/50 text-slate-400 border-slate-700 hover:text-white"
+                        )}
+                    >
+                        <Power className="w-4 h-4" />
+                        {settings.maintenanceMode ? 'Kill-Switch: Actif' : 'Kill-Switch: Inactif'}
+                    </button>
+                    <div className={clsx(
+                        "border font-mono text-[10px] px-3 py-2 rounded uppercase tracking-widest font-bold",
+                        settings.maintenanceMode ? "border-red-500/30 text-red-500" : "border-emerald-500/30 text-emerald-500"
+                    )}>
+                        V.2.5.0 • {settings.maintenanceMode ? 'MAINTENANCE' : 'SECURED'}
+                    </div>
                 </div>
             </header>
 
@@ -285,36 +324,40 @@ export function AdminMonitoring() {
                     <div className="bg-black/80 border border-emerald-500/20 rounded-3xl p-5 h-[400px] flex flex-col shadow-2xl overflow-hidden relative">
                         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500/0 via-emerald-500/50 to-emerald-500/0 opacity-50"></div>
                         
-                        <div className="flex-1 overflow-y-auto hide-scrollbar font-mono text-[10px] md:text-xs space-y-3">
+                        <div className="flex-1 min-h-0 overflow-y-auto hide-scrollbar font-mono text-[10px] md:text-xs">
                             {loadingLogs ? (
-                                <div className="space-y-2 opacity-30 text-emerald-500">
+                                <div className="space-y-2 opacity-30 text-emerald-500 p-2">
                                     <p>[00:00:00] [SYS] Initializing secure terminal...</p>
                                     <p>[00:00:01] [IA] Mathias engine handshake...</p>
                                 </div>
                             ) : logs.length > 0 ? (
-                                logs.map((log) => (
-                                    <div key={log.id} className="flex flex-col sm:flex-row gap-1 sm:gap-3 opacity-90">
-                                        <span className="text-slate-600 shrink-0">
-                                            [{log.timestamp.toLocaleTimeString()}]
-                                        </span>
-                                        <div className="flex gap-2 w-full">
-                                            <span className={clsx(
-                                                "font-black uppercase shrink-0",
-                                                log.eventType?.includes('course') ? "text-blue-400" :
-                                                log.eventType?.includes('user') ? "text-emerald-400" :
-                                                log.eventType?.includes('alert') ? "text-amber-500" :
-                                                "text-purple-400"
-                                            )}>
-                                                [{log.eventType?.split('_')[0].substring(0,3).toUpperCase() || 'SYS'}]
-                                            </span>
-                                            <span className="text-slate-300 break-words line-clamp-2 md:line-clamp-none">{log.details}</span>
-                                        </div>
-                                    </div>
-                                ))
+                                <div className="space-y-3 p-2">
+                                  {logs.map((log) => (
+                                      <div key={log.id} className="flex flex-col sm:flex-row gap-1 sm:gap-3 opacity-90">
+                                          <span className="text-slate-600 shrink-0">
+                                              [{log.timestamp.toLocaleTimeString()}]
+                                          </span>
+                                          <div className="flex gap-2 w-full">
+                                              <span className={clsx(
+                                                  "font-black uppercase shrink-0",
+                                                  log.eventType?.includes('course') ? "text-blue-400" :
+                                                  log.eventType?.includes('user') ? "text-emerald-400" :
+                                                  log.eventType?.includes('alert') ? "text-amber-500" :
+                                                  "text-purple-400"
+                                              )}>
+                                                  [{log.eventType?.split('_')[0].substring(0,3).toUpperCase() || 'SYS'}]
+                                              </span>
+                                              <span className="text-slate-300 break-words line-clamp-2 md:line-clamp-none">{log.details}</span>
+                                          </div>
+                                      </div>
+                                  ))}
+                                </div>
                             ) : (
-                                <p className="text-slate-700 italic">En attente de données système...</p>
+                                <div className="h-full flex items-center justify-center">
+                                    <EmptyState title="Système nominal" message="Aucune anomalie ou journal d'activité à signaler." />
+                                </div>
                             )}
-                            <div className="flex items-center gap-2 text-emerald-500/50 pt-2">
+                            <div className="flex items-center gap-2 text-emerald-500/50 pt-2 p-2">
                                 <span className="w-2 h-3.5 bg-emerald-500/50 animate-pulse" />
                             </div>
                         </div>

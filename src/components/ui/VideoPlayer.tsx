@@ -11,6 +11,7 @@ interface VideoPlayerProps {
   onEnded?: () => void;
   // Bunny Stream Pull Zone (e.g. vz-xxx.b-cdn.net ou custom domain)
   cdnHostname?: string;
+  poster?: string;
 }
 
 export const VideoPlayer: React.FC<VideoPlayerProps> = ({ 
@@ -18,7 +19,8 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   provider = 'bunny', // Par défaut `bunny` pour des raisons de compatibilité ascendante
   className, 
   onEnded,
-  cdnHostname = import.meta.env.VITE_BUNNY_STREAM_CDN_HOSTNAME || "vz-a8b9c7d6.b-cdn.net"
+  cdnHostname = import.meta.env.VITE_BUNNY_STREAM_CDN_HOSTNAME || "vz-a8b9c7d6.b-cdn.net",
+  poster
 }) => {
   const [loading, setLoading] = useState(true);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -128,6 +130,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         ref={videoRef}
         controls
         playsInline
+        poster={poster}
         onEnded={onEnded}
         onLoadedData={() => setLoading(false)}
         className={`absolute top-0 left-0 w-full h-full object-contain transition-opacity duration-500 ${loading ? 'opacity-0' : 'opacity-100'}`}

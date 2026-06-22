@@ -1,4 +1,4 @@
-import { Routes, Route, useNavigate, Navigate } from "react-router-dom";
+import { Routes, Route, useNavigate, Navigate, Link } from "react-router-dom";
 import { useRole } from "../../context/RoleContext";
 import { InstructorNavigation } from "../../components/InstructorNavigation";
 import { Bell, Menu } from "lucide-react";
@@ -12,12 +12,14 @@ import { InstructorDevoirs } from "./InstructorDevoirs";
 import { InstructorWealth } from "./InstructorWealth";
 import { InstructorAnnouncements } from "./InstructorAnnouncements";
 import { InstructorAvis } from "./InstructorAvis";
+import { MessagesView } from "../Messages";
 import { InstructorCoupons } from "./InstructorCoupons";
 import { InstructorCertificates } from "./InstructorCertificates";
 
 import { InstructorQna } from "./InstructorQna";
 import { InstructorQuiz } from "./InstructorQuiz";
 import { InstructorResources } from "./InstructorResources";
+import { InstructorProfile } from "./InstructorProfile";
 
 import { InstructorSettings } from "./InstructorSettings";
 import { InstructorStudents } from "./InstructorStudents";
@@ -46,7 +48,7 @@ export function InstructorLayout() {
 
       <InstructorNavigation />
 
-      <div className="flex-1 flex flex-col relative z-10 w-full max-w-full md:max-w-none pb-24 md:pb-0 h-screen overflow-y-auto hide-scrollbar">
+      <div className="flex-1 flex flex-col relative z-10 w-full max-w-full md:max-w-none pb-32 md:pb-0 h-screen overflow-y-auto hide-scrollbar">
         {/* Mobile Header */}
         <header className="md:hidden fixed top-0 w-full z-40 glass safe-top">
           <div className="flex items-center justify-between px-6 py-4">
@@ -71,7 +73,7 @@ export function InstructorLayout() {
                 <Bell className="w-5 h-5" />
                 <span className="absolute top-2 right-2.5 w-2 h-2 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.8)]"></span>
               </button>
-              <div className="w-10 h-10 rounded-full bg-card border border-white/10 overflow-hidden ring-2 ring-secondary/50 shadow-[0_0_10px_rgba(204,119,34,0.2)]">
+              <Link to="/instructor/profile" className="w-10 h-10 rounded-full bg-card border border-white/10 overflow-hidden ring-2 ring-secondary/50 shadow-[0_0_10px_rgba(204,119,34,0.2)] block">
                 <img
                   src={
                     currentUser?.profilePictureURL ||
@@ -80,7 +82,7 @@ export function InstructorLayout() {
                   alt="Profile"
                   className="w-full h-full object-cover"
                 />
-              </div>
+              </Link>
             </div>
           </div>
         </header>
@@ -116,6 +118,7 @@ export function InstructorLayout() {
               }
             />
             <Route path="students" element={<InstructorStudents />} />
+            <Route path="messages" element={<MessagesView />} />
             <Route path="revenus" element={<InstructorWealth />} />
             <Route
               path="ambassador"
@@ -131,6 +134,7 @@ export function InstructorLayout() {
             <Route path="avis" element={<InstructorAvis />} />
             <Route path="certificats" element={<InstructorCertificates />} />
             <Route path="settings" element={<InstructorSettings />} />
+            <Route path="profile" element={<InstructorProfile />} />
           </Routes>
         </main>
       </div>

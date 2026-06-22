@@ -43,7 +43,7 @@ const adminNavigationConfig: NavSection[] = [
     title: "COCKPIT CEO",
     routes: [
       { label: "Tableau de Bord", icon: LayoutDashboard, path: "/admin" },
-      { label: "Analytics", icon: BarChart2, path: "/admin/analytics" },
+      { label: "Monitoring", icon: BarChart2, path: "/admin/monitoring" },
       { label: "IA Mathias Config", icon: Activity, path: "/admin/ai" },
     ],
   },
@@ -57,7 +57,7 @@ const adminNavigationConfig: NavSection[] = [
         path: "/admin/instructors",
       },
       { label: "Catalogue", icon: BookOpen, path: "/admin/catalog" },
-      { label: "Marchés & Bourse", icon: Store, path: "/admin/markets" },
+      { label: "Market Control", icon: Store, path: "/admin/marketcontrol" },
       { label: "Communautés (Squads)", icon: Users, path: "/admin/squads" },
       { label: "Modération", icon: ShieldCheck, path: "/admin/moderation" },
       { label: "Diffusion Push", icon: Radio, path: "/admin/push" },
@@ -69,7 +69,7 @@ const adminNavigationConfig: NavSection[] = [
     routes: [
       { label: "Trésorerie", icon: Wallet, path: "/admin/treasury" },
       { label: "Transactions", icon: CreditCard, path: "/admin/transactions" },
-      { label: "Growth Hub", icon: TrendingUp, path: "/admin/growth" },
+      { label: "Marketing", icon: TrendingUp, path: "/admin/marketing" },
     ],
   },
   {

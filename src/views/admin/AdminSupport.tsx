@@ -22,7 +22,7 @@ import clsx from 'clsx';
 import { collection, query, onSnapshot, doc, updateDoc, setDoc, deleteDoc, orderBy, arrayUnion, Timestamp } from 'firebase/firestore';
 import { db, auth } from '../../firebase';
 
-export function EmptyState({ title, message, icon: Icon }: { title: string, message?: string, icon?: any }) {
+export const EmptyState: React.FC<{ title: string, message?: string, icon?: any }> = ({ title, message, icon: Icon }) => {
   return (
     <div className="text-center py-24 bg-slate-900/30 rounded-3xl border border-dashed border-slate-800">
       {Icon && <Icon className="w-12 h-12 text-slate-700 mx-auto mb-4" />}
@@ -32,7 +32,7 @@ export function EmptyState({ title, message, icon: Icon }: { title: string, mess
   );
 }
 
-export function NdaraSkeleton({ type }: { type: 'table' | 'cards' | string }) {
+export const NdaraSkeleton: React.FC<{ type: 'table' | 'cards' | string }> = ({ type }) => {
   if (type === 'table') {
     return (
       <div className="bg-slate-800/30 border border-slate-700/50 rounded-3xl overflow-hidden shadow-2xl">
@@ -108,19 +108,30 @@ export function AdminSupport() {
   }, []);
 
   // Action: Modifier le statut d'un ticket
-  const handleUpdateTicketStatus = async (ticketId: string, status: string) => {
+  const handleUpdateTicketStatus = async (ticketId: string, status: string, userId?: string) => {
     try {
       await updateDoc(doc(db, 'support_tickets', ticketId), { 
         status, 
         updatedAt: Timestamp.now() 
       });
+      // Notify the user
+      if (userId) {
+          await setDoc(doc(collection(db, `users/${userId}/notifications`)), {
+              title: "Mise à jour de votre demande",
+              message: `Le statut de votre requête a été modifié à: ${status}`,
+              read: false,
+              createdAt: Timestamp.now(),
+              type: "support",
+              link: "/student/support"
+          });
+      }
     } catch (err) {
       console.error("Error updating ticket status: ", err);
     }
   };
 
   // Action: Répondre à un ticket
-  const handleReplyToTicket = async (ticketId: string) => {
+  const handleReplyToTicket = async (ticketId: string, userId?: string) => {
     if (!replyMessage.trim()) return;
     setIsReplying(true);
     
@@ -137,6 +148,18 @@ export function AdminSupport() {
         status: 'investigating', // Passe en investigation automatiquement lorsqu'on répond
         updatedAt: Timestamp.now()
       });
+
+      // Notify the user
+      if (userId) {
+          await setDoc(doc(collection(db, `users/${userId}/notifications`)), {
+              title: "Nouvelle réponse du support",
+              message: "Le support technique a répondu à votre demande.",
+              read: false,
+              createdAt: Timestamp.now(),
+              type: "support",
+              link: "/student/support"
+          });
+      }
       
       setReplyMessage('');
     } catch (error) {
@@ -355,11 +378,11 @@ export function AdminSupport() {
                                     {expandedTicketId === t.id ? "Fermer" : "Détails"}
                                   </button>
                                   {(t.status === 'resolved' || t.status === 'closed') ? (
-                                    <button onClick={() => handleUpdateTicketStatus(t.id, 'open')} className="h-8 px-3 rounded-lg bg-amber-500/10 text-amber-500 hover:bg-amber-500 hover:text-slate-950 transition-colors flex items-center justify-center border border-amber-500/20 shadow-lg text-[9px] font-black uppercase tracking-wider">
+                                    <button onClick={() => handleUpdateTicketStatus(t.id, 'open', t.userId)} className="h-8 px-3 rounded-lg bg-amber-500/10 text-amber-500 hover:bg-amber-500 hover:text-slate-950 transition-colors flex items-center justify-center border border-amber-500/20 shadow-lg text-[9px] font-black uppercase tracking-wider">
                                       Réouvrir
                                     </button>
                                   ) : (
-                                    <button onClick={() => handleUpdateTicketStatus(t.id, 'resolved')} className="h-8 px-3 rounded-lg bg-emerald-500/10 text-emerald-500 hover:text-slate-950 hover:bg-emerald-500 transition-colors flex items-center justify-center border border-emerald-500/20 shadow-lg text-[9px] font-black uppercase tracking-wider">
+                                    <button onClick={() => handleUpdateTicketStatus(t.id, 'resolved', t.userId)} className="h-8 px-3 rounded-lg bg-emerald-500/10 text-emerald-500 hover:text-slate-950 hover:bg-emerald-500 transition-colors flex items-center justify-center border border-emerald-500/20 shadow-lg text-[9px] font-black uppercase tracking-wider">
                                        Clore
                                     </button>
                                   )}
@@ -407,7 +430,7 @@ export function AdminSupport() {
                                           className="flex-1 bg-slate-950 border border-slate-700 rounded-xl py-3 px-4 text-white focus:border-blue-500/50 transition-colors text-sm outline-none"
                                         />
                                         <button 
-                                          onClick={() => handleReplyToTicket(t.id)}
+                                          onClick={() => handleReplyToTicket(t.id, t.userId)}
                                           disabled={isReplying || !replyMessage.trim()}
                                           className="flex items-center gap-2 px-6 bg-blue-500 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-black uppercase text-[10px] tracking-widest rounded-xl transition-all shadow-xl"
                                         >

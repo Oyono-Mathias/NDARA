@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getFirestore, doc, collection, query, where, getDocs, setDoc, serverTimestamp, collectionGroup, onSnapshot } from 'firebase/firestore';
-import { db, auth } from '../firebase';
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { db, auth, storage } from '../firebase';
 import { 
   ArrowLeft, 
   Paperclip, 
@@ -51,7 +52,7 @@ export function AssignmentDetail() {
             });
 
             // Vérifier si l'étudiant a déjà rendu ce devoir
-            const qSub = query(collection(db, 'devoirs'), where('studentId', '==', user.uid), where('assignmentId', '==', assignmentId));
+            const qSub = query(collection(db, 'assignments_submissions'), where('studentId', '==', user.uid), where('assignmentId', '==', assignmentId));
             const unsubSub = onSnapshot(qSub, (subSnap) => {
                 if (!subSnap.empty) {
                     setSubmission(subSnap.docs[0].data());
@@ -75,22 +76,31 @@ export function AssignmentDetail() {
   }, [assignmentId, navigate]);
 
   const handleFileUpload = (e: any) => {
-    // Simulate processing upload
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || !currentUser || !assignmentId) return;
 
-    setUploadProgress(0);
-    setTimeout(() => {
-        setUploadProgress(50);
-        setTimeout(() => {
-            setUploadProgress(100);
-            setTimeout(() => {
-                setFileUrl("https://example.com/file");
-                setFileName(file.name);
-                setUploadProgress(null);
-            }, 500);
-        }, 500);
-    }, 500);
+    const fileRef = ref(storage, `assignments/${assignmentId}/${currentUser.uid}_${file.name}`);
+    const uploadTask = uploadBytesResumable(fileRef, file);
+
+    setFileName(file.name);
+    
+    uploadTask.on('state_changed', 
+        (snapshot) => {
+            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+            setUploadProgress(progress);
+        }, 
+        (error) => {
+            console.error("Erreur d'upload", error);
+            setUploadProgress(null);
+            setFileName("");
+            alert("Erreur lors de l'upload du fichier");
+        }, 
+        async () => {
+            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+            setFileUrl(downloadURL);
+            setUploadProgress(null);
+        }
+    );
   };
 
   const handleSubmit = async () => {
@@ -106,7 +116,7 @@ export function AssignmentDetail() {
 
     try {
       const subId = `${currentUser.uid}_${assignmentId}`;
-      const subRef = doc(db, 'devoirs', subId);
+      const subRef = doc(db, 'assignments_submissions', subId);
       
       const payload = {
         id: subId,
@@ -255,7 +265,15 @@ export function AssignmentDetail() {
                             </div>
                             <div className="p-6 bg-slate-900/30 rounded-2xl border border-slate-800">
                                 <p className="text-[10px] font-black uppercase text-slate-600 tracking-widest mb-3">Ma réponse transmise</p>
-                                <p className="text-sm text-slate-400 leading-relaxed">{submission.submissionContent || "Fichier joint."}</p>
+                                <p className="text-sm text-slate-400 leading-relaxed whitespace-pre-wrap">{submission.submissionContent || "Sans texte descriptif."}</p>
+                                {submission.submissionUrl && (
+                                    <div className="mt-4 pt-4 border-t border-slate-800">
+                                      <a href={submission.submissionUrl} target="_blank" rel="noreferrer" className="inline-flex items-center text-[10px] font-bold text-primary hover:text-emerald-400 transition-colors uppercase tracking-widest">
+                                         <Paperclip className="h-3 w-3 mr-1" />
+                                         Voir ma pièce jointe
+                                      </a>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     )}

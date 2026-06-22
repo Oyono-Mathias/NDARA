@@ -82,8 +82,9 @@ export function QuizPageClient() {
             setQuizTitle("");
             setSelectedCourseId("");
             setQuestions([{ text: "", options: [{text: "", isCorrect: true}, {text: "", isCorrect: false}] }]);
-        } catch (error) {
-            console.error(error);
+        } catch (error: any) {
+            console.error("Erreur lors de la création du quiz:", error);
+            alert("Erreur lors de la création : " + (error.message || "Permissions insuffisantes."));
         } finally {
             setIsSaving(false);
         }

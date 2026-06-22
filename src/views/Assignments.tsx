@@ -48,7 +48,7 @@ export function AssignmentsView() {
                 });
 
                 // 3. Écouter les soumissions existantes de l'étudiant
-                const submissionsQuery = query(collection(db, 'devoirs'), where('studentId', '==', user.uid));
+                const submissionsQuery = query(collection(db, 'assignments_submissions'), where('studentId', '==', user.uid));
                 const unsubSubmissions = onSnapshot(submissionsQuery, (subSnap) => {
                     const subMap: Record<string, any> = {};
                     subSnap.forEach(doc => {
@@ -68,10 +68,7 @@ export function AssignmentsView() {
             return () => unsubEnroll();
         } else {
             setCurrentUser(null);
-            setAssignments([
-               { id: '1', title: 'Architecture Blockchain Privée', courseTitle: 'FinTech Fondations', courseId: 'trading', dueDate: new Date(Date.now() + 86400000) },
-               { id: '2', title: 'Analyse de risques', courseTitle: 'Gestion FinTech', courseId: 'trading', dueDate: new Date(Date.now() + 86400000 * 3) }
-            ]);
+            setAssignments([]);
             setIsLoading(false);
         }
     });

@@ -51,8 +51,9 @@ export function QnaClient() {
             });
             setAnswerText("");
             setAnsweringId(null);
-        } catch (error) {
-            console.error("Error sending answer:", error);
+        } catch (error: any) {
+            console.error("Erreur lors de l'envoi de la réponse:", error);
+            alert("Erreur de réponse: " + (error.message || "Permissions insuffisantes."));
         } finally {
             setLoadingAnsweringId(null);
         }
@@ -154,13 +155,19 @@ export function QnaClient() {
                                             <button 
                                                 onClick={async () => {
                                                     setLoadingAnsweringId(q.id);
-                                                    await updateDoc(doc(db, 'course_qna', q.id), {
-                                                        answer: answerText,
-                                                        needsValidation: false,
-                                                        validatedByInstructor: true
-                                                    });
-                                                    setAnsweringId(null);
-                                                    setLoadingAnsweringId(null);
+                                                    try {
+                                                        await updateDoc(doc(db, 'course_qna', q.id), {
+                                                            answer: answerText,
+                                                            needsValidation: false,
+                                                            validatedByInstructor: true
+                                                        });
+                                                        setAnsweringId(null);
+                                                    } catch(e: any) {
+                                                        console.error(e);
+                                                        alert("Erreur de MAJ: " + (e.message || "Permissions insuffisantes"));
+                                                    } finally {
+                                                        setLoadingAnsweringId(null);
+                                                    }
                                                 }}
                                                 disabled={!answerText.trim() || loadingAnsweringId === q.id}
                                                 className="px-4 py-2 bg-emerald-500 text-black font-bold uppercase tracking-widest text-xs rounded-xl"
@@ -173,10 +180,15 @@ export function QnaClient() {
                                         <div className="flex gap-2">
                                             <button 
                                                 onClick={async () => {
-                                                    await updateDoc(doc(db, 'course_qna', q.id), {
-                                                        needsValidation: false,
-                                                        validatedByInstructor: true
-                                                    });
+                                                    try {
+                                                        await updateDoc(doc(db, 'course_qna', q.id), {
+                                                            needsValidation: false,
+                                                            validatedByInstructor: true
+                                                        });
+                                                    } catch(e: any) {
+                                                        console.error(e);
+                                                        alert("Erreur de Validation: " + (e.message || "Permissions insuffisantes"));
+                                                    }
                                                 }}
                                                 className="px-3 py-2 bg-emerald-500/20 text-emerald-400 font-bold text-[10px] uppercase tracking-widest rounded-lg hover:bg-emerald-500/30 transition flex items-center gap-1"
                                             >

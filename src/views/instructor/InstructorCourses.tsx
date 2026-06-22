@@ -40,12 +40,17 @@ export function InstructorCourses() {
   }, [courses, searchTerm]);
 
   const handleDeleteCourse = async (courseId: string) => {
+      if (!courseId) {
+          console.error("Erreur: L'ID de la formation est invalide.");
+          return;
+      }
       if (window.confirm("Supprimer cette formation ? Cette action est irréversible.")) {
           try {
               await deleteDoc(doc(db, 'courses', courseId));
-              alert("Formation supprimée");
-          } catch (error) {
-              alert("Erreur lors de la suppression");
+              alert("Formation supprimée avec succès.");
+          } catch (error: any) {
+              console.error("Erreur lors de la suppression du cours:", error);
+              alert("Erreur lors de la suppression : " + (error.message || "Permissions insuffisantes."));
           }
       }
   };
@@ -128,6 +133,16 @@ export function InstructorCourses() {
 
 function CourseCard({ course, onDelete }: any) {
     const isDraft = course.status === 'Draft';
+    const [isDeleting, setIsDeleting] = useState(false);
+
+    const handleDelete = async () => {
+        setIsDeleting(true);
+        try {
+            await onDelete();
+        } finally {
+            setIsDeleting(false);
+        }
+    };
     
     return (
         <div className="bg-[#1e293b] rounded-[2.5rem] p-5 relative overflow-hidden group border border-white/5 hover:border-primary/30 transition-colors shadow-2xl">
@@ -141,11 +156,15 @@ function CourseCard({ course, onDelete }: any) {
                </div>
                
                <button 
-                  onClick={onDelete}
-                  disabled={course.buyoutStatus === 'requested'}
+                  onClick={handleDelete}
+                  disabled={course.buyoutStatus === 'requested' || isDeleting}
                   className="absolute top-3 right-3 w-10 h-10 rounded-xl bg-red-500/80 backdrop-blur-md flex items-center justify-center text-white hover:bg-red-600 transition disabled:opacity-30 active:scale-90"
                >
-                   <Trash2 className="w-5 h-5" />
+                   {isDeleting ? (
+                       <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                   ) : (
+                       <Trash2 className="w-5 h-5" />
+                   )}
                </button>
             </div>
             

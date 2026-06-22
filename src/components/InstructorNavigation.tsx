@@ -11,6 +11,7 @@ export function InstructorNavigation() {
   const links = [
     { to: "/instructor/dashboard", icon: LayoutDashboard, label: "COCKPIT" },
     { to: "/instructor/courses", icon: BookOpen, label: "CATALOGUE" },
+    { to: "/instructor/messages", icon: MessageSquare, label: "MESSAGES" },
     { to: "/instructor/devoirs", icon: ClipboardCheck, label: "CORRECTION" },
     { to: "/instructor/revenus", icon: Building, label: "WEALTH" },
   ];
@@ -20,7 +21,7 @@ export function InstructorNavigation() {
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex flex-col w-64 h-screen border-r border-white/5 bg-background/80 backdrop-blur-xl z-40 sticky top-0">
         <div className="p-6 mb-4">
-           <div className="bg-slate-900 border border-white/5 rounded-3xl p-4 flex flex-col gap-2 relative overflow-hidden">
+           <Link to="/instructor/profile" className="bg-slate-900 border border-white/5 rounded-3xl p-4 flex flex-col gap-2 relative overflow-hidden block hover:bg-slate-800 transition-colors cursor-pointer">
                <div className="absolute top-0 right-0 w-24 h-24 bg-secondary/10 rounded-full blur-xl -mr-10 -mt-10" />
                <div className="flex items-center gap-3 relative z-10 w-full overflow-hidden">
                    <div className="w-12 h-12 rounded-full border border-secondary/30 bg-gradient-to-tr from-secondary to-amber-600 flex items-center justify-center text-background font-black text-lg overflow-hidden shrink-0 shadow-[0_0_15px_rgba(204,119,34,0.3)]">
@@ -38,7 +39,7 @@ export function InstructorNavigation() {
                        </p>
                    </div>
                </div>
-           </div>
+           </Link>
         </div>
         
         <div className="flex-1 overflow-y-auto hide-scrollbar px-4 space-y-2 pb-6">
@@ -66,6 +67,7 @@ export function InstructorNavigation() {
           <div className="text-[10px] font-black text-slate-500 tracking-[0.2em] uppercase mb-3 ml-2 mt-8">• PÉDAGOGIE</div>
           <SideLink to="/instructor/devoirs" icon={ClipboardCheck} label="USINE DE CORRECTION" current={location.pathname} />
           <SideLink to="/instructor/quiz" icon={FileQuestion} label="ÉVALUATION (QUIZ)" current={location.pathname} />
+          <SideLink to="/instructor/messages" icon={MessageSquare} label="MESSAGERIE" current={location.pathname} />
           <SideLink to="/instructor/qna" icon={MessageSquare} label="INTERACTIONS Q&R" current={location.pathname} />
           <SideLink to="/instructor/avis" icon={Star} label="AVIS & TÉMOIGNAGES" current={location.pathname} />
           
@@ -75,6 +77,7 @@ export function InstructorNavigation() {
           <SideLink to="/instructor/certificats" icon={Award} label="REGISTRE DIPLÔMES" current={location.pathname} />
           
           <div className="text-[10px] font-black text-slate-500 tracking-[0.2em] uppercase mb-3 ml-2 mt-8">• SYSTÈME</div>
+          <SideLink to="/instructor/profile" icon={BadgeCheck} label="PROFIL INSTRUCTEUR" current={location.pathname} />
           <SideLink to="/instructor/settings" icon={Settings} label="RÉGLAGES ACADEMY" current={location.pathname} />
         </div>
       </aside>

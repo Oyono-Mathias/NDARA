@@ -175,10 +175,10 @@ export function AdminMembers() {
         const userDoc = await t.get(userRef);
         if (!userDoc.exists()) throw new Error("Utilisateur introuvable");
         
-        const currentBalance = userDoc.data()?.walletBalance || 0;
+        const currentBalance = userDoc.data()?.balance || 0;
         
         t.update(userRef, {
-          walletBalance: currentBalance + amount
+          balance: currentBalance + amount
         });
         
         t.set(txRef, {
@@ -401,9 +401,9 @@ export function AdminMembers() {
                             <span className="w-1 h-1 rounded-full bg-slate-600"></span>
                             {selectedMember.role || 'student'}
                         </p>
-                        {selectedMember.walletBalance !== undefined && (
+                        {selectedMember.balance !== undefined && (
                           <p className="text-emerald-400 font-mono text-[10px] mt-0.5 uppercase tracking-widest flex items-center gap-2">
-                            Solde: {selectedMember.walletBalance} XAF
+                            Solde: {selectedMember.balance} XAF
                           </p>
                         )}
                     </div>

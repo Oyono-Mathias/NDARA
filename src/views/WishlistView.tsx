@@ -34,7 +34,7 @@ export function WishlistView() {
           const idsToFetch = courseIds.slice(0, 10);
           if(idsToFetch.length === 0) return;
           
-          const coursesQuery = query(collection(db, 'courses'), where(documentId(), 'in', idsToFetch));
+          const coursesQuery = query(collection(db, 'courses'), where(documentId(), 'in', idsToFetch), where('status', '==', 'Published'));
           const coursesSnap = await getDocs(coursesQuery);
           const coursesData = coursesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
           

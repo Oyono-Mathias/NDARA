@@ -64,7 +64,7 @@ export function StudentLayout() {
           onClose={() => setIsSidebarOpen(false)}
         />
 
-        <main className="flex-1 w-full max-w-md md:max-w-none mx-auto relative z-10 hide-scrollbar pb-24 md:pb-8 pt-4 md:pt-8 px-4">
+        <main className="flex-1 w-full max-w-md md:max-w-none mx-auto relative z-10 hide-scrollbar pb-32 md:pb-8 pt-4 md:pt-8 px-4">
           <Outlet />
         </main>
       </div>

@@ -1,13 +1,53 @@
-import { User, ShieldCheck, Mail, MapPin, Globe, CreditCard } from "lucide-react";
+import { User, ShieldCheck, Mail, MapPin, Globe, CreditCard, GraduationCap, Loader2 } from "lucide-react";
 import { useRole } from "../context/RoleContext";
+import { useState } from "react";
+import { doc, updateDoc } from "firebase/firestore";
+import { db } from "../firebase";
 
 export function AccountView() {
-  const { currentUser } = useRole();
+  const { currentUser, role } = useRole();
+  const [isRequesting, setIsRequesting] = useState(false);
+
+  const handleRequestInstructor = async () => {
+      if (!currentUser?.uid || isRequesting) return;
+      if (!window.confirm("Envoyer une demande pour devenir formateur (expert) ?")) return;
+
+      setIsRequesting(true);
+      try {
+          await updateDoc(doc(db, "users", currentUser.uid), {
+             role: "pending_instructor",
+             status: "pending"
+          });
+          alert("Votre demande a bien été envoyée à l'administration !");
+          window.location.reload(); // force reload context
+      } catch (e: any) {
+          console.error(e);
+          alert("Erreur: " + e.message);
+      } finally {
+          setIsRequesting(false);
+      }
+  };
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-8">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <h1 className="font-serif text-3xl text-white">Carte d'Identité</h1>
+        
+        {role === "student" && (
+           <button 
+              onClick={handleRequestInstructor}
+              disabled={isRequesting}
+              className="flex items-center gap-2 px-6 py-3 bg-emerald-500 hover:bg-emerald-400 text-black font-black uppercase text-xs tracking-widest rounded-xl transition disabled:opacity-50"
+           >
+              {isRequesting ? <Loader2 className="w-4 h-4 animate-spin" /> : <GraduationCap className="w-4 h-4" />}
+              Devenir Formateur
+           </button>
+        )}
+        {(role === "pending_instructor" || role === "expert_pending") && (
+            <div className="px-4 py-2 bg-amber-500/20 text-amber-500 border border-amber-500/30 rounded-lg text-xs font-bold uppercase tracking-widest flex items-center gap-2 animate-pulse">
+                Validation en cours...
+            </div>
+        )}
       </div>
 
       {/* Main Identity Card */}

@@ -230,7 +230,7 @@ export function Dashboard() {
                     <div 
                         key={course.id}
                         className="glass rounded-3xl overflow-hidden card-hover cursor-pointer border border-white/5 relative group"
-                        onClick={() => navigate(`/student/courses/${course.slug}`)}
+                        onClick={() => navigate(`/student/catalog/${course.id}`)}
                     >
                     <div className="relative w-full h-32">
                         <img src={formatImageUrl(course.thumbnail) || "https://images.unsplash.com/photo-1526379095098-d400fd0bfce8?auto=format&fit=crop&q=80"} alt={course.title} className="w-full h-full object-cover" />
@@ -271,7 +271,7 @@ export function Dashboard() {
         
         <div className="flex gap-4 overflow-x-auto hide-scrollbar sm:px-2 px-1 pb-4 snap-x snap-mandatory">
             {recommendedCourses.map((course, i) => (
-                <div key={course.id || i} onClick={() => navigate(`/student/courses/${course.slug}`)} className="min-w-[160px] max-w-[160px] glass-light rounded-2xl overflow-hidden border border-white/5 cursor-pointer card-hover snap-start shrink-0">
+                <div key={course.id || i} onClick={() => navigate(`/student/catalog/${course.id}`)} className="min-w-[160px] max-w-[160px] glass-light rounded-2xl overflow-hidden border border-white/5 cursor-pointer card-hover snap-start shrink-0">
                     <img src={formatImageUrl(course.thumbnail) || "https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&q=80"} alt={course.title} className="w-full h-24 object-cover" />
                     <div className="p-3">
                         <div className="text-[9px] font-bold text-primary tracking-widest uppercase mb-1">{course.category || "Formation"}</div>

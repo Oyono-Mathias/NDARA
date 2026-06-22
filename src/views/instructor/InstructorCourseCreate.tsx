@@ -277,9 +277,9 @@ export function InstructorCourseCreate() {
           setTimeout(() => {
               navigate('/instructor/courses');
           }, 1500);
-      } catch (err) {
-          console.error(err);
-          showToast('Erreur lors de la publication', 'error');
+      } catch (err: any) {
+          console.error("Erreur détaillée lors de l'ajout du cours:", err);
+          showToast('Erreur lors de la publication : ' + (err.message || "Permissions insuffisantes."), 'error');
       }
   };
 

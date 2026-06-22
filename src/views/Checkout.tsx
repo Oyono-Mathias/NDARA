@@ -56,7 +56,7 @@ export function CheckoutView() {
     }
 
     if (slug) {
-        const q = query(collection(db, 'courses'), where('slug', '==', slug));
+        const q = query(collection(db, 'courses'), where('slug', '==', slug), where('status', '==', 'Published'));
         const unsubscribe = onSnapshot(q, (snap) => {
             if (!snap.empty) {
                 setCourse({ id: snap.docs[0].id, ...snap.docs[0].data() });
@@ -157,12 +157,31 @@ export function CheckoutView() {
         setIsAwaitingUssd(true);
         setIsProcessing(true);
         
-        setTimeout(() => {
+        setTimeout(async () => {
+            const { setDoc, doc, collection } = await import("firebase/firestore");
+            await setDoc(doc(collection(db, 'enrollments')), {
+                studentId: currentUser.uid,
+                courseId: course.id,
+                enrolledAt: new Date(),
+                progress: 0,
+                instructorId: course.instructorId || 'admin'
+            });
+
             setIsAwaitingUssd(false);
             setIsProcessing(false);
             setIsSuccess(true);
         }, 3000);
     } else if (selectedMethodId === 'virtual') {
+        setIsProcessing(true);
+        const { setDoc, doc, collection } = await import("firebase/firestore");
+        await setDoc(doc(collection(db, 'enrollments')), {
+            studentId: currentUser.uid,
+            courseId: course.id,
+            enrolledAt: new Date(),
+            progress: 0,
+            instructorId: course.instructorId || 'admin'
+        });
+        setIsProcessing(false);
         setIsSuccess(true);
     }
   };

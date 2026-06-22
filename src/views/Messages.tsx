@@ -2,7 +2,6 @@ import { Suspense } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ChatList } from '../components/chat/ChatList';
 import { ChatRoom } from '../components/chat/ChatRoom';
-import { useIsMobile } from '../hooks/use-mobile';
 import { useRole } from '../context/RoleContext';
 import { Loader2 } from 'lucide-react';
 
@@ -10,7 +9,7 @@ function MessagesPageContent() {
     const [searchParams] = useSearchParams();
     const { isUserLoading } = useRole();
     const chatId = searchParams.get('chatId');
-    const isMobile = useIsMobile();
+    const newChatUser = searchParams.get('newChatUser');
 
     if (isUserLoading) {
         return (
@@ -20,24 +19,19 @@ function MessagesPageContent() {
         );
     }
 
-    // SUR MOBILE : On affiche soit la liste, soit la salle, jamais les deux.
-    if (isMobile) {
-        return (
-            <div className="fixed inset-0 z-50 bg-slate-950 overflow-hidden">
-                {chatId ? <ChatRoom chatId={chatId} /> : <ChatList selectedChatId={null} />}
-            </div>
-        );
-    }
+    const showRoom = Boolean(chatId || newChatUser);
 
-    // SUR DESKTOP : Layout Split-Screen standard.
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-[350px_1fr] h-[calc(100vh-64px)] -m-6 overflow-hidden">
-            <aside className="border-r border-slate-800 bg-slate-900/20">
+        <div className="grid grid-cols-1 lg:grid-cols-[350px_1fr] h-[calc(100dvh-150px)] lg:h-[calc(100dvh-64px)] -m-4 lg:-m-6 overflow-hidden relative">
+            {/* Chat List: Hidden on mobile when room is active */}
+            <aside className={`border-r border-slate-800 bg-slate-900/20 ${showRoom ? 'hidden lg:block' : 'block'}`}>
                 <ChatList selectedChatId={chatId} />
             </aside>
-            <main className="bg-slate-950 flex flex-col relative">
-                {chatId ? (
-                    <ChatRoom chatId={chatId} />
+
+            {/* Chat Room: normal grid column, full size on mobile */}
+            <main className={`bg-slate-950 flex flex-col w-full h-full ${showRoom ? 'flex' : 'hidden lg:flex'}`}>
+                {showRoom ? (
+                    <ChatRoom chatId={chatId} newChatUser={newChatUser} />
                 ) : (
                     <div className="flex-1 flex flex-col items-center justify-center text-slate-700 opacity-30 p-12 text-center animate-in fade-in duration-700">
                         <div className="p-8 bg-slate-900/50 rounded-full mb-6">
