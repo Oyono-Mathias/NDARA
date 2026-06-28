@@ -228,8 +228,8 @@ export function ChatRoom({ chatId, newChatUser }: { chatId: string | null, newCh
             <div className="absolute inset-0 opacity-5 pointer-events-none" style={{ backgroundImage: "url('data:image/svg+xml,%3Csvg width=\\'60\\' height=\\'60\\' viewBox=\\'0 0 60 60\\' xmlns=\\'http://www.w3.org/2000/svg\\'%3E%3Cg fill=\\'none\\' fill-rule=\\'evenodd\\'%3E%3Cg fill=\\'%2310B981\\' fill-opacity=\\'0.4\\'%3E%3Cpath d=\\'M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\\'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')" }}></div>
 
             {/* Header */}
-            <header className="absolute top-0 w-full z-50 glass">
-                <div className="px-4 py-3 flex items-center gap-3">
+            <div className="absolute top-0 w-full z-50 glass">
+                <div className="px-4 py-2 flex items-center gap-3 safe-area-pt">
                     <Link to={basePath} className="w-10 h-10 rounded-full glass-light flex items-center justify-center text-gray-400 hover:text-white transition card-hover lg:hidden">
                         <ArrowLeft className="w-5 h-5" />
                     </Link>
@@ -254,15 +254,12 @@ export function ChatRoom({ chatId, newChatUser }: { chatId: string | null, newCh
                         <button className="w-10 h-10 rounded-full glass-light flex items-center justify-center text-gray-400 hover:text-emerald-500 transition card-hover">
                             <Phone className="w-5 h-5" />
                         </button>
-                        <button className="w-10 h-10 rounded-full glass-light flex items-center justify-center text-gray-400 hover:text-white transition card-hover">
-                            <MoreVertical className="w-5 h-5" />
-                        </button>
                     </div>
                 </div>
-            </header>
+            </div>
 
             {/* Messages Area */}
-            <main className="flex-1 overflow-y-auto hide-scrollbar pt-20 pb-20 px-4 relative z-10 w-full">
+            <main className="flex-1 overflow-y-auto hide-scrollbar pt-24 pb-4 px-4 relative z-10 w-full">
                 {/* Date Separator */}
                 <div className="flex justify-center my-4 animate-in fade-in duration-500">
                     <span className="glass-light px-4 py-2 rounded-full text-xs text-gray-400 font-medium">Aujourd'hui</span>
@@ -318,8 +315,8 @@ export function ChatRoom({ chatId, newChatUser }: { chatId: string | null, newCh
             </main>
 
             {/* Input Area */}
-            <div className="absolute bottom-0 w-full input-area pb-safe relative z-20 shrink-0 border-t border-white/5">
-                <div className="px-4 py-3 flex items-end gap-2 pb-5 lg:pb-3">
+            <div className="w-full input-area relative z-20 shrink-0 border-t border-white/5 bg-black safe-area-pb">
+                <div className="px-4 py-3 flex items-end gap-2">
                     <button className="w-10 h-10 rounded-full glass-light flex items-center justify-center text-gray-400 hover:text-emerald-500 transition card-hover flex-shrink-0">
                         <Paperclip className="w-5 h-5" />
                     </button>

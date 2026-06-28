@@ -3,6 +3,8 @@ import { getFirestore, collection, query, where, onSnapshot, getDocs, documentId
 import { db, auth } from '../firebase';
 import { Award, Trophy, Share2, Eye, ArrowRight, Clock, ShieldCheck, Download } from 'lucide-react';
 import { CertificateModal } from '../components/modals/certificate-modal';
+import { TopAppBar } from '../components/ui/TopAppBar';
+import { Skeleton } from '../components/ui/Skeleton';
 import { Link } from 'react-router-dom';
 
 interface Course {
@@ -93,6 +95,7 @@ export function CertificatesView() {
 
     return (
         <div className="flex flex-col gap-8 pb-24 bg-slate-950 min-h-screen">
+            <TopAppBar title="Mes Certificats" showBack={true} transparent />
             {selectedCert && (
                 <CertificateModal
                     isOpen={isModalOpen}
@@ -107,19 +110,10 @@ export function CertificatesView() {
                 />
             )}
 
-            <header className="pt-8 space-y-2">
-                <div className="flex items-center gap-2 text-amber-500 mb-2">
-                    <Trophy className="h-5 w-5" />
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em]">Réussite & Mérite</span>
-                </div>
-                <h1 className="text-3xl font-black text-white leading-tight uppercase tracking-tight">Mes <br/><span className="text-amber-500">Certificats</span></h1>
-                <p className="text-slate-500 text-sm font-medium">Vos compétences certifiées par l'excellence panafricaine.</p>
-            </header>
-
-            <div className="space-y-4 w-full">
+            <div className="space-y-4 w-full px-4">
                 {isLoading ? (
                     <div className="grid gap-4">
-                        {[...Array(2)].map((_, i) => <div key={i} className="h-64 w-full rounded-[2.5rem] bg-slate-900 border border-slate-800 animate-pulse" />)}
+                        {[...Array(2)].map((_, i) => <Skeleton key={i} className="h-64 w-full rounded-[2.5rem]" />)}
                     </div>
                 ) : enrichedData.length > 0 ? (
                     <div className="grid gap-6 animate-in fade-in duration-700">

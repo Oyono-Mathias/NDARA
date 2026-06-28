@@ -1,10 +1,14 @@
 import { useNavigate } from "react-router-dom";
 import { formatImageUrl } from "../lib/utils";
-import { Play, BookOpen, Award, ArrowRight, Bot, Sparkles, Search, CheckCircle2, ChevronRight, Flame, Loader2, MessageCircleQuestion } from "lucide-react";
+import { Play, BookOpen, Award, ArrowRight, Bot, Sparkles, Search, CheckCircle2, ChevronRight, Flame, Loader2, MessageCircleQuestion, Bell } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useRole } from "../context/RoleContext";
 import { collection, query, where, onSnapshot, getDocs, limit, getCountFromServer, orderBy, getDoc, doc } from "firebase/firestore";
 import { db } from "../firebase";
+import { TopAppBar } from "../components/ui/TopAppBar";
+import { TouchArea } from "../components/ui/TouchArea";
+
+import { Skeleton } from "../components/ui/Skeleton";
 
 export function Dashboard() {
   const navigate = useNavigate();
@@ -134,21 +138,33 @@ export function Dashboard() {
 
   if (loading) {
     return (
-      <div className="space-y-6 px-1 pb-24 animate-pulse pt-4">
-        <div className="h-12 w-3/4 bg-white/5 rounded-lg mb-4"></div>
+      <div className="space-y-6 px-5 pb-24 pt-4">
+        <Skeleton className="h-12 w-3/4 rounded-lg mb-4" />
         <div className="grid grid-cols-4 gap-3">
-          {[1,2,3,4].map(i => <div key={i} className="h-24 bg-white/5 rounded-2xl"></div>)}
+          {[1,2,3,4].map(i => <Skeleton key={i} className="h-24 rounded-2xl" />)}
         </div>
-        <div className="h-32 bg-white/5 rounded-2xl w-full"></div>
-        <div className="h-48 bg-white/5 rounded-3xl w-full"></div>
+        <Skeleton className="h-32 rounded-2xl w-full" />
+        <Skeleton className="h-48 rounded-3xl w-full" />
       </div>
     );
   }
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-top-4 duration-700 relative pb-24">
+      <TopAppBar 
+        title="Ndara Afrique" 
+        showBack={false}
+        transparent={true}
+        rightAction={
+          <button onClick={() => navigate('/student/notifications')} className="w-10 h-10 rounded-full flex items-center justify-center text-gray-400 hover:text-white transition relative">
+            <Bell className="w-5 h-5" />
+            <span className="absolute top-2 right-2.5 w-2 h-2 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.8)]"></span>
+          </button>
+        }
+      />
+
       {/* Welcome Section */}
-      <header className="px-1">
+      <header className="px-5">
         <p className="text-gray-400 text-xs font-medium mb-1 tracking-widest uppercase">Bonjour</p>
         <h1 className="font-serif text-4xl text-white mb-1 leading-[1.1] tracking-tight">
           {currentUser?.fullName?.split(' ')[0] || "Étudiant"}.
@@ -157,42 +173,42 @@ export function Dashboard() {
       </header>
 
       {/* Stats Grid */}
-      <section className="grid grid-cols-4 gap-3 px-1">
-        <div className="glass-light rounded-2xl p-3 text-center card-hover cursor-pointer border border-white/5" onClick={() => navigate('/student/courses')}>
+      <section className="grid grid-cols-4 gap-3 px-5">
+        <TouchArea className="glass-light rounded-2xl p-3 text-center card-hover cursor-pointer border border-white/5" onClick={() => navigate('/student/courses')}>
           <div className="w-9 h-9 rounded-xl bg-primary/20 flex items-center justify-center mx-auto mb-2 text-primary">
             <BookOpen className="w-4 h-4" />
           </div>
           <p className="font-serif text-xl font-black text-white leading-[1.2]">{coursesCount.active}</p>
           <p className="text-gray-400 text-[9px] font-semibold tracking-wide uppercase mt-1">En cours</p>
-        </div>
+        </TouchArea>
         
-        <div className="glass-light rounded-2xl p-3 text-center card-hover cursor-pointer border border-white/5" onClick={() => navigate('/student/courses')}>
+        <TouchArea className="glass-light rounded-2xl p-3 text-center card-hover cursor-pointer border border-white/5" onClick={() => navigate('/student/courses')}>
           <div className="w-9 h-9 rounded-xl bg-blue-500/20 flex items-center justify-center mx-auto mb-2 text-blue-400">
             <CheckCircle2 className="w-4 h-4" />
           </div>
           <p className="font-serif text-xl font-black text-white leading-[1.2]">{coursesCount.completed}</p>
           <p className="text-gray-400 text-[9px] font-semibold tracking-wide uppercase mt-1">Terminés</p>
-        </div>
+        </TouchArea>
         
-        <div className="glass-light rounded-2xl p-3 text-center card-hover cursor-pointer border border-white/5" onClick={() => navigate('/student/certificates')}>
+        <TouchArea className="glass-light rounded-2xl p-3 text-center card-hover cursor-pointer border border-white/5" onClick={() => navigate('/student/certificates')}>
           <div className="w-9 h-9 rounded-xl bg-amber-500/20 flex items-center justify-center mx-auto mb-2 text-amber-500">
             <Award className="w-4 h-4" />
           </div>
           <p className="font-serif text-xl font-black text-white leading-[1.2]">0</p>
           <p className="text-gray-400 text-[9px] font-semibold tracking-wide uppercase mt-1">Certificats</p>
-        </div>
+        </TouchArea>
         
-        <div className="glass-light rounded-2xl p-3 text-center card-hover cursor-pointer border border-orange-500/20 bg-gradient-to-br from-orange-500/10 to-transparent">
+        <TouchArea className="glass-light rounded-2xl p-3 text-center card-hover cursor-pointer border border-orange-500/20 bg-gradient-to-br from-orange-500/10 to-transparent">
           <div className="w-9 h-9 rounded-xl bg-orange-500/20 flex items-center justify-center mx-auto mb-2 text-orange-500">
             <Flame className="w-4 h-4" />
           </div>
           <p className="font-serif text-xl font-black text-orange-500 leading-[1.2]">1</p>
           <p className="text-gray-400 text-[9px] font-semibold tracking-wide uppercase mt-1">Jours 🔥</p>
-        </div>
+        </TouchArea>
       </section>
 
       {/* Overall Progress */}
-      <section className="px-1">
+      <section className="px-5">
         <div className="rounded-2xl p-5 border border-primary/20 bg-gradient-to-br from-primary/10 to-transparent">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-sm font-bold text-white">Progression Globale</h2>
@@ -209,7 +225,7 @@ export function Dashboard() {
       </section>
 
       {/* Continue Learning */}
-      <section className="px-1">
+      <section className="px-5">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-base font-bold text-white tracking-tight">Continuer à apprendre</h2>
           <button 
@@ -227,9 +243,9 @@ export function Dashboard() {
                 </div>
             ) : (
                 recentCourses.map((course: any) => (
-                    <div 
+                    <TouchArea 
                         key={course.id}
-                        className="glass rounded-3xl overflow-hidden card-hover cursor-pointer border border-white/5 relative group"
+                        className="glass rounded-3xl overflow-hidden card-hover cursor-pointer border border-white/5 relative group block"
                         onClick={() => navigate(`/student/catalog/${course.id}`)}
                     >
                     <div className="relative w-full h-32">
@@ -251,7 +267,7 @@ export function Dashboard() {
                             <span className="text-xs font-bold text-primary">33%</span>
                         </div>
                     </div>
-                    </div>
+                    </TouchArea>
                 ))
             )}
         </div>
@@ -269,9 +285,9 @@ export function Dashboard() {
           </button>
         </div>
         
-        <div className="flex gap-4 overflow-x-auto hide-scrollbar sm:px-2 px-1 pb-4 snap-x snap-mandatory">
+        <div className="flex gap-4 overflow-x-auto hide-scrollbar sm:px-2 px-5 pb-4 snap-x snap-mandatory">
             {recommendedCourses.map((course, i) => (
-                <div key={course.id || i} onClick={() => navigate(`/student/catalog/${course.id}`)} className="min-w-[160px] max-w-[160px] glass-light rounded-2xl overflow-hidden border border-white/5 cursor-pointer card-hover snap-start shrink-0">
+                <TouchArea as="div" key={course.id || i} onClick={() => navigate(`/student/catalog/${course.id}`)} className="min-w-[160px] max-w-[160px] glass-light rounded-2xl overflow-hidden border border-white/5 cursor-pointer card-hover snap-start shrink-0 block">
                     <img src={formatImageUrl(course.thumbnail) || "https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&q=80"} alt={course.title} className="w-full h-24 object-cover" />
                     <div className="p-3">
                         <div className="text-[9px] font-bold text-primary tracking-widest uppercase mb-1">{course.category || "Formation"}</div>
@@ -284,14 +300,14 @@ export function Dashboard() {
                             <span className="text-[10px] font-medium text-gray-400">{course.price || "Gratuit"} XAF</span>
                         </div>
                     </div>
-                </div>
+                </TouchArea>
             ))}
         </div>
       </section>
 
       {/* Realtime Notifications Feed */}
       {notifications.length > 0 && (
-          <section className="px-1 mb-8">
+          <section className="px-5 mb-8">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
                   <MessageCircleQuestion className="w-4 h-4 text-emerald-400" /> Réponses récentes
@@ -316,7 +332,7 @@ export function Dashboard() {
           <h2 className="text-base font-bold text-white tracking-tight">Vos badges</h2>
         </div>
         
-        <div className="flex gap-3 overflow-x-auto hide-scrollbar sm:px-2 px-1 snap-x snap-mandatory pb-4">
+        <div className="flex gap-3 overflow-x-auto hide-scrollbar sm:px-2 px-5 snap-x snap-mandatory pb-4">
             {studentBadges.length > 0 ? (
                 studentBadges.map(badge => (
                     <div key={badge.id} className="min-w-[130px] shrink-0 p-4 rounded-2xl bg-gradient-to-br from-amber-500/15 to-transparent border border-amber-500/20 text-center snap-start card-hover cursor-pointer">

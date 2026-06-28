@@ -3,7 +3,8 @@ import { useSearchParams } from 'react-router-dom';
 import { ChatList } from '../components/chat/ChatList';
 import { ChatRoom } from '../components/chat/ChatRoom';
 import { useRole } from '../context/RoleContext';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Plus, MessageSquarePlus } from 'lucide-react';
+import { FAB } from '../components/ui/FAB';
 
 function MessagesPageContent() {
     const [searchParams] = useSearchParams();
@@ -22,10 +23,16 @@ function MessagesPageContent() {
     const showRoom = Boolean(chatId || newChatUser);
 
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-[350px_1fr] h-[calc(100dvh-150px)] lg:h-[calc(100dvh-64px)] -m-4 lg:-m-6 overflow-hidden relative">
+        <div className={`grid grid-cols-1 lg:grid-cols-[350px_1fr] w-full h-full relative overflow-hidden bg-black`}>
             {/* Chat List: Hidden on mobile when room is active */}
-            <aside className={`border-r border-slate-800 bg-slate-900/20 ${showRoom ? 'hidden lg:block' : 'block'}`}>
+            <aside className={`border-r border-slate-800 bg-slate-900/20 h-full ${showRoom ? 'hidden lg:block' : 'block'}`}>
                 <ChatList selectedChatId={chatId} />
+                {!showRoom && (
+                    <FAB 
+                        icon={<MessageSquarePlus className="w-6 h-6" />} 
+                        onClick={() => console.log('New Message')} 
+                    />
+                )}
             </aside>
 
             {/* Chat Room: normal grid column, full size on mobile */}

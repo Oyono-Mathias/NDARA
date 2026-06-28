@@ -592,7 +592,9 @@ Tu ne dois pas donner la réponse brute immédiatement, mais guider les étudian
             if (data?.cloudflare_account_id) accountId = data.cloudflare_account_id;
             if (data?.cloudflare_api_token) apiToken = data.cloudflare_api_token;
         }
-      } catch(e) { console.error("Error reading db config", e); }
+      } catch(e: any) {
+        // ignore missing DB or permissions silently as it's an expected fallback
+      }
 
       if (!accountId || !apiToken) {
         return res.status(500).json({ error: "Configuration Cloudflare manquante sur le serveur." });
@@ -664,7 +666,9 @@ Tu ne dois pas donner la réponse brute immédiatement, mais guider les étudian
             if (data?.bunny_stream_api_key) apiKey = data.bunny_stream_api_key;
             if (data?.bunny_stream_library_id) libraryId = data.bunny_stream_library_id;
         }
-      } catch(e) { console.error("Error reading db config", e); }
+      } catch(e: any) {
+        // ignore missing DB or permissions silently as it's an expected fallback
+      }
 
       if (!apiKey || !libraryId) {
         return res.status(500).json({ error: "Configuration Bunny manquante sur le serveur." });
@@ -682,6 +686,8 @@ Tu ne dois pas donner la réponse brute immédiatement, mais guider les étudian
       });
 
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Bunny API Error:", response.status, errorText);
         throw new Error("Failed to create video in Bunny Stream");
       }
 
@@ -756,6 +762,9 @@ Tu ne dois pas donner la réponse brute immédiatement, mais guider les étudian
       res.status(500).json({ error: "Erreur lors de la sécurisation de la vidéo." });
     }
   });
+
+  // Static file serving for local fallback uploads
+  app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {

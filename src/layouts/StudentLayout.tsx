@@ -1,13 +1,16 @@
-import { useState } from "react";
-import { Navigate, Outlet, Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Navigate, useLocation, useOutlet } from "react-router-dom";
 import { Bell, Menu, Loader2 } from "lucide-react";
 import { useRole } from "../context/RoleContext";
 import { Navigation } from "../components/Navigation";
 import { Sidebar } from "../components/Sidebar";
+import { AnimatePresence, motion } from "motion/react";
 
 export function StudentLayout() {
   const { loading, currentUser } = useRole();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const location = useLocation();
+  const element = useOutlet();
 
   if (loading) {
     return (
@@ -21,57 +24,65 @@ export function StudentLayout() {
     return <Navigate to="/auth" replace />;
   }
 
+  // Hide bottom nav and adjust padding when inside a specific chat room, quiz, or detail views (Lot B)
+  const isFullScreenView = location.pathname.includes('/messages') || 
+                           location.pathname.includes('/quiz') || 
+                           location.pathname.includes('/sandbox') ||
+                           location.pathname.includes('/catalog/') || 
+                           location.pathname.includes('/ebooks/') || 
+                           location.pathname.includes('/assignments/') || 
+                           location.pathname.includes('/courses/') && !location.pathname.endsWith('/courses') ||
+                           location.pathname.includes('/account') ||
+                           location.pathname.includes('/support') ||
+                           location.pathname.includes('/downloads') ||
+                           location.pathname.includes('/ambassador');
+  
+  useEffect(() => {
+    const metaThemeColor = document.querySelector('meta[name="theme-color"]');
+    if (metaThemeColor) {
+      if (isFullScreenView) {
+        metaThemeColor.setAttribute("content", "#020617"); // slate-950 for full screen views
+      } else {
+        metaThemeColor.setAttribute("content", "#000000"); // black for main views
+      }
+    }
+  }, [isFullScreenView]);
+
   return (
-    <div className="flex flex-col min-h-screen bg-black relative selection:bg-[#10B981] selection:text-black antialiased">
+    <div className="flex flex-col relative selection:bg-[#10B981] selection:text-black antialiased h-[100dvh] overflow-hidden bg-black">
       {/* Background Gradients */}
       <div className="absolute top-0 right-0 w-80 h-80 bg-[#10B981]/10 rounded-full blur-[100px] -mr-40 -mt-40 pointer-events-none z-0"></div>
       <div className="absolute bottom-0 left-0 w-80 h-80 bg-blue-500/10 rounded-full blur-[100px] -ml-40 -mb-40 pointer-events-none z-0"></div>
 
-      <header className="w-full z-40 bg-black/50 backdrop-blur-md border-b border-white/5 safe-top sticky top-0 md:hidden">
-        <div className="flex items-center justify-between px-6 py-4 max-w-7xl mx-auto">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setIsSidebarOpen(true)}
-              className="p-2 -ml-2 text-white hover:bg-white/10 rounded-full transition-colors relative z-50"
-            >
-              <Menu className="w-6 h-6" />
-            </button>
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#10B981] to-teal-600 flex items-center justify-center text-black font-black text-sm shadow-[0_0_15px_rgba(16,185,129,0.3)]">
-                N
-              </div>
-              <span className="font-serif font-bold text-lg tracking-tight text-white drop-shadow-md">
-                NDARA
-              </span>
-            </div>
-          </div>
-          <div className="flex items-center gap-4">
-            <Link
-              to="/student/notifications"
-              className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gray-400 hover:text-white transition card-hover relative"
-            >
-              <Bell className="w-5 h-5" />
-              <span className="absolute top-2 right-2.5 w-2 h-2 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.8)]"></span>
-            </Link>
-          </div>
-        </div>
-      </header>
-
       <div className="flex-1 w-full max-w-7xl mx-auto flex overflow-hidden">
-        {/* Desktop Sidebar (hidden on mobile, handled by Sidebar component directly currently? Sidebar component in NDARA is actually a drawer for mobile, but let's check it later. For now we use the existing Sidebar) */}
+        {/* Desktop Sidebar */}
         <Sidebar
           isOpen={isSidebarOpen}
           onClose={() => setIsSidebarOpen(false)}
         />
 
-        <main className="flex-1 w-full max-w-md md:max-w-none mx-auto relative z-10 hide-scrollbar pb-32 md:pb-8 pt-4 md:pt-8 px-4">
-          <Outlet />
+        <main id="main-scroll-container" className="flex-1 w-full max-w-md md:max-w-none mx-auto relative z-10 hide-scrollbar flex flex-col overflow-hidden">
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={location.pathname}
+              initial={{ x: '100%', opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: '100%', opacity: 0 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className={`flex-1 flex flex-col h-full w-full overflow-y-auto hide-scrollbar ${isFullScreenView ? 'pb-0 pt-0 px-0' : 'px-4 pb-32 md:pb-8 pt-4 md:pt-8'}`}
+            >
+              {element}
+            </motion.div>
+          </AnimatePresence>
         </main>
       </div>
 
-      <div className="fixed bottom-0 w-full z-50 md:hidden">
-        <Navigation />
-      </div>
+      {!isFullScreenView && (
+        <div className="fixed bottom-0 w-full z-50 md:hidden">
+          <Navigation onMenuClick={() => setIsSidebarOpen(true)} />
+        </div>
+      )}
     </div>
   );
 }
+

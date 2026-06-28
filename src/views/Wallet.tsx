@@ -19,6 +19,7 @@ import {
   Send, Download, Plus, Clock, ShoppingCart, TrendingUp, RefreshCw, ChevronRight, X, AlertCircle, CheckCircle2, ShieldCheck, HelpCircle
 } from "lucide-react";
 import { WalletTransaction } from "../types/wallet";
+import { BottomSheet } from "../components/ui/BottomSheet";
 
 // Firestore error tracker following the guidelines
 enum OperationType {
@@ -599,28 +600,17 @@ export function WalletView() {
       </section>
 
       {/* Modals layout */}
-      {activeModal !== 'none' && (
-        <div className="fixed inset-0 bg-black/85 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 fill-current animation duration-200" onClick={() => setActiveModal('none')}>
-          <div 
-            className="w-full max-w-md bg-gradient-to-b from-[#111111] to-[#070707] border border-white/5 rounded-t-[2.5rem] sm:rounded-[2.5rem] p-6 animate-in slide-in-from-bottom max-h-[90vh] overflow-y-auto"
-            onClick={e => e.stopPropagation()}
-          >
-            {/* Top indicator for pocket pull */}
-            <div className="w-12 h-1 bg-white/20 rounded-full mx-auto mb-4 sm:hidden"></div>
-            
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-lg font-black text-white uppercase tracking-tight">
-                {activeModal === 'send' ? 'Envoi Ndara Transfer' : 
-                 activeModal === 'receive' ? 'Recevoir des fonds' : 
-                 activeModal === 'recharge' ? 'Recharger mon Wallet' :
-                 activeModal === 'sandbox' ? 'Ndara Sandbox Simulator' :
-                 'Fiche de Transaction'}
-              </h2>
-              <button onClick={() => setActiveModal('none')} className="w-9 h-9 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center">
-                <X className="w-4 h-4 text-white/70" />
-              </button>
-            </div>
-
+      <BottomSheet
+        isOpen={activeModal !== 'none'}
+        onClose={() => setActiveModal('none')}
+        title={
+          activeModal === 'send' ? 'Envoi Ndara Transfer' : 
+          activeModal === 'receive' ? 'Recevoir des fonds' : 
+          activeModal === 'recharge' ? 'Recharger mon Wallet' :
+          activeModal === 'sandbox' ? 'Ndara Sandbox Simulator' :
+          activeModal === 'detail' ? 'Fiche de Transaction' : undefined
+        }
+      >
             {/* Notification messages inside Modals */}
             {actionStatus && (
               <div className={`p-4 rounded-xl mb-6 text-xs text-center font-bold flex items-center justify-center gap-2 ${
@@ -909,9 +899,7 @@ export function WalletView() {
                 </button>
               </div>
             )}
-          </div>
-        </div>
-      )}
+      </BottomSheet>
     </div>
   );
 }

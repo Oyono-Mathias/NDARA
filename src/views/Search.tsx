@@ -18,6 +18,10 @@ import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useRole } from '../context/RoleContext';
 import { cn, formatImageUrl } from '../lib/utils';
 import { db } from '../firebase';
+import { TouchArea } from '../components/ui/TouchArea';
+import { Skeleton } from '../components/ui/Skeleton';
+import { BottomSheet } from '../components/ui/BottomSheet';
+import { Filter } from 'lucide-react';
 
 const CATEGORIES = [
     { name: "AgriTech", icon: Leaf },
@@ -31,13 +35,13 @@ const CATEGORIES = [
 function CourseCard({ course, instructor, variant }: any) {
   return (
     <Link to={`/student/catalog/${course.id}`} className="block">
-        <div className="glass rounded-[2rem] p-4 card-hover flex gap-4 bg-[#111111] border border-white/5 relative overflow-hidden">
-            <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-2xl overflow-hidden bg-card shrink-0 relative">
+        <TouchArea className="glass rounded-2xl sm:rounded-[2rem] p-3 sm:p-4 card-hover flex gap-3 sm:gap-4 bg-[#111111] border border-white/5 relative overflow-hidden">
+            <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-xl sm:rounded-2xl overflow-hidden bg-card shrink-0 relative">
                 <img src={course.thumbnail ? formatImageUrl(course.thumbnail) : 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&q=80'} alt={course.title} className="w-full h-full object-cover opacity-80" />
             </div>
-            <div className="flex-1 py-1 flex flex-col">
+            <div className="flex-1 py-1 flex flex-col justify-center">
                 <span className="text-primary text-[10px] font-bold uppercase tracking-wider mb-1">{course.category || 'Formation'}</span>
-                <h3 className="font-bold text-white text-sm sm:text-base line-clamp-2 mb-1">{course.title}</h3>
+                <h3 className="font-bold text-white text-sm sm:text-base line-clamp-2 mb-1 leading-snug">{course.title}</h3>
                 {instructor && <p className="text-xs text-slate-400 font-medium mb-2">Par {instructor.fullName || instructor.name || 'Instructeur'}</p>}
                 
                 <div className="mt-auto flex items-center justify-between">
@@ -45,12 +49,12 @@ function CourseCard({ course, instructor, variant }: any) {
                         <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
                         <span className="text-gray-400 text-xs font-medium">4.8</span>
                     </div>
-                    <span className="text-white font-bold text-sm bg-white/10 px-2 py-0.5 rounded-md">
+                    <span className="text-black font-bold text-xs sm:text-sm bg-primary px-2 py-0.5 rounded-md">
                         {course.price ? `${course.price} XAF` : 'Gratuit'}
                     </span>
                 </div>
             </div>
-        </div>
+        </TouchArea>
     </Link>
   );
 }
@@ -62,6 +66,7 @@ function SearchPageContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [cartCount, setCartCount] = useState(0);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
   
   const navigate = useNavigate();
   const { currentUser } = useRole();
@@ -177,59 +182,27 @@ function SearchPageContent() {
                 )}
             </div>
 
-            <div className="relative group">
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                    <SearchIcon className="h-5 w-5 text-primary" />
+            <div className="flex gap-2 relative">
+                <div className="relative flex-1 group">
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                        <SearchIcon className="h-4 w-4 text-primary" />
+                    </div>
+                    <input
+                        type="text"
+                        placeholder={t('search_placeholder')}
+                        className="w-full h-12 pl-14 pr-4 rounded-[2rem] bg-[#111111] border border-white/5 text-white shadow-xl focus-visible:outline-none focus:border-primary/50 transition-all text-sm"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
                 </div>
-                <input
-                    type="text"
-                    placeholder={t('search_placeholder')}
-                    className="w-full h-14 pl-14 pr-12 rounded-[2rem] bg-[#111111] border border-white/5 text-white shadow-xl focus-visible:outline-none focus:border-primary/50 transition-all text-sm"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                />
-                <button className="absolute right-4 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-primary flex items-center justify-center text-black active:scale-90 transition-transform">
-                    <Mic className="h-4 w-4" />
+                <button onClick={() => setIsFilterOpen(true)} className="w-12 h-12 rounded-full bg-[#111111] border border-white/5 flex items-center justify-center text-primary active:scale-90 transition-transform shadow-xl">
+                    <Filter className="h-5 w-5" />
                 </button>
-            </div>
-        </div>
-
-        <div className="px-4 pb-4 overflow-hidden">
-            <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-1">
-                <button 
-                    onClick={() => setSelectedCategory('all')}
-                    className={cn(
-                        "flex-shrink-0 px-5 py-2.5 rounded-full border text-[10px] font-black uppercase tracking-widest transition-all active:scale-95",
-                        selectedCategory === 'all' 
-                            ? "bg-primary text-black border-primary shadow-[0_0_15px_rgba(16,185,129,0.3)]" 
-                            : "bg-[#111111] border-white/5 text-gray-400"
-                    )}
-                >
-                    {tCat('all')}
-                </button>
-                {CATEGORIES.map(cat => {
-                    const Icon = cat.icon;
-                    return (
-                        <button 
-                            key={cat.name}
-                            onClick={() => setSelectedCategory(cat.name)}
-                            className={cn(
-                                "flex-shrink-0 px-5 py-2.5 rounded-full border text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 flex items-center gap-2",
-                                selectedCategory === cat.name 
-                                    ? "bg-primary text-black border-primary shadow-[0_0_15px_rgba(16,185,129,0.3)]" 
-                                    : "bg-[#111111] border-white/5 text-gray-400"
-                            )}
-                        >
-                            <Icon className="h-3 w-3" />
-                            {cat.name}
-                        </button>
-                    )
-                })}
             </div>
         </div>
       </header>
 
-      <main className="px-4 pt-56 max-w-md mx-auto w-full z-10 relative">
+      <main className="px-4 pt-44 max-w-md mx-auto w-full z-10 relative">
         <div className="flex items-center justify-between mb-6 px-1">
             <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest">
                 <span className="text-white">{filteredResults.length}</span> {tCommon('found_results', { count: filteredResults.length })}
@@ -240,10 +213,10 @@ function SearchPageContent() {
           <div className="space-y-4">
             {[...Array(4)].map((_, i) => (
                 <div key={i} className="flex gap-4 p-4 bg-[#111111] rounded-[2rem] border border-white/5">
-                    <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-2xl bg-white/5 animate-pulse shrink-0" />
+                    <Skeleton className="w-24 h-24 sm:w-32 sm:h-32 rounded-2xl shrink-0" />
                     <div className="flex-1 space-y-3 py-2">
-                        <div className="h-4 w-3/4 bg-white/5 rounded animate-pulse" />
-                        <div className="h-3 w-1/2 bg-white/5 rounded animate-pulse" />
+                        <Skeleton className="h-4 w-3/4 rounded" />
+                        <Skeleton className="h-3 w-1/2 rounded" />
                     </div>
                 </div>
             ))}
@@ -270,13 +243,64 @@ function SearchPageContent() {
           </div>
         )}
       </main>
+
+      <BottomSheet isOpen={isFilterOpen} onClose={() => setIsFilterOpen(false)} title="Filtres & Catégories">
+        <div className="space-y-4 pb-8">
+            <h3 className="text-sm font-bold text-white mb-2 uppercase tracking-widest text-[10px]">Catégories</h3>
+            <div className="grid grid-cols-2 gap-2">
+                <button 
+                    onClick={() => { setSelectedCategory('all'); setIsFilterOpen(false); }}
+                    className={cn(
+                        "p-4 rounded-2xl border transition-all text-left",
+                        selectedCategory === 'all' 
+                            ? "bg-primary text-black border-primary font-bold shadow-[0_0_15px_rgba(16,185,129,0.3)]" 
+                            : "bg-[#111111] border-white/5 text-gray-400 font-medium hover:bg-white/5"
+                    )}
+                >
+                    {tCat('all')}
+                </button>
+                {CATEGORIES.map(cat => {
+                    const Icon = cat.icon;
+                    return (
+                        <button 
+                            key={cat.name}
+                            onClick={() => { setSelectedCategory(cat.name); setIsFilterOpen(false); }}
+                            className={cn(
+                                "p-4 rounded-2xl border transition-all flex flex-col gap-2",
+                                selectedCategory === cat.name 
+                                    ? "bg-primary text-black border-primary font-bold shadow-[0_0_15px_rgba(16,185,129,0.3)]" 
+                                    : "bg-[#111111] border-white/5 text-gray-400 font-medium hover:bg-white/5"
+                            )}
+                        >
+                            <Icon className={cn("h-5 w-5", selectedCategory === cat.name ? "text-black" : "text-primary")} />
+                            <span className="text-sm">{cat.name}</span>
+                        </button>
+                    )
+                })}
+            </div>
+        </div>
+      </BottomSheet>
     </div>
   );
 }
 
 export function SearchAndCatalog() {
     return (
-        <Suspense fallback={<div className="h-screen bg-black flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
+        <Suspense fallback={
+            <div className="min-h-screen bg-black px-4 pt-32 max-w-md mx-auto w-full z-10 relative">
+                <div className="space-y-4">
+                    {[...Array(4)].map((_, i) => (
+                        <div key={i} className="flex gap-4 p-4 bg-[#111111] rounded-[2rem] border border-white/5">
+                            <Skeleton className="w-24 h-24 sm:w-32 sm:h-32 rounded-2xl shrink-0" />
+                            <div className="flex-1 space-y-3 py-2">
+                                <Skeleton className="h-4 w-3/4 rounded" />
+                                <Skeleton className="h-3 w-1/2 rounded" />
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        }>
             <SearchPageContent />
         </Suspense>
     )

@@ -5,11 +5,13 @@ import path from "path";
 
 let projectId = "";
 let databaseId = "";
+let storageBucket = "";
 try {
   const configStr = fs.readFileSync(path.join(process.cwd(), "firebase-applet-config.json"), "utf-8");
   const config = JSON.parse(configStr);
   projectId = config.projectId;
   databaseId = config.firestoreDatabaseId;
+  storageBucket = config.storageBucket;
 } catch (e) {
   console.warn("Could not read firebase-applet-config.json:", e);
 }
@@ -18,6 +20,7 @@ if (!admin.apps.length) {
   try {
     admin.initializeApp({
       projectId: projectId || undefined,
+      storageBucket: storageBucket || undefined,
       credential: admin.credential.applicationDefault()
     });
   } catch (error) {
@@ -26,5 +29,6 @@ if (!admin.apps.length) {
 }
 
 const adminDb = databaseId ? getFirestore(admin.app(), databaseId) : getFirestore(admin.app());
+const adminStorage = admin.storage();
 
-export { admin, adminDb };
+export { admin, adminDb, adminStorage };

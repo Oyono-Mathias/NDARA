@@ -43,6 +43,7 @@ type Quiz = {
     courseId?: string;
 };
 
+import { TopAppBar } from '../components/ui/TopAppBar';
 export function QuizView() {
   const params = useParams();
   const { quizId } = params;
@@ -230,18 +231,13 @@ export function QuizView() {
       <div className="grain-overlay" />
       
       {/* Header Immersif */}
-      <header className="px-4 py-6 border-b border-white/5 flex items-center justify-between z-20 bg-black/40 backdrop-blur-md safe-area-pt">
-        <button onClick={() => navigate(-1)} className="w-10 h-10 rounded-full bg-slate-900 flex items-center justify-center text-slate-500 active:scale-90 transition hover:text-white">
-          <X className="h-5 w-5" />
-        </button>
-        <div className="text-center">
-            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">Évaluation</p>
-            <h1 className="text-xs font-bold text-white uppercase tracking-widest mt-0.5 max-w-[180px] break-words line-clamp-1">{quizData?.title}</h1>
-        </div>
-        <div className="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500 font-black text-[10px]">
-            {currentQuestionIndex + 1}/{questions.length}
-        </div>
-      </header>
+      <div className="z-20 bg-black/40 backdrop-blur-md border-b border-white/5 relative">
+          <TopAppBar title={quizData?.title || "Évaluation"} showBack={true} transparent rightAction={
+              <div className="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500 font-black text-[10px] mt-1 mr-2">
+                  {currentQuestionIndex + 1}/{questions.length}
+              </div>
+          } />
+      </div>
       
       {/* Barre de Progression Glowy */}
       <div className="h-1 w-full bg-slate-900 overflow-hidden z-20">

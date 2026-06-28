@@ -1,6 +1,6 @@
 /// <reference lib="webworker" />
-import { precacheAndRoute, cleanupOutdatedCaches } from 'workbox-precaching';
-import { registerRoute } from 'workbox-routing';
+import { precacheAndRoute, cleanupOutdatedCaches, createHandlerBoundToURL } from 'workbox-precaching';
+import { registerRoute, NavigationRoute, setCatchHandler } from 'workbox-routing';
 import { CacheFirst, NetworkFirst } from 'workbox-strategies';
 import { ExpirationPlugin } from 'workbox-expiration';
 import { CacheableResponsePlugin } from 'workbox-cacheable-response';
@@ -12,6 +12,59 @@ cleanupOutdatedCaches();
 
 // Pré-mise en cache des assets statiques (Vite injectera ici la liste)
 precacheAndRoute(self.__WB_MANIFEST || []);
+
+// App routing fallback for SPA
+try {
+  const handler = createHandlerBoundToURL('/index.html');
+  const navigationRoute = new NavigationRoute(handler, {
+    denylist: [
+      new RegExp('/api/.*'),
+    ],
+  });
+  registerRoute(navigationRoute);
+} catch (e) {
+  console.log('Error setting up navigation route fallback', e);
+}
+
+// Fallback HTML page for completely offline navigation where SPA index.html is missing
+const FALLBACK_HTML = `
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ndara - Hors Ligne</title>
+  <style>
+    body { background: #020617; color: #fff; font-family: system-ui, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; text-align: center; }
+    h1 { font-size: 2rem; margin-bottom: 0.5rem; }
+    p { color: #94a3b8; margin-bottom: 2.5rem; max-width: 300px; line-height: 1.5; }
+    button { background: #10B981; color: #000; border: none; padding: 1rem 2.5rem; border-radius: 3rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; cursor: pointer; transition: transform 0.2s; }
+    button:active { transform: scale(0.95); }
+    svg { margin-bottom: 1.5rem; animation: pulse 2s infinite cubic-bezier(0.4, 0, 0.6, 1); }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+  </style>
+</head>
+<body>
+  <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M2 2l20 20"/><path d="M8.5 8.5a5 5 0 0 1 7 0"/><path d="M12 12a1 1 0 1 1 0 2 1 1 0 0 1 0-2Z"/>
+  </svg>
+  <h1>Mode Hors Ligne</h1>
+  <p>Veuillez vérifier votre connexion internet pour accéder à Ndara.</p>
+  <button onclick="window.location.reload()">Réessayer</button>
+</body>
+</html>
+`;
+
+setCatchHandler(async ({ request }) => {
+  if (request.mode === 'navigate') {
+    return new Response(FALLBACK_HTML, {
+      headers: {
+        'Content-Type': 'text/html',
+      },
+    });
+  }
+  return Response.error();
+});
 
 // ----------------------------------------------------------------------------
 // INTERCEPTION DES FLUX VIDÉO BUNNY STREAM

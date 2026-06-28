@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getFirestore, doc, collection, query, where, getDocs, setDoc, serverTimestamp, collectionGroup, onSnapshot } from 'firebase/firestore';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { db, auth, storage } from '../firebase';
 import { 
   ArrowLeft, 
@@ -17,6 +16,8 @@ import {
   Sparkles
 } from 'lucide-react';
 
+import { TopAppBar } from '../components/ui/TopAppBar';
+import { Skeleton } from '../components/ui/Skeleton';
 export function AssignmentDetail() {
   const { assignmentId } = useParams();
   const navigate = useNavigate();
@@ -75,32 +76,27 @@ export function AssignmentDetail() {
     return () => unsubAuth();
   }, [assignmentId, navigate]);
 
-  const handleFileUpload = (e: any) => {
+  const handleFileUpload = async (e: any) => {
     const file = e.target.files?.[0];
     if (!file || !currentUser || !assignmentId) return;
 
-    const fileRef = ref(storage, `assignments/${assignmentId}/${currentUser.uid}_${file.name}`);
-    const uploadTask = uploadBytesResumable(fileRef, file);
-
     setFileName(file.name);
-    
-    uploadTask.on('state_changed', 
-        (snapshot) => {
-            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-            setUploadProgress(progress);
-        }, 
-        (error) => {
-            console.error("Erreur d'upload", error);
-            setUploadProgress(null);
-            setFileName("");
-            alert("Erreur lors de l'upload du fichier");
-        }, 
-        async () => {
-            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-            setFileUrl(downloadURL);
-            setUploadProgress(null);
-        }
-    );
+    setUploadProgress(0);
+
+    try {
+      const { uploadToR2 } = await import("../lib/r2Upload");
+      const downloadURL = await uploadToR2(file, `assignments/${assignmentId}`, (progress) => {
+        setUploadProgress(progress);
+      });
+      
+      setFileUrl(downloadURL);
+      setUploadProgress(null);
+    } catch (error) {
+      console.error("Erreur d'upload", error);
+      setUploadProgress(null);
+      setFileName("");
+      alert("Erreur lors de l'upload du fichier");
+    }
   };
 
   const handleSubmit = async () => {
@@ -143,11 +139,13 @@ export function AssignmentDetail() {
     }
   };
 
+  const [scrollY, setScrollY] = useState(0);
+
   if (isLoading) {
     return (
-      <div className="p-4 space-y-6 bg-slate-950 min-h-screen">
-        <div className="h-10 w-3/4 bg-slate-900 rounded-xl animate-pulse" />
-        <div className="h-64 w-full bg-slate-900 rounded-[2.5rem] animate-pulse" />
+      <div className="p-4 space-y-6 bg-[#050505] h-screen">
+        <Skeleton className="h-10 w-3/4 rounded-xl" />
+        <Skeleton className="h-64 w-full rounded-[2.5rem]" />
       </div>
     );
   }
@@ -160,22 +158,42 @@ export function AssignmentDetail() {
   const timeFormatter = new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
 
   return (
-    <div className="flex flex-col gap-8 pb-24 bg-slate-950 min-h-screen relative overflow-hidden -mx-4 sm:-mx-6 -mt-32 pt-24 px-4 sm:px-6">
-      <header className="pt-6 space-y-4">
-        <button className="flex items-center text-slate-500 hover:text-white transition" onClick={() => navigate(-1)}>
-          <ArrowLeft className="h-4 w-4 mr-2" /> Retour
-        </button>
-        <div className="space-y-2">
-            <h1 className="text-2xl font-black text-white leading-tight uppercase tracking-tight">{assignment.title}</h1>
-            <div className="flex items-center gap-2 text-[10px] font-black text-primary uppercase tracking-widest">
-                <BookOpen className="h-3 w-3" />
-                {assignment.courseTitle}
+    <div className="h-[100dvh] overflow-y-auto bg-[#050505] flex flex-col relative" onScroll={(e) => setScrollY(e.currentTarget.scrollTop)}>
+      {/* Collapsing Header */}
+      <header className="sticky top-0 w-full h-[280px] flex-shrink-0 z-0 overflow-hidden">
+        <div 
+            className="absolute inset-0 origin-center"
+            style={{ 
+                transform: `translateY(${scrollY * 0.4}px) scale(${1 + scrollY * 0.001})`,
+                opacity: Math.max(0, 1 - scrollY / 200)
+            }}
+        >
+          <div className="absolute inset-0 bg-gradient-to-br from-[#020617] via-slate-900 to-[#020617]"></div>
+          <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, rgba(255,255,255,0.15) 1px, transparent 0)', backgroundSize: '24px 24px' }}></div>
+          
+          <div className="relative z-10 flex flex-col items-center justify-center h-full gap-4 px-6 text-center pt-8">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-emerald-700 flex items-center justify-center shadow-xl rotate-3">
+              <FileText className="w-8 h-8 text-white" />
             </div>
+            <div>
+              <h1 className="text-2xl font-black text-white leading-tight uppercase tracking-tight line-clamp-2">{assignment.title}</h1>
+              <div className="flex items-center justify-center gap-2 text-[10px] font-black text-emerald-400 uppercase tracking-widest mt-2">
+                  <BookOpen className="h-3 w-3" />
+                  {assignment.courseTitle}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="absolute top-0 left-0 right-0 z-20">
+            <TopAppBar title="" showBack={true} transparent />
         </div>
       </header>
 
-      <div className="space-y-6">
-        {/* CONSIGNES */}
+      <main className="flex-1 px-4 pb-32 -mt-8 relative z-10 w-full max-w-md mx-auto">
+        <div className="bg-[#0f172a] rounded-t-[2rem] p-5 min-h-screen">
+          <div className="space-y-6">
+            {/* CONSIGNES */}
         <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] overflow-hidden shadow-2xl">
           <div className="border-b border-white/5 bg-slate-800/30 p-6">
             <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Consignes du formateur</h2>
@@ -355,6 +373,8 @@ export function AssignmentDetail() {
             </p>
         </div>
       </div>
+      </div>
+      </main>
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { ChevronLeft, Share2, Heart, Star, BookOpen, Globe, CreditCard, Lock, Fi
 import { doc, onSnapshot, collection, query, where, getDocs } from "firebase/firestore";
 import { db } from "../firebase";
 import { useRole } from "../context/RoleContext";
+import { BottomSheet } from "../components/ui/BottomSheet";
 
 export function EbookDetail() {
   const navigate = useNavigate();
@@ -99,9 +100,11 @@ export function EbookDetail() {
       alert("Votre téléchargement de l'ebook " + selectedFormat.toUpperCase() + " sécurisé a commencé !");
   };
   
+  const [scrollY, setScrollY] = useState(0);
+
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-full pt-32">
+      <div className="flex justify-center items-center h-full pt-32 bg-[#050505]">
          <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
       </div>
     );
@@ -109,7 +112,7 @@ export function EbookDetail() {
 
   if (!ebook) {
     return (
-      <div className="flex flex-col items-center justify-center h-full pt-32 gap-4">
+      <div className="flex flex-col items-center justify-center h-full pt-32 gap-4 bg-[#050505]">
          <BookOpen className="w-12 h-12 text-slate-500" />
          <p className="text-white font-bold">Ebook introuvable</p>
          <button onClick={() => navigate(-1)} className="px-4 py-2 bg-white/10 rounded-lg text-white text-sm">Retour</button>
@@ -118,29 +121,21 @@ export function EbookDetail() {
   }
 
   return (
-    <div className="h-full flex flex-col -mx-6 -mt-32 -mb-28 pt-32 pb-28 relative">
-      {/* Header overlayed on banner */}
-      <header className="absolute top-0 left-0 right-0 z-50 flex items-center justify-between px-4 py-3 bg-gradient-to-b from-[#1a0a2e]/90 to-transparent">
-        <button onClick={() => navigate(-1)} className="w-10 h-10 rounded-full bg-black/50 backdrop-blur-md flex items-center justify-center hover:bg-white/10 transition-colors">
-          <ChevronLeft className="w-5 h-5 text-white" />
-        </button>
-        <div className="flex gap-2">
-          <button className="w-10 h-10 rounded-full bg-black/50 backdrop-blur-md flex items-center justify-center hover:bg-white/10 transition-colors">
-            <Share2 className="w-5 h-5 text-white" />
-          </button>
-          <button onClick={() => setIsFav(!isFav)} className="w-10 h-10 rounded-full bg-black/50 backdrop-blur-md flex items-center justify-center hover:bg-white/10 transition-colors">
-            <Heart className={`w-5 h-5 ${isFav ? 'fill-rose-500 text-rose-500' : 'text-white'}`} />
-          </button>
-        </div>
-      </header>
-
-      <div className="flex-1 overflow-y-auto hide-scrollbar">
-        {/* Hero Cover */}
-        <div className="h-[280px] relative flex items-center justify-center overflow-hidden shrink-0">
+    <div className="h-[100dvh] overflow-y-auto bg-[#050505] flex flex-col relative" onScroll={(e) => setScrollY(e.currentTarget.scrollTop)}>
+      
+      {/* Collapsing Header */}
+      <header className="sticky top-0 w-full h-[280px] flex-shrink-0 z-0 overflow-hidden">
+        <div 
+            className="absolute inset-0 origin-center"
+            style={{ 
+                transform: `translateY(${scrollY * 0.4}px) scale(${1 + scrollY * 0.001})`,
+                opacity: Math.max(0, 1 - scrollY / 200)
+            }}
+        >
           <div className="absolute inset-0 bg-gradient-to-br from-[#1a0a2e] via-[#2d1b69] to-[#1a0a2e]"></div>
           <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
           
-          <div className="relative z-10 flex flex-col items-center gap-3">
+          <div className="relative z-10 flex flex-col items-center justify-center h-full gap-3 pt-12">
             <div className="w-[120px] h-[180px] bg-gradient-to-br from-orange-500 to-orange-700 rounded-lg rounded-l-sm shadow-2xl flex flex-col items-center justify-center text-center p-4 transform perspective-1000 rotate-y-[-8deg] hover:rotate-y-0 transition-transform cursor-pointer">
               <div className="text-3xl mb-2">{ebook.icon || '📖'}</div>
               <div className="text-[13px] font-black text-white leading-tight drop-shadow-md">{ebook.title}</div>
@@ -154,9 +149,27 @@ export function EbookDetail() {
           </div>
         </div>
 
-        {/* Info Card */}
-        <div className="-mt-8 px-4 relative z-20 mb-4">
-          <div className="p-4 bg-gradient-to-br from-[#161623]/95 to-[#0f121e]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-xl">
+        {/* Header Actions (Sticky inside header) */}
+        <div className="absolute top-safe-pt mt-4 left-0 right-0 px-4 flex justify-between z-20">
+            <button onClick={() => navigate(-1)} className="w-10 h-10 rounded-full bg-black/50 backdrop-blur-md flex items-center justify-center hover:bg-white/10 transition-colors">
+              <ChevronLeft className="w-5 h-5 text-white" />
+            </button>
+            <div className="flex gap-2">
+              <button className="w-10 h-10 rounded-full bg-black/50 backdrop-blur-md flex items-center justify-center hover:bg-white/10 transition-colors">
+                <Share2 className="w-5 h-5 text-white" />
+              </button>
+              <button onClick={() => setIsFav(!isFav)} className="w-10 h-10 rounded-full bg-black/50 backdrop-blur-md flex items-center justify-center hover:bg-white/10 transition-colors">
+                <Heart className={`w-5 h-5 transition-all ${isFav ? 'fill-rose-500 text-rose-500 scale-110' : 'text-white'}`} />
+              </button>
+            </div>
+        </div>
+      </header>
+
+      <main className="flex-1 px-4 pb-32 -mt-8 relative z-10 w-full max-w-md mx-auto">
+        <div className="bg-[#0f121e] rounded-t-[2rem] p-5 min-h-screen">
+          {/* Info Card */}
+          <div className="-mt-16 relative z-20 mb-6">
+            <div className="p-4 bg-gradient-to-br from-[#161623]/95 to-[#0f121e]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl">
             <h1 className="text-lg font-black text-white mb-1.5 leading-tight">{ebook.title}</h1>
             <div className="text-xs text-slate-400 mb-3">Par <span className="text-emerald-500 font-semibold">{ebook.author || 'Inconnu'}</span> • Publié récemment</div>
             
@@ -258,7 +271,8 @@ export function EbookDetail() {
         </div>
         
         <div className="h-20"></div> {/* padding for bottom bar */}
-      </div>
+        </div>
+      </main>
 
       {/* Bottom Buy Bar */}
       <div className="absolute bottom-0 left-0 right-0 p-4 pb-8 bg-[#0a0a0f]/95 border-t border-white/5 backdrop-blur-xl z-40">
@@ -292,12 +306,12 @@ export function EbookDetail() {
       </div>
 
       {/* Buy Modal */}
-      {showBuyModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-end justify-center animate-in fade-in duration-200" onClick={() => !isProcessing && setShowBuyModal(false)}>
-          <div className="w-full max-w-sm bg-gradient-to-b from-[#1a1a2e] to-[#0f1225] p-5 rounded-t-3xl border-t border-white/10 animate-in slide-in-from-bottom duration-300" onClick={e => e.stopPropagation()}>
-            <div className="w-10 h-1 rounded-full bg-white/20 mx-auto mb-4"></div>
-            <div className="text-xl font-bold text-white mb-4">Confirmer l'achat</div>
-
+      <BottomSheet
+        isOpen={showBuyModal}
+        onClose={() => !isProcessing && setShowBuyModal(false)}
+        title="Confirmer l'achat"
+      >
+        <div className="w-full">
             <div className="space-y-2 mb-4">
               <div 
                 onClick={() => setSelectedFormat('pdf')}
@@ -351,28 +365,29 @@ export function EbookDetail() {
             >
               Annuler
             </button>
-          </div>
         </div>
-      )}
+      </BottomSheet>
 
       {/* Sample Modal */}
-      {showSampleModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-end justify-center animate-in fade-in duration-200" onClick={() => setShowSampleModal(false)}>
-          <div className="w-full max-w-sm bg-gradient-to-b from-[#1a1a2e] to-[#0f1225] rounded-t-3xl border-t border-white/10 animate-in slide-in-from-bottom duration-300 flex flex-col max-h-[85vh]" onClick={e => e.stopPropagation()}>
-            <div className="p-4 border-b border-white/10 flex justify-between items-center shrink-0">
+      <BottomSheet
+        isOpen={showSampleModal}
+        onClose={() => setShowSampleModal(false)}
+      >
+        <div className="w-full flex flex-col max-h-[85vh]">
+            <div className="pb-4 border-b border-white/10 flex justify-between items-center shrink-0">
               <h2 className="text-[17px] font-bold text-white flex gap-2 items-center"><BookOpen className="w-4 h-4 text-emerald-500"/> Extrait gratuit</h2>
               <button onClick={() => setShowSampleModal(false)} className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
                 <Lock className="w-4 h-4 text-slate-400" />
               </button>
             </div>
             
-            <div className="px-4 py-3 shrink-0">
+            <div className="py-3 shrink-0">
                <div className="w-full h-1 bg-white/10 rounded-full overflow-hidden">
                  <div className="h-full bg-blue-500 rounded-full w-[15%]"></div>
                </div>
             </div>
 
-            <div className="p-4 overflow-y-auto hide-scrollbar space-y-4">
+            <div className="py-4 overflow-y-auto hide-scrollbar space-y-4">
               <div className="p-4 bg-white/[0.03] rounded-xl border border-white/5">
                 <h3 className="text-[15px] font-bold text-white mb-3">Chapitre 1 : Introduction</h3>
                 <p className="text-[13px] text-slate-300 leading-relaxed mb-3">Le contenu de ce chapitre vous montrera comment tout a commencé...</p>
@@ -385,14 +400,13 @@ export function EbookDetail() {
               </div>
             </div>
 
-            <div className="p-4 shrink-0 bg-[#0a0a0f]/80 backdrop-blur-md rounded-t-3xl">
+            <div className="py-4 shrink-0 bg-[#0a0a0f]/80 backdrop-blur-md">
               <button onClick={() => { setShowSampleModal(false); setShowBuyModal(true); }} className="w-full p-3.5 rounded-xl bg-gradient-to-br from-emerald-600 to-emerald-400 text-white font-bold text-[14px] active:scale-95 transition-all">
                 Acheter maintenant - {ebook.price || 0} XOF
               </button>
             </div>
-          </div>
         </div>
-      )}
+      </BottomSheet>
 
       {/* Success Modal */}
       {showSuccessModal && (

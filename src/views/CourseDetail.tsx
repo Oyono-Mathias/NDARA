@@ -4,7 +4,8 @@ import { doc, onSnapshot, collection, query, where, getDocs, setDoc, deleteDoc, 
 import { db } from '../firebase';
 import { useRole } from '../context/RoleContext';
 import { ArrowLeft, Play, Coins, Lock, ShieldCheck, Award, ChevronDown, CheckCircle, Star, MessageCircle, Info, BookOpen, Heart } from 'lucide-react';
-import { formatImageUrl } from '../lib/utils'; // Suppose we have this
+import { formatImageUrl } from '../lib/utils';
+import { Skeleton } from '../components/ui/Skeleton';
 
 export function CourseDetail() {
     const { slug } = useParams<{ slug: string }>();
@@ -20,6 +21,8 @@ export function CourseDetail() {
     const [isFavorite, setIsFavorite] = useState(false);
     const [wishlistDocId, setWishlistDocId] = useState<string | null>(null);
     const [isEnrolled, setIsEnrolled] = useState(false);
+    
+    const [scrollY, setScrollY] = useState(0);
 
     useEffect(() => {
         if (!slug) return;
@@ -149,57 +152,41 @@ export function CourseDetail() {
     if (loading) {
         return (
             <div className="antialiased min-h-screen flex justify-center bg-black">
-                <div className="w-full max-w-md bg-[#0f172a] min-h-screen relative flex flex-col shadow-2xl overflow-hidden animate-pulse">
+                <div className="w-full max-w-md bg-[#0f172a] min-h-screen relative flex flex-col shadow-2xl overflow-hidden">
                     {/* Header Skeleton */}
-                    <div className="h-64 bg-[#1e293b] flex-shrink-0 relative">
-                        <div className="absolute top-12 left-4 w-12 h-12 bg-white/5 rounded-full"></div>
+                    <Skeleton className="h-64 rounded-none flex-shrink-0 relative">
+                        <Skeleton className="absolute top-12 left-4 w-12 h-12 rounded-full" />
                         <div className="absolute inset-0 flex items-center justify-center">
-                            <div className="w-16 h-16 bg-white/5 rounded-full"></div>
+                            <Skeleton className="w-16 h-16 rounded-full" />
                         </div>
-                        <div className="absolute top-12 right-4 w-12 h-12 bg-white/5 rounded-full"></div>
-                    </div>
+                        <Skeleton className="absolute top-12 right-4 w-12 h-12 rounded-full" />
+                    </Skeleton>
 
                     <div className="flex-1 px-4 pb-32 -mt-8 relative z-10">
                         <div className="bg-[#0f172a] rounded-t-[2rem] p-5 pt-8">
-                            {/* Category Skeleton */}
-                            <div className="w-32 h-6 bg-white/5 rounded-full mb-4"></div>
+                            <Skeleton className="w-32 h-6 rounded-full mb-4" />
                             
-                            {/* Title Skeleton */}
-                            <div className="w-3/4 h-8 bg-white/5 rounded-lg mb-3"></div>
-                            <div className="w-1/2 h-8 bg-white/5 rounded-lg mb-6"></div>
+                            <Skeleton className="w-3/4 h-8 rounded-lg mb-3" />
+                            <Skeleton className="w-1/2 h-8 rounded-lg mb-6" />
 
-                            {/* Ratings Skeleton */}
                             <div className="flex items-center gap-4 mb-8">
-                                <div className="w-24 h-4 bg-white/5 rounded-md"></div>
-                                <div className="w-20 h-4 bg-white/5 rounded-md"></div>
+                                <Skeleton className="w-24 h-4 rounded-md" />
+                                <Skeleton className="w-20 h-4 rounded-md" />
                             </div>
 
-                            {/* Info Badges Skeleton */}
                             <div className="grid grid-cols-3 gap-3 mb-8">
                                 {[1, 2, 3].map(i => (
-                                    <div key={i} className="bg-[#1e293b] rounded-3xl p-3 border border-white/5 flex flex-col items-center justify-center gap-2 h-24">
-                                        <div className="w-10 h-10 rounded-full bg-white/5"></div>
-                                        <div className="w-16 h-2 bg-white/5 rounded-full"></div>
-                                    </div>
+                                    <Skeleton key={i} className="rounded-3xl h-24" />
                                 ))}
                             </div>
 
-                            {/* Instructor Skeleton */}
-                            <div className="flex items-center gap-3 mb-8 p-4 bg-[#1e293b] rounded-3xl border border-white/5">
-                                <div className="w-14 h-14 rounded-full bg-white/5 shrink-0"></div>
-                                <div className="flex-1 space-y-2">
-                                    <div className="w-20 h-3 bg-white/5 rounded-full"></div>
-                                    <div className="w-32 h-4 bg-white/5 rounded-full"></div>
-                                    <div className="w-24 h-3 bg-white/5 rounded-full"></div>
-                                </div>
-                            </div>
+                            <Skeleton className="h-20 rounded-3xl mb-8" />
 
-                            {/* Description Skeleton */}
                             <div className="space-y-3 mb-8">
-                                <div className="w-32 h-5 bg-white/5 rounded-md mb-4"></div>
-                                <div className="w-full h-4 bg-white/5 rounded-md"></div>
-                                <div className="w-full h-4 bg-white/5 rounded-md"></div>
-                                <div className="w-2/3 h-4 bg-white/5 rounded-md"></div>
+                                <Skeleton className="w-32 h-5 rounded-md mb-4" />
+                                <Skeleton className="w-full h-4 rounded-md" />
+                                <Skeleton className="w-full h-4 rounded-md" />
+                                <Skeleton className="w-2/3 h-4 rounded-md" />
                             </div>
                         </div>
                     </div>
@@ -216,33 +203,42 @@ export function CourseDetail() {
     const oldPrice = Math.floor(price * 1.5);
 
     return (
-        <div className="antialiased min-h-screen flex justify-center bg-black">
+        <div className="antialiased h-[100dvh] overflow-y-auto flex justify-center bg-black relative" onScroll={(e) => setScrollY(e.currentTarget.scrollTop)}>
             <div className="fixed top-0 left-0 w-full h-full pointer-events-none z-[9999] opacity-[0.04]" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=%270 0 200 200%27 xmlns=%27http://www.w3.org/2000/svg%27%3E%3Cfilter id=%27noiseFilter%27%3E%3CfeTurbulence type=%27fractalNoise%27 baseFrequency=%270.65%27 numOctaves=%273%27 stitchTiles=%27stitch%27/%3E%3C/filter%3E%3Crect width=%27100%25%27 height=%27100%25%27 filter=%27url(%23noiseFilter)%27/%3E%3C/svg%3E")' }}></div>
 
-            <div className="w-full max-w-md bg-[#0f172a] min-h-screen relative flex flex-col shadow-2xl overflow-hidden">
-                <header className="relative h-64 flex-shrink-0">
-                    <div className="absolute inset-0">
+            <div className="w-full max-w-md bg-[#0f172a] min-h-full relative flex flex-col shadow-2xl">
+                <header className="sticky top-0 w-full h-64 flex-shrink-0 z-0 overflow-hidden">
+                    <div 
+                        className="absolute inset-0 origin-center" 
+                        style={{ 
+                            transform: `translateY(${scrollY * 0.4}px) scale(${1 + scrollY * 0.001})`,
+                            opacity: Math.max(0, 1 - scrollY / 200)
+                        }}
+                    >
                         <img src={course.thumbnail ? formatImageUrl(course.thumbnail) : "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&q=80"} alt="Course Cover" className="w-full h-full object-cover" />
                         <div className="absolute inset-0 bg-gradient-to-b from-transparent to-[#0f172a]"></div>
                     </div>
 
-                    <button onClick={() => navigate(-1)} className="absolute top-12 left-4 w-12 h-12 backdrop-blur-md bg-[#1e293b]/80 rounded-full flex items-center justify-center text-white hover:bg-white/20 transition z-10">
+                    <button onClick={() => navigate(-1)} className="absolute top-safe-pt mt-4 left-4 w-12 h-12 backdrop-blur-md bg-[#1e293b]/80 rounded-full flex items-center justify-center text-white hover:bg-white/20 transition z-20">
                         <ArrowLeft className="w-5 h-5" />
                     </button>
 
-                    <div className="absolute inset-0 flex items-center justify-center z-0">
-                        <button onClick={handleEnroll} className="w-16 h-16 bg-emerald-500/90 rounded-full flex items-center justify-center text-white hover:bg-emerald-500 transition shadow-[0_0_20px_rgba(16,185,129,0.5)]">
+                    <div 
+                        className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none"
+                        style={{ opacity: Math.max(0, 1 - scrollY / 150) }}
+                    >
+                        <button onClick={handleEnroll} className="w-16 h-16 bg-emerald-500/90 rounded-full flex items-center justify-center text-white hover:bg-emerald-500 transition shadow-[0_0_20px_rgba(16,185,129,0.5)] pointer-events-auto">
                             <Play className="w-8 h-8 ml-1 fill-current" />
                         </button>
                     </div>
                     
-                    <button onClick={toggleFavorite} className="absolute top-12 right-4 w-12 h-12 backdrop-blur-md bg-[#1e293b]/80 rounded-full flex items-center justify-center text-white hover:bg-white/20 transition z-10">
+                    <button onClick={toggleFavorite} className="absolute top-safe-pt mt-4 right-4 w-12 h-12 backdrop-blur-md bg-[#1e293b]/80 rounded-full flex items-center justify-center text-white hover:bg-white/20 transition z-20">
                         <Heart className={`w-5 h-5 transition-all ${isFavorite ? 'fill-red-500 text-red-500 scale-110' : ''}`} />
                     </button>
                 </header>
 
-                <main className="flex-1 overflow-y-auto px-4 pb-32 -mt-8 relative z-10" style={{ scrollbarWidth: 'none' }}>
-                    <div className="bg-[#0f172a] rounded-t-[2rem] p-5">
+                <main className="flex-1 px-4 pb-32 -mt-8 relative z-10">
+                    <div className="bg-[#0f172a] rounded-t-[2rem] p-5 min-h-screen">
                         <span className="inline-flex items-center px-3 py-1.5 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-500 text-[10px] font-black uppercase tracking-wider mb-3">
                             <Coins className="w-3 h-3 mr-1.5" /> {course.category || "Formation Professionnelle"}
                         </span>

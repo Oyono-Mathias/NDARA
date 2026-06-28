@@ -10,6 +10,8 @@ import {
 } from "firebase/firestore";
 import { db } from "../firebase";
 import { useRole } from "../context/RoleContext";
+import { BottomSheet } from "../components/ui/BottomSheet";
+import { TouchArea } from "../components/ui/TouchArea";
 
 interface MarketEbook {
   id: string;
@@ -138,15 +140,16 @@ export function EbookMarket() {
       {/* Tabs / Cats */}
       <section className="px-4 py-2 flex gap-2 overflow-x-auto hide-scrollbar">
         {categories.map(cat => (
-          <button
+          <TouchArea
             key={cat.id}
+            as="button"
             onClick={() => setFilter(cat.id)}
             className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-[12px] font-bold whitespace-nowrap transition-all ${
               filter === cat.id ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-white/5 text-slate-400'
             }`}
           >
             {cat.icon} {cat.label}
-          </button>
+          </TouchArea>
         ))}
       </section>
 
@@ -171,7 +174,7 @@ export function EbookMarket() {
           ebooks.map(ebook => {
             const isOwned = ownedItems.includes(ebook.id);
             return (
-              <div key={ebook.id} onClick={() => handleOpenModal(ebook)} className="flex gap-3 p-3 bg-white/[0.04] border border-white/[0.06] rounded-2xl cursor-pointer active:scale-[0.98] transition-all">
+              <TouchArea key={ebook.id} onClick={() => handleOpenModal(ebook)} className="flex gap-3 p-3 bg-white/[0.04] border border-white/[0.06] rounded-2xl cursor-pointer active:scale-[0.98] transition-all">
                 <div className="w-16 h-20 shrink-0 rounded-xl relative overflow-hidden bg-slate-800 flex items-center justify-center">
                   <div className="text-3xl opacity-90">{ebook.icon || '📚'}</div>
                 </div>
@@ -186,17 +189,18 @@ export function EbookMarket() {
                     )}
                   </div>
                 </div>
-              </div>
+              </TouchArea>
             );
           })
         )}
       </section>
 
-      {isBuyModalOpen && selectedEbook && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-end justify-center animate-in fade-in duration-200" onClick={() => !isSubmitting && setIsBuyModalOpen(false)}>
-          <div className="w-full max-w-sm bg-gradient-to-b from-[#1a1a2e] to-[#0f1225] p-6 rounded-t-[32px] animate-in slide-in-from-bottom duration-300" onClick={e => e.stopPropagation()}>
-            <div className="w-10 h-1.5 rounded-full bg-white/20 mx-auto mb-6"></div>
-            
+      <BottomSheet
+        isOpen={isBuyModalOpen}
+        onClose={() => !isSubmitting && setIsBuyModalOpen(false)}
+      >
+        {selectedEbook && (
+          <div className="w-full">
             <div className="flex items-center gap-4 mb-6">
                 <div className="w-16 h-20 bg-white/5 rounded-2xl flex items-center justify-center text-3xl">
                    {selectedEbook.icon || '📚'}
@@ -212,7 +216,8 @@ export function EbookMarket() {
             </p>
 
             {ownedItems.includes(selectedEbook.id) ? (
-               <button 
+               <TouchArea
+                 as="button"
                  onClick={() => {
                     setIsBuyModalOpen(false);
                     navigate(`/student/ebooks/${selectedEbook.id}`);
@@ -221,23 +226,23 @@ export function EbookMarket() {
                >
                  <BookOpen className="w-5 h-5" />
                  Lire l'E-book
-               </button>
+               </TouchArea>
             ) : (
-              <button 
+              <TouchArea 
+                as="button"
                 onClick={handlePurchase}
-                disabled={isSubmitting}
-                className="w-full p-4 rounded-xl bg-gradient-to-br from-emerald-600 to-emerald-400 text-white font-bold text-[15px] active:scale-95 transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)] flex items-center justify-center gap-2 disabled:opacity-50"
+                className={`w-full p-4 rounded-xl bg-gradient-to-br from-emerald-600 to-emerald-400 text-white font-bold text-[15px] active:scale-95 transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)] flex items-center justify-center gap-2 ${isSubmitting ? 'opacity-50' : ''}`}
               >
                 {isSubmitting ? (
                   <><Loader2 className="w-5 h-5 animate-spin"/> Sécurisation de la transaction...</>
                 ) : (
                   <><CreditCard className="w-5 h-5"/> Payer {selectedEbook.price.toLocaleString('fr-FR')} XAF</>
                 )}
-              </button>
+              </TouchArea>
             )}
           </div>
-        </div>
-      )}
+        )}
+      </BottomSheet>
     </div>
   );
 }

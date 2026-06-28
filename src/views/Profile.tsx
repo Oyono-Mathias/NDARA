@@ -20,6 +20,8 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { db, auth } from '../firebase';
+import { TouchArea } from '../components/ui/TouchArea';
+import { BottomSheet } from '../components/ui/BottomSheet';
 
 // Dummy implementation of I18N hooks for the purpose of the app
 function useTranslations(key: string) {
@@ -130,27 +132,27 @@ export function ProfileView() {
   const user = currentUser;
 
   return (
-    <div className="flex flex-col gap-0 pb-32 bg-[#0f172a] min-h-screen relative">
+    <div className="flex flex-col gap-0 pb-32 bg-[#0f172a] min-h-screen relative overflow-x-hidden">
       <div className="grain-overlay" />
       
       <header className="fixed top-0 w-full max-w-md z-50 bg-[#0f172a]/95 backdrop-blur-md border-b border-white/5 safe-area-pt">
-        <div className="flex items-center justify-between px-6 py-4">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-4">
             <h1 className="font-black text-xl text-white uppercase tracking-tight">{t('title')}</h1>
-            <button className="rounded-full bg-slate-900 text-slate-400 p-2" onClick={() => navigate('/student/account')}>
+            <TouchArea as="button" className="rounded-full bg-slate-900 text-slate-400 p-2 border border-white/5" onClick={() => navigate('/student/account')}>
                 <Settings className="h-5 w-5" />
-            </button>
+            </TouchArea>
         </div>
       </header>
 
-      <main className="flex-1 px-6 pt-24 space-y-8 animate-in fade-in duration-700">
+      <main className="flex-1 px-2 sm:px-6 pt-24 space-y-6 sm:space-y-8 animate-in fade-in duration-700 max-w-md mx-auto w-full relative z-10">
         
         {/* --- USER HEADER --- */}
-        <div className="bg-slate-900 rounded-[2.5rem] border border-white/5 overflow-hidden shadow-2xl relative">
+        <div className="bg-slate-900 rounded-[2rem] sm:rounded-[2.5rem] border border-white/5 overflow-hidden shadow-2xl relative">
             <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl -mr-10 -mt-10" />
-            <div className="p-8 text-center flex flex-col items-center relative z-10">
+            <div className="p-6 sm:p-8 text-center flex flex-col items-center relative z-10">
                 <div className="relative mb-4">
                     <div className="p-[3px] rounded-full bg-gradient-to-tr from-primary via-blue-500 to-purple-500">
-                        <div className="h-24 w-24 border-4 border-slate-900 shadow-2xl rounded-full overflow-hidden bg-slate-800 flex justify-center items-center">
+                        <div className="h-20 w-20 sm:h-24 sm:w-24 border-4 border-slate-900 shadow-2xl rounded-full overflow-hidden bg-slate-800 flex justify-center items-center">
                             {user.profilePictureURL ? (
                                 <img src={user.profilePictureURL} className="object-cover w-full h-full" alt="Profile" />
                             ) : (
@@ -163,10 +165,10 @@ export function ProfileView() {
                     </div>
                 </div>
 
-                <h2 className="font-black text-2xl text-white uppercase tracking-tight leading-none mb-1">
+                <h2 className="font-black text-xl sm:text-2xl text-white uppercase tracking-tight leading-none mb-1">
                     {user.fullName}
                 </h2>
-                <p className="text-amber-500 font-bold text-sm tracking-widest mb-4">@{user.username}</p>
+                <p className="text-amber-500 font-bold text-xs sm:text-sm tracking-widest mb-4">@{user.username}</p>
                 
                 <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 mb-6 shadow-inner">
                     <span className="text-lg">{countryEmoji}</span>
@@ -187,33 +189,33 @@ export function ProfileView() {
         </div>
 
         {/* --- WALLET SHORTCUT --- */}
-        <Link to="/student/wallet" className="block active:scale-[0.98] transition-all">
-            <div className="bg-slate-900 border border-white/5 rounded-[2rem] p-6 shadow-xl flex items-center justify-between relative overflow-hidden group">
+        <Link to="/student/wallet" className="block">
+            <TouchArea className="bg-slate-900 border border-white/5 rounded-[2rem] p-5 sm:p-6 shadow-xl flex items-center justify-between relative overflow-hidden group">
                 <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-amber-500" />
                 <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-500 shadow-inner">
+                    <div className="w-12 h-12 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-500 shadow-inner shrink-0">
                         <Wallet size={24} />
                     </div>
                     <div>
                         <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest mb-0.5">Solde {common('ndara_term')}</p>
-                        <p className="text-2xl font-black text-white">{(user.balance || 0).toLocaleString()} <span className="text-xs">XOF</span></p>
+                        <p className="text-xl sm:text-2xl font-black text-white">{(user.balance || 0).toLocaleString()} <span className="text-xs">XOF</span></p>
                     </div>
                 </div>
-                <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-slate-600 group-hover:text-amber-500 transition-colors">
+                <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-slate-600 group-hover:text-amber-500 transition-colors shrink-0">
                     <ArrowUpRight size={20} />
                 </div>
-            </div>
+            </TouchArea>
         </Link>
 
         {/* --- DYNAMIC STATS --- */}
-        <section className="grid grid-cols-3 gap-3">
+        <section className="grid grid-cols-3 gap-2 sm:gap-3">
             <StatBox label={t('stats.courses')} value={counters.enrollments.toString()} color="text-amber-500" />
             <StatBox label={t('stats.diplomas')} value={counters.certificates.toString()} color="text-orange-400" />
             <StatBox label={t('stats.reviews')} value={counters.reviews.toString()} color="text-blue-400" />
         </section>
 
-        <div className="bg-slate-900 rounded-[2.5rem] border border-white/5 overflow-hidden shadow-2xl">
-            <div className="px-6 py-4 border-b border-white/5 bg-white/5">
+        <div className="bg-slate-900 rounded-[2rem] sm:rounded-[2.5rem] border border-white/5 overflow-hidden shadow-2xl">
+            <div className="px-5 sm:px-6 py-4 border-b border-white/5 bg-white/5">
                 <h3 className="text-slate-500 text-[10px] font-black uppercase tracking-[0.3em]">{t('preferences')}</h3>
             </div>
             
@@ -249,8 +251,37 @@ export function ProfileView() {
             </div>
         </div>
 
-        <div className="bg-slate-900 rounded-[2.5rem] border border-white/5 overflow-hidden shadow-2xl">
-            <div className="p-6 space-y-6">
+        <div className="bg-slate-900 rounded-[2rem] sm:rounded-[2.5rem] border border-white/5 overflow-hidden shadow-2xl">
+            <div className="px-5 sm:px-6 py-4 border-b border-white/5 bg-white/5">
+                <h3 className="text-slate-500 text-[10px] font-black uppercase tracking-[0.3em]">Univers Ndara</h3>
+            </div>
+            <div className="divide-y divide-white/5">
+                <MenuLink 
+                    icon={Check} 
+                    label="Programme Ambassadeur" 
+                    desc="Inviter des amis et gagner" 
+                    color="bg-amber-500/10 text-amber-500"
+                    href="/student/ambassador"
+                />
+                <MenuLink 
+                    icon={Check} 
+                    label="Bourse & Investissement" 
+                    desc="Marché des licences de cours" 
+                    color="bg-primary/10 text-primary"
+                    href="/student/bourse"
+                />
+                <MenuLink 
+                    icon={Check} 
+                    label="Télechargements Hors-Ligne" 
+                    desc="Gérer vos fichiers enregistrés" 
+                    color="bg-slate-500/10 text-slate-400"
+                    href="/student/downloads"
+                />
+            </div>
+        </div>
+
+        <div className="bg-slate-900 rounded-[2rem] sm:rounded-[2.5rem] border border-white/5 overflow-hidden shadow-2xl">
+            <div className="p-5 sm:p-6 space-y-6">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                         <div className="w-10 h-10 rounded-2xl bg-slate-800 flex items-center justify-center text-slate-400">
@@ -280,42 +311,46 @@ export function ProfileView() {
             </div>
         </div>
 
-        <button 
+        <TouchArea 
+            as="button"
             onClick={() => setShowLogoutAlert(true)}
-            className="w-full h-16 rounded-[2rem] bg-gradient-to-br from-red-500 to-red-700 hover:from-red-600 hover:to-red-800 text-white font-black flex items-center justify-center justify-center uppercase text-xs tracking-[0.2em] shadow-2xl shadow-red-500/20 active:scale-[0.98] transition-all gap-2 mb-12"
+            className="w-full h-16 rounded-[2rem] bg-gradient-to-br from-red-500 to-red-700 hover:from-red-600 hover:to-red-800 text-white font-black flex items-center justify-center uppercase text-xs tracking-[0.2em] shadow-2xl shadow-red-500/20 active:scale-[0.98] transition-all gap-2 mb-12"
         >
             <LogOut className="h-5 w-5" />
             {t('logout')}
-        </button>
+        </TouchArea>
 
-        {showLogoutAlert && (
-            <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-                <div className="bg-slate-900 border border-white/10 rounded-[2.5rem] p-8 max-w-[90%] sm:max-w-md mx-auto w-full text-center">
-                    <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center text-red-500 mx-auto mb-4">
-                        <LogOut size={40} />
-                    </div>
-                    <h2 className="text-2xl font-black text-white uppercase tracking-tight leading-none mb-4">{t('logout_confirm')}</h2>
-                    <p className="text-slate-400 text-sm font-medium leading-relaxed italic mb-8">
-                        {t('logout_desc')}
-                    </p>
-                    <div className="flex flex-col sm:flex-row gap-3">
-                        <button 
-                            onClick={() => setShowLogoutAlert(false)} 
-                            className="bg-slate-950 border border-white/10 hover:bg-slate-800 text-white rounded-2xl h-14 font-black uppercase text-[10px] tracking-widest flex-1 transition"
-                        >
-                            {t('cancel')}
-                        </button>
-                        <button 
-                            onClick={handleLogout} 
-                            disabled={isLoggingOut}
-                            className="bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded-2xl h-14 font-black uppercase text-[10px] tracking-widest flex-1 flex items-center justify-center shadow-lg shadow-red-600/20 transition"
-                        >
-                            {isLoggingOut ? <Loader2 className="animate-spin w-5 h-5" /> : t('confirm')}
-                        </button>
-                    </div>
+        <BottomSheet
+            isOpen={showLogoutAlert}
+            onClose={() => setShowLogoutAlert(false)}
+        >
+            <div className="text-center w-full">
+                <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center text-red-500 mx-auto mb-4">
+                    <LogOut size={40} />
+                </div>
+                <h2 className="text-xl sm:text-2xl font-black text-white uppercase tracking-tight leading-none mb-4">{t('logout_confirm')}</h2>
+                <p className="text-slate-400 text-sm font-medium leading-relaxed italic mb-8">
+                    {t('logout_desc')}
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3">
+                    <TouchArea 
+                        as="button"
+                        onClick={() => setShowLogoutAlert(false)} 
+                        className="bg-slate-950 border border-white/10 hover:bg-slate-800 text-white rounded-2xl h-14 font-black uppercase text-[10px] tracking-widest flex-1 transition flex items-center justify-center"
+                    >
+                        {t('cancel')}
+                    </TouchArea>
+                    <TouchArea 
+                        as="button"
+                        onClick={handleLogout} 
+                        disabled={isLoggingOut}
+                        className="bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded-2xl h-14 font-black uppercase text-[10px] tracking-widest flex-1 flex items-center justify-center shadow-lg shadow-red-600/20 transition"
+                    >
+                        {isLoggingOut ? <Loader2 className="animate-spin w-5 h-5" /> : t('confirm')}
+                    </TouchArea>
                 </div>
             </div>
-        )}
+        </BottomSheet>
 
         <div className="pb-12 text-center">
             <p className="text-[9px] font-black text-slate-700 uppercase tracking-[0.4em]">Ndara Afrique v2.5 • Fintech Education</p>
@@ -327,26 +362,28 @@ export function ProfileView() {
 
 function StatBox({ label, value, color }: { label: string, value: string, color: string }) {
     return (
-        <div className="bg-slate-900 border border-white/5 rounded-[2rem] p-4 text-center shadow-xl active:scale-95 transition-transform">
-            <p className={cn("text-2xl font-black leading-none mb-2", color)}>{value}</p>
-            <p className="text-[8px] font-black text-slate-600 uppercase tracking-widest">{label}</p>
-        </div>
+        <TouchArea className="bg-slate-900 border border-white/5 rounded-[2rem] p-3 sm:p-4 text-center shadow-xl active:scale-95 transition-transform flex flex-col justify-center">
+            <p className={cn("text-xl sm:text-2xl font-black leading-none mb-1 sm:mb-2", color)}>{value}</p>
+            <p className="text-[7px] sm:text-[8px] font-black text-slate-600 uppercase tracking-widest">{label}</p>
+        </TouchArea>
     );
 }
 
 function MenuLink({ icon: Icon, label, desc, color, href }: { icon: any, label: string, desc: string, color: string, href: string }) {
     return (
-        <Link to={href} className="flex items-center justify-between p-5 hover:bg-white/5 active:scale-[0.98] transition-all group">
-            <div className="flex items-center gap-4">
-                <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center transition-transform group-hover:scale-110" , color)}>
-                    <Icon className="h-6 w-6" />
+        <Link to={href} className="block w-full">
+            <TouchArea className="flex items-center justify-between p-4 sm:p-5 hover:bg-white/5 active:scale-[0.98] transition-all group">
+                <div className="flex items-center gap-3 sm:gap-4">
+                    <div className={cn("w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl flex items-center justify-center transition-transform group-hover:scale-110" , color)}>
+                        <Icon className="h-5 w-5 sm:h-6 sm:w-6" />
+                    </div>
+                    <div>
+                        <p className="font-black text-white text-xs sm:text-sm uppercase tracking-tight leading-none mb-1 group-hover:text-amber-500 transition-colors">{label}</p>
+                        <p className="text-slate-500 text-[9px] sm:text-[10px] font-medium">{desc}</p>
+                    </div>
                 </div>
-                <div>
-                    <p className="font-black text-white text-sm uppercase tracking-tight leading-none mb-1 group-hover:text-amber-500 transition-colors">{label}</p>
-                    <p className="text-slate-500 text-[10px] font-medium">{desc}</p>
-                </div>
-            </div>
-            <ChevronRight className="h-4 w-4 text-slate-700 group-hover:text-amber-500 group-hover:translate-x-1 transition-all" />
+                <ChevronRight className="h-4 w-4 text-slate-700 group-hover:text-amber-500 group-hover:translate-x-1 transition-all" />
+            </TouchArea>
         </Link>
     );
 }

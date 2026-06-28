@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Search } from 'lucide-react';
+import { Search, Archive, Trash2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { db } from '../../firebase';
 import { collection, query, where, onSnapshot, orderBy, doc, getDoc } from 'firebase/firestore';
 import { useRole } from '../../context/RoleContext';
+import { SwipeableItem } from '../ui/SwipeableItem';
+import { TouchArea } from '../ui/TouchArea';
+import { TopAppBar } from '../ui/TopAppBar';
 
 function ChatItem({ chat, selectedChatId, basePath, currentUser }: any) {
     const [partnerName, setPartnerName] = useState<string>('');
@@ -37,40 +40,51 @@ function ChatItem({ chat, selectedChatId, basePath, currentUser }: any) {
     const displayAvatar = chat.avatar || partnerAvatar;
 
     return (
-        <Link 
-            to={`${basePath}?chatId=${chat.id}`}
-            className={cn(
-                "rounded-3xl p-4 flex items-center gap-4 transition relative overflow-hidden group border",
-                selectedChatId === chat.id 
-                    ? "bg-amber-500/10 border-amber-500/30" 
-                    : "bg-slate-900 border-white/5 hover:bg-white/5"
-            )}
+        <SwipeableItem
+            leftAction={<div className="flex flex-col items-center"><Trash2 className="w-5 h-5 mb-1" /><span className="text-[10px] uppercase font-bold tracking-wider">Supprimer</span></div>}
+            rightAction={<div className="flex flex-col items-center"><Archive className="w-5 h-5 mb-1" /><span className="text-[10px] uppercase font-bold tracking-wider">Archiver</span></div>}
+            onSwipeLeft={() => console.log('Delete', chat.id)}
+            onSwipeRight={() => console.log('Archive', chat.id)}
         >
-            {selectedChatId === chat.id && <div className="absolute left-0 top-0 bottom-0 w-1 bg-amber-500"></div>}
-            <div className="w-12 h-12 rounded-full overflow-hidden shrink-0 bg-slate-800 flex items-center justify-center">
-                {displayAvatar ? <img src={displayAvatar} alt="Avatar" className="w-full h-full object-cover" /> : <span className="text-white font-bold">{displayName.substring(0, 2).toUpperCase()}</span>}
-            </div>
-            <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between mb-1">
-                    <h3 className={cn("font-bold text-sm truncate pr-2", selectedChatId === chat.id ? "text-amber-500" : "text-white")}>
-                        {displayName}
-                    </h3>
-                    {chat.updatedAt && (
-                        <span className="text-[10px] text-gray-500 shrink-0">
-                            {new Date(chat.updatedAt?.toDate?.() || chat.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </span>
+            <Link 
+                to={`${basePath}?chatId=${chat.id}`}
+                className="block w-full h-full"
+            >
+                <TouchArea
+                    className={cn(
+                        "rounded-2xl p-4 flex items-center gap-4 transition relative overflow-hidden group border",
+                        selectedChatId === chat.id 
+                            ? "bg-amber-500/10 border-amber-500/30" 
+                            : "bg-slate-900 border-white/5 hover:bg-white/5"
                     )}
-                </div>
-                <div className="flex items-center justify-between text-xs text-gray-400">
-                    <p className="truncate max-w-[200px]">{chat.lastMessage}</p>
-                    {chat.unread?.[currentUser.uid] > 0 && (
-                        <span className="bg-amber-500 text-slate-950 px-2 py-0.5 rounded-full text-[10px] font-bold">
-                            {chat.unread[currentUser.uid]}
-                        </span>
-                    )}
-                </div>
-            </div>
-        </Link>
+                >
+                    {selectedChatId === chat.id && <div className="absolute left-0 top-0 bottom-0 w-1 bg-amber-500"></div>}
+                    <div className="w-12 h-12 rounded-full overflow-hidden shrink-0 bg-slate-800 flex items-center justify-center">
+                        {displayAvatar ? <img src={displayAvatar} alt="Avatar" className="w-full h-full object-cover" /> : <span className="text-white font-bold">{displayName.substring(0, 2).toUpperCase()}</span>}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1">
+                            <h3 className={cn("font-bold text-sm truncate pr-2", selectedChatId === chat.id ? "text-amber-500" : "text-white")}>
+                                {displayName}
+                            </h3>
+                            {chat.updatedAt && (
+                                <span className="text-[10px] text-gray-500 shrink-0">
+                                    {new Date(chat.updatedAt?.toDate?.() || chat.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                            )}
+                        </div>
+                        <div className="flex items-center justify-between text-xs text-gray-400">
+                            <p className="truncate max-w-[200px]">{chat.lastMessage}</p>
+                            {chat.unread?.[currentUser.uid] > 0 && (
+                                <span className="bg-amber-500 text-slate-950 px-2 py-0.5 rounded-full text-[10px] font-bold">
+                                    {chat.unread[currentUser.uid]}
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                </TouchArea>
+            </Link>
+        </SwipeableItem>
     );
 }
 
@@ -113,9 +127,10 @@ export function ChatList({ selectedChatId }: { selectedChatId: string | null }) 
     }, [currentUser?.uid]);
 
     return (
-        <div className="flex flex-col h-full bg-slate-900/50 p-4 shrink-0">
-            <div className="relative mb-6 shrink-0 mt-4">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+        <div className="flex flex-col h-full bg-slate-900/50 shrink-0">
+            <TopAppBar title="Messagerie" showBack={false} transparent />
+            <div className="relative mb-6 shrink-0 mt-4 px-4">
+                <div className="absolute inset-y-0 left-4 pl-4 flex items-center pointer-events-none">
                     <Search className="text-gray-500 w-4 h-4" />
                 </div>
                 <input 
@@ -125,7 +140,7 @@ export function ChatList({ selectedChatId }: { selectedChatId: string | null }) 
                 />
             </div>
             
-            <div className="flex-1 overflow-y-auto no-scrollbar space-y-2">
+            <div className="flex-1 overflow-y-auto no-scrollbar space-y-2 px-4 pb-20">
                 {chats.length > 0 ? chats.map(chat => (
                     <ChatItem key={chat.id} chat={chat} selectedChatId={selectedChatId} basePath={basePath} currentUser={currentUser} />
                 )) : (

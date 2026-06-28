@@ -10,6 +10,8 @@ import {
 } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { ClipboardCheck, BookOpen, Search, Clock, ChevronRight } from 'lucide-react';
+import { TopAppBar } from '../components/ui/TopAppBar';
+import { Skeleton } from '../components/ui/Skeleton';
 import { Link } from 'react-router-dom';
 
 export function AssignmentsView() {
@@ -92,14 +94,8 @@ export function AssignmentsView() {
 
   return (
     <div className="flex flex-col gap-8 pb-24 bg-slate-950 min-h-screen">
-      <header className="pt-8 space-y-6">
-        <div className="space-y-1">
-            <div className="flex items-center gap-2 text-primary mb-2">
-                <ClipboardCheck className="h-5 w-5" />
-                <span className="text-[10px] font-black uppercase tracking-[0.2em]">Pédagogie & Exercices</span>
-            </div>
-            <h1 className="text-3xl font-black text-white uppercase tracking-tight">Mes Devoirs</h1>
-        </div>
+      <TopAppBar title="Mes Devoirs" showBack={true} transparent />
+      <header className="px-4 pt-6 space-y-6">
         
         <div className="relative">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-600" />
@@ -135,7 +131,7 @@ export function AssignmentsView() {
              <div className="block space-y-4">
               {isLoading ? (
                 <div className="space-y-4">
-                  {[...Array(2)].map((_, i) => <div key={i} className="h-48 w-full rounded-[2.5rem] bg-slate-900 border border-slate-800 animate-pulse" />)}
+                  {[...Array(2)].map((_, i) => <Skeleton key={i} className="h-48 w-full rounded-[2.5rem]" />)}
                 </div>
               ) : toDo.length > 0 ? (
                 toDo.map(a => <div key={a.id}><AssignmentCard assignment={a} /></div>)
@@ -157,7 +153,7 @@ export function AssignmentsView() {
              <div className="block space-y-4">
               {isLoading ? (
                 <div className="space-y-4">
-                  {[...Array(2)].map((_, i) => <div key={i} className="h-48 w-full rounded-[2.5rem] bg-slate-900 border border-slate-800 animate-pulse" />)}
+                  {[...Array(2)].map((_, i) => <Skeleton key={i} className="h-48 w-full rounded-[2.5rem]" />)}
                 </div>
               ) : completed.length > 0 ? (
                 completed.map(a => <div key={a.id}><AssignmentCard assignment={a} submission={submissions[a.id]} /></div>)

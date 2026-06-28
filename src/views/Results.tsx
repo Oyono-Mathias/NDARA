@@ -17,6 +17,8 @@ import {
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Link, useNavigate } from 'react-router-dom';
+import { TopAppBar } from '../components/ui/TopAppBar';
+import { Skeleton } from '../components/ui/Skeleton';
 import { cn } from '../lib/utils';
 import { db } from '../firebase';
 
@@ -80,23 +82,9 @@ export function ResultsView() {
 
   return (
     <div className="flex flex-col gap-8 pb-24 bg-slate-950 min-h-screen relative overflow-hidden bg-grainy">
+      <TopAppBar title="Scores & Quiz" showBack={true} transparent />
       {/* --- HEADER FIXE --- */}
-      <header className="px-4 pt-8 space-y-6 animate-in fade-in slide-in-from-top-4 duration-700">
-        <div className="flex items-center gap-3">
-            <button 
-                onClick={() => navigate(-1)} 
-                className="w-10 h-10 rounded-full bg-slate-900 border border-white/5 flex items-center justify-center text-slate-400 active:scale-90 transition-transform hover:text-white"
-            >
-                <ArrowLeft className="h-5 w-5" />
-            </button>
-            <div className="flex-1">
-                <div className="flex items-center gap-2 text-primary mb-1">
-                    <Trophy className="h-4 w-4" />
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em]">Mes Performances</span>
-                </div>
-                <h1 className="text-2xl font-black text-white uppercase tracking-tight leading-none">Scores & Quiz</h1>
-            </div>
-        </div>
+      <header className="px-4 pt-4 space-y-6 animate-in fade-in slide-in-from-top-4 duration-700">
 
         {/* Stats Summary Style Qwen */}
         <div className="grid grid-cols-3 gap-3">
@@ -141,7 +129,7 @@ export function ResultsView() {
         {isLoading ? (
           <div className="space-y-4">
             {[...Array(3)].map((_, i) => (
-              <div key={i} className="h-40 w-full rounded-[2rem] bg-slate-900 animate-pulse border border-slate-800" />
+              <Skeleton key={i} className="h-40 w-full rounded-[2rem]" />
             ))}
           </div>
         ) : results && results.length > 0 ? (

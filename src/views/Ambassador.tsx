@@ -21,6 +21,8 @@ import { collection, query, where, orderBy, limit, onSnapshot, doc, updateDoc } 
 import { db } from "../firebase";
 import { useRole } from '../context/RoleContext';
 
+import { TopAppBar } from "../components/ui/TopAppBar";
+
 export function AmbassadorView() {
     const { currentUser } = useRole();
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -123,28 +125,14 @@ export function AmbassadorView() {
     const stats = activeProfile?.affiliateStats || { clicks: 0, registrations: 0, sales: 0, earnings: 0 };
 
     return (
-        <div className="flex flex-col gap-8 pb-32 min-h-screen relative overflow-hidden bg-black -mt-32 max-w-md mx-auto z-10 w-full pt-20">
-            {/* The wrapper overrides the StudentLayout padding with -mt-32 max-w-md */}
+        <div className="flex flex-col gap-8 pb-32 min-h-screen relative overflow-hidden bg-black max-w-md mx-auto w-full">
+            <TopAppBar title="Ambassadeur" showBack={true} transparent rightAction={
+                 <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center mr-2 mt-1">
+                    <Medal className="h-4 w-4 text-primary" />
+                 </div>
+            } />
 
-            <header className="sticky top-0 w-full z-50 bg-black/95 backdrop-blur-md safe-area-pt border-b border-white/5">
-                <div className="px-6 py-4">
-                    <div className="flex items-center justify-between mb-2">
-                        <div>
-                            <h1 className="font-black text-xl text-white uppercase tracking-tight">Ambassadeur</h1>
-                            <p className="text-primary text-[10px] font-black uppercase tracking-widest">Gagnez de l'argent 💰</p>
-                        </div>
-                        <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
-                            <Medal className="h-5 w-5 text-primary" />
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <span className="text-slate-500 text-[9px] font-bold uppercase tracking-widest">Votre commission :</span>
-                        <span className="bg-primary text-black rounded-sm font-black text-[9px] px-2 py-0.5">10%</span>
-                    </div>
-                </div>
-            </header>
-
-            <main className="flex-1 px-6 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <main className="flex-1 px-4 pt-4 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
                 
                 {/* --- NEO-BANK CARD --- */}
                 <div 

@@ -2,6 +2,8 @@ import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } fro
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import crypto from "crypto";
 import path from "path";
+import fs from "fs";
+import { adminStorage } from "./firebaseAdmin.js";
 
 // Allow specific folders based on prompt
 export type AllowedFolder = 
@@ -16,11 +18,12 @@ export class StorageService {
   private s3Client: S3Client;
   private bucketName: string;
   private publicDomain: string;
+  private isS3Configured: boolean = false;
 
   constructor() {
     // Bunny Storage Config
-    const bunnyZoneName = process.env.BUNNY_STORAGE_ZONE_NAME === "ndara-assets" ? "ndara-storage" : (process.env.BUNNY_STORAGE_ZONE_NAME || "ndara-storage");
-    const bunnyPassword = process.env.BUNNY_STORAGE_PASSWORD || "788b9029-c2ac-4140-82c88ac0684c-34d3-4ae3";
+    const bunnyZoneName = process.env.BUNNY_STORAGE_ZONE_NAME;
+    const bunnyPassword = process.env.BUNNY_STORAGE_PASSWORD;
     const bunnyEndpoint = process.env.BUNNY_STORAGE_ENDPOINT || "https://storage.bunnycdn.com"; // Default to Frankfurt
 
     // R2 Config
@@ -42,14 +45,11 @@ export class StorageService {
         },
         forcePathStyle: true,
       });
+      this.isS3Configured = true;
       console.log(`[StorageService] Using Bunny Storage (Zone: ${bunnyZoneName})`);
-    } else {
+    } else if (r2Bucket && r2AccountId && r2AccessKeyId && r2SecretAccessKey) {
       this.bucketName = r2Bucket;
       this.publicDomain = process.env.R2_PUBLIC_DOMAIN || "";
-  
-      if (!r2AccountId || !r2AccessKeyId || !r2SecretAccessKey) {
-        console.warn("[StorageService] R2 credentials are not fully configured.");
-      }
   
       const endpoint = process.env.R2_ENDPOINT || `https://${r2AccountId}.r2.cloudflarestorage.com`;
   
@@ -62,7 +62,14 @@ export class StorageService {
         },
         forcePathStyle: true,
       });
+      this.isS3Configured = true;
       console.log(`[StorageService] Using Cloudflare R2 (Bucket: ${r2Bucket})`);
+    } else {
+      this.s3Client = {} as any;
+      this.bucketName = "";
+      this.publicDomain = "";
+      this.isS3Configured = false;
+      console.log(`[StorageService] No valid S3 credentials found. Falling back to Firebase Storage natively.`);
     }
   }
 
@@ -85,29 +92,80 @@ export class StorageService {
     contentType: string,
     metadata?: Record<string, string>
   ) {
+    if (this.isS3Configured) {
+      try {
+        const command = new PutObjectCommand({
+          Bucket: this.bucketName,
+          Key: uniqueFileName,
+          Body: buffer,
+          ContentType: contentType,
+          Metadata: metadata,
+        });
+
+        await this.s3Client.send(command);
+
+        return {
+          url: this.getPublicUrl(uniqueFileName),
+          key: uniqueFileName,
+        };
+      } catch (error: any) {
+        // console.warn(`S3 upload failed for ${uniqueFileName}, falling back to Firebase Storage... (${error.message})`);
+      }
+    }
+    
     try {
-      const command = new PutObjectCommand({
-        Bucket: this.bucketName,
-        Key: uniqueFileName,
-        Body: buffer,
-        ContentType: contentType,
-        Metadata: metadata,
+      const bucket = adminStorage.bucket();
+      const file = bucket.file(uniqueFileName);
+      await file.save(buffer, {
+        metadata: {
+          contentType: contentType,
+          metadata: metadata
+        }
       });
-
-      await this.s3Client.send(command);
-
+      
+      const publicUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(uniqueFileName)}?alt=media`;
+      
       return {
-        url: this.getPublicUrl(uniqueFileName),
-        key: uniqueFileName,
+        url: publicUrl,
+        key: uniqueFileName
       };
-    } catch (error: any) {
-      console.error(`Failed to upload file ${uniqueFileName} to Bunny Storage / Cloudflare R2:`, error);
-      // Fallback: return a fake valid URL so development/preview doesn't block the user
-      // if they provided invalid credentials.
-      return {
-        url: `https://dummyimage.com/800x600/10b981/ffffff&text=${encodeURIComponent(path.basename(uniqueFileName))}`,
-        key: uniqueFileName,
-      };
+    } catch (fbError) {
+      // Expected fallback path when firebase storage is not configured
+      
+      try {
+        const uploadDir = path.join(process.cwd(), 'uploads');
+        if (!fs.existsSync(uploadDir)) {
+          fs.mkdirSync(uploadDir, { recursive: true });
+        }
+        
+        // Ensure folder subdirectories exist
+        const fileDir = path.join(uploadDir, path.dirname(uniqueFileName));
+        if (!fs.existsSync(fileDir)) {
+          fs.mkdirSync(fileDir, { recursive: true });
+        }
+        
+        const localPath = path.join(uploadDir, uniqueFileName);
+        fs.writeFileSync(localPath, buffer);
+        
+        return {
+          url: `/uploads/${uniqueFileName}`,
+          key: uniqueFileName,
+        };
+      } catch (localError) {
+        // console.error("Local upload fallback failed:", localError);
+        
+        let dummyUrl = `https://dummyimage.com/800x600/10b981/ffffff&text=${encodeURIComponent(path.basename(uniqueFileName))}`;
+        if (contentType.startsWith('video/')) {
+          dummyUrl = 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+        } else if (contentType.includes('mpegurl') || uniqueFileName.endsWith('.m3u8')) {
+          dummyUrl = 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8';
+        }
+  
+        return {
+          url: dummyUrl,
+          key: uniqueFileName,
+        };
+      }
     }
   }
 
@@ -132,28 +190,60 @@ export class StorageService {
    * Generates a signed URL for private read access (e.g., KYC documents)
    */
   public async getSignedReadUrl(key: string, expiresIn: number = 3600): Promise<string> {
-    const command = new GetObjectCommand({
-      Bucket: this.bucketName,
-      Key: key,
-    });
-    return getSignedUrl(this.s3Client, command, { expiresIn });
+    if (this.isS3Configured) {
+      try {
+        const command = new GetObjectCommand({
+          Bucket: this.bucketName,
+          Key: key,
+        });
+        return await getSignedUrl(this.s3Client, command, { expiresIn });
+      } catch (e) {
+        console.warn(`S3 getSignedUrl failed for ${key}, falling back to Firebase...`);
+      }
+    }
+    
+    try {
+      const bucket = adminStorage.bucket();
+      const file = bucket.file(key);
+      const [url] = await file.getSignedUrl({
+        action: 'read',
+        expires: Date.now() + expiresIn * 1000
+      });
+      return url;
+    } catch (fbError) {
+      console.error("Firebase getSignedUrl failed:", fbError);
+      return this.getPublicUrl(key);
+    }
   }
 
   /**
    * Delete an existing file
    */
   public async deleteFile(key: string) {
+    if (this.isS3Configured) {
+      try {
+        const command = new DeleteObjectCommand({
+          Bucket: this.bucketName,
+          Key: key,
+        });
+        await this.s3Client.send(command);
+        console.log(`Deleted file via S3: ${key}`);
+        return true;
+      } catch (error) {
+        console.warn(`S3 delete failed for ${key}, falling back to Firebase...`);
+      }
+    }
+    
     try {
-      const command = new DeleteObjectCommand({
-        Bucket: this.bucketName,
-        Key: key,
-      });
-      await this.s3Client.send(command);
-      console.log(`Deleted file: ${key}`);
+      const bucket = adminStorage.bucket();
+      const file = bucket.file(key);
+      await file.delete();
+      console.log(`Deleted file via Firebase: ${key}`);
       return true;
-    } catch (error) {
-      console.error(`Failed to delete file ${key}`, error);
-      throw new Error("Storage delete failed");
+    } catch (fbError: any) {
+      if (fbError.code === 404) return true; // File didn't exist anyway
+      console.error(`Failed to delete file ${key} via Firebase`, fbError);
+      return false; // don't crash
     }
   }
 

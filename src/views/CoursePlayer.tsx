@@ -7,6 +7,7 @@ import { ArrowLeft, Download, List, Clock, FileText, CheckCircle, StickyNote, Sh
 import { useRole } from "../context/RoleContext";
 import { downloadVideoForOffline } from "../lib/offlineSync";
 import { isVideoOffline, saveVideoOfflineState, removeVideoOffline } from "../lib/offlineStorage";
+import { Skeleton } from "../components/ui/Skeleton";
 
 export function CoursePlayer() {
   const { slug } = useParams<{slug: string}>();
@@ -203,6 +204,85 @@ export function CoursePlayer() {
       }
   };
 
+  const triggerCertificateGeneration = async (currentCompleted: string[], newProgress: number) => {
+      if (enrollment) {
+          await updateDoc(doc(db, 'enrollments', enrollment.id), {
+              completedLessons: currentCompleted,
+              progress: Math.max(enrollment.progress || 0, newProgress),
+              isEligibleForCertificate: true,
+              completedAt: new Date()
+          });
+      } else {
+          await addDoc(collection(db, 'enrollments'), {
+              studentId: currentUser?.uid,
+              courseId: course.id,
+              enrolledAt: serverTimestamp(),
+              completedLessons: currentCompleted,
+              progress: newProgress,
+              isEligibleForCertificate: true,
+              completedAt: new Date()
+          });
+      }
+      showToast('Félicitations ! Vous avez terminé ce cours et votre certificat est prêt.');
+  };
+
+  const handleVideoEnded = async () => {
+      if (!course || isUpdatingProgress) return;
+      setIsUpdatingProgress(true);
+      
+      try {
+          let totalLessons = 0;
+          content.forEach((m: any) => totalLessons += (m.lessons?.length || 0));
+          
+          let currentCompleted = enrollment?.completedLessons || [];
+          const lessonId = currentLessonData.id || `m${activeModule}_l${activeLesson}`;
+          
+          if (!currentCompleted.includes(lessonId)) {
+              currentCompleted.push(lessonId);
+          }
+          
+          const videosVues = currentCompleted.length;
+          
+          const progressPercent = course.totalVideos 
+              ? (videosVues / course.totalVideos) * 100 
+              : (videosVues / (totalLessons || 1)) * 100;
+              
+          const newProgress = Math.min(100, Math.round(progressPercent));
+          
+          const isCourseFinished = course.totalVideos 
+            ? (videosVues >= course.totalVideos) 
+            : (videosVues >= totalLessons);
+          
+          if (isCourseFinished) {
+            await triggerCertificateGeneration(currentCompleted, newProgress);
+          } else {
+            if (enrollment) {
+                await updateDoc(doc(db, 'enrollments', enrollment.id), {
+                    completedLessons: currentCompleted,
+                    progress: newProgress,
+                    isEligibleForCertificate: false,
+                    completedAt: null
+                });
+            } else {
+                await addDoc(collection(db, 'enrollments'), {
+                    studentId: currentUser?.uid,
+                    courseId: course.id,
+                    enrolledAt: serverTimestamp(),
+                    completedLessons: currentCompleted,
+                    progress: newProgress,
+                    isEligibleForCertificate: false,
+                    completedAt: null
+                });
+            }
+            showToast('Leçon terminée automatiquement !');
+          }
+      } catch (error) {
+          console.error("Error ending video:", error);
+      } finally {
+          setIsUpdatingProgress(false);
+      }
+  };
+
   const toggleLessonComplete = async () => {
       if (!course || isUpdatingProgress) return;
       setIsUpdatingProgress(true);
@@ -210,7 +290,7 @@ export function CoursePlayer() {
       try {
           let totalLessons = 0;
           content.forEach((m: any) => totalLessons += (m.lessons?.length || 0));
-          if (totalLessons === 0) return;
+          if (totalLessons === 0 && !course.totalVideos) return;
           
           let currentCompleted = enrollment?.completedLessons || [];
           const lessonId = currentLessonData.id || `m${activeModule}_l${activeLesson}`;
@@ -223,28 +303,41 @@ export function CoursePlayer() {
               currentCompleted.push(lessonId);
           }
           
-          const newProgress = Math.round((currentCompleted.length / totalLessons) * 100);
-          const isFinished = newProgress >= 100;
+          const videosVues = currentCompleted.length;
           
-          if (enrollment) {
-              await updateDoc(doc(db, 'enrollments', enrollment.id), {
-                  completedLessons: currentCompleted,
-                  progress: newProgress,
-                  isEligibleForCertificate: isFinished,
-                  completedAt: isFinished ? new Date() : null
-              });
+          const progressPercent = course.totalVideos 
+              ? (videosVues / course.totalVideos) * 100 
+              : (videosVues / (totalLessons || 1)) * 100;
+          
+          const newProgress = Math.min(100, Math.round(progressPercent));
+          
+          const isCourseFinished = course.totalVideos 
+            ? (videosVues >= course.totalVideos) 
+            : (videosVues >= totalLessons);
+          
+          if (isCourseFinished) {
+              await triggerCertificateGeneration(currentCompleted, newProgress);
           } else {
-              await addDoc(collection(db, 'enrollments'), {
-                  studentId: currentUser?.uid,
-                  courseId: course.id,
-                  enrolledAt: serverTimestamp(),
-                  completedLessons: currentCompleted,
-                  progress: newProgress,
-                  isEligibleForCertificate: isFinished,
-                  completedAt: isFinished ? new Date() : null
-              });
+              if (enrollment) {
+                  await updateDoc(doc(db, 'enrollments', enrollment.id), {
+                      completedLessons: currentCompleted,
+                      progress: newProgress,
+                      isEligibleForCertificate: false,
+                      completedAt: null
+                  });
+              } else {
+                  await addDoc(collection(db, 'enrollments'), {
+                      studentId: currentUser?.uid,
+                      courseId: course.id,
+                      enrolledAt: serverTimestamp(),
+                      completedLessons: currentCompleted,
+                      progress: newProgress,
+                      isEligibleForCertificate: false,
+                      completedAt: null
+                  });
+              }
+              showToast(actionMessage);
           }
-          showToast(actionMessage);
       } catch (error) {
           console.error("Error updating progress:", error);
           showToast('Erreur.');
@@ -273,7 +366,36 @@ export function CoursePlayer() {
   };
 
   if (authLoading || loading) {
-     return <div className="fixed inset-0 z-[100] bg-gray-50 flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-orange-500" /></div>;
+     return (
+        <div className="fixed inset-0 z-[100] bg-gray-50 flex flex-col font-sans overflow-hidden">
+             <header className="bg-white shadow-sm shrink-0 z-40 px-4 py-3 h-16 flex items-center justify-between" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 0.75rem)' }}>
+                <Skeleton className="w-10 h-10 rounded-full shrink-0" />
+                <div className="flex-1 mx-3 space-y-2">
+                    <Skeleton className="w-3/4 h-4 rounded" />
+                    <Skeleton className="w-1/2 h-3 rounded" />
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                    <Skeleton className="w-10 h-10 rounded-full" />
+                    <Skeleton className="w-10 h-10 rounded-full" />
+                </div>
+             </header>
+             <Skeleton className="w-full aspect-video rounded-none shrink-0" />
+             <div className="p-4 space-y-4">
+                 <Skeleton className="w-2/3 h-6 rounded" />
+                 <Skeleton className="w-1/3 h-4 rounded" />
+                 <div className="flex gap-2 mt-4">
+                     <Skeleton className="flex-1 h-10 rounded-lg" />
+                     <Skeleton className="flex-1 h-10 rounded-lg" />
+                     <Skeleton className="flex-1 h-10 rounded-lg" />
+                 </div>
+                 <div className="mt-8 space-y-2">
+                     <Skeleton className="w-full h-4 rounded" />
+                     <Skeleton className="w-full h-4 rounded" />
+                     <Skeleton className="w-4/5 h-4 rounded" />
+                 </div>
+             </div>
+        </div>
+     );
   }
 
   if (!currentUser) {
@@ -330,6 +452,7 @@ export function CoursePlayer() {
                         provider={currentLessonData.provider}
                         className="w-full h-full object-contain bg-black"
                         poster={course.thumbnail}
+                        onEnded={handleVideoEnded}
                     />
                 ) : (
                     <>
@@ -353,14 +476,16 @@ export function CoursePlayer() {
                 
                 {/* Action Buttons */}
                 <div className="flex gap-2 mt-4">
-                    <button 
-                        onClick={toggleLessonComplete} 
-                        disabled={isUpdatingProgress}
-                        className={`flex-1 font-medium py-2.5 rounded-lg flex items-center justify-center gap-2 transition ${isCurrentComplete ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-                    >
-                        {isUpdatingProgress ? <Loader2 className="w-4 h-4 animate-spin" /> : isCurrentComplete ? <CheckCircle className="w-4 h-4" /> : <Check className="w-4 h-4" />}
-                        <span className="text-sm">{isCurrentComplete ? 'Terminé' : 'Marquer lu'}</span>
-                    </button>
+                    {(!course?.autoCertificate) && (
+                        <button 
+                            onClick={toggleLessonComplete} 
+                            disabled={isUpdatingProgress}
+                            className={`flex-1 font-medium py-2.5 rounded-lg flex items-center justify-center gap-2 transition ${isCurrentComplete ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                        >
+                            {isUpdatingProgress ? <Loader2 className="w-4 h-4 animate-spin" /> : isCurrentComplete ? <CheckCircle className="w-4 h-4" /> : <Check className="w-4 h-4" />}
+                            <span className="text-sm">{isCurrentComplete ? 'Terminé' : 'Marquer lu'}</span>
+                        </button>
+                    )}
                     <button 
                         onClick={() => setIsNotesOpen(!isNotesOpen)}
                         className={`flex-1 font-medium py-2.5 rounded-lg flex items-center justify-center gap-2 transition ${isNotesOpen ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}

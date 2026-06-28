@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { db } from "../firebase";
 import { collection, addDoc, serverTimestamp, query, where, onSnapshot } from "firebase/firestore";
 import { useRole } from "../context/RoleContext";
+import { TopAppBar } from "../components/ui/TopAppBar";
 
 export function SupportView() {
   const { currentUser } = useRole();
@@ -56,8 +57,11 @@ export function SupportView() {
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500 pb-8">
-      <div className="flex items-center justify-between mb-2">
+    <div className="space-y-6 animate-in fade-in duration-500 pb-24 bg-slate-950 min-h-screen">
+      <TopAppBar title="Support" showBack={true} transparent />
+      
+      <div className="px-4 space-y-6 pt-4 max-w-md mx-auto">
+        <div className="flex items-center justify-between mb-2">
         <h1 className="font-serif text-3xl text-white">Support</h1>
       </div>
       <p className="text-gray-400 text-sm mb-6">Nous sommes là pour vous aider avec la plateforme Ndara.</p>
@@ -192,6 +196,7 @@ export function SupportView() {
              </div>
           </div>
       )}
+      </div>
     </div>
   );
 }

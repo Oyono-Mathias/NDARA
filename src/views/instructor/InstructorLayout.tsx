@@ -1,9 +1,18 @@
-import { Routes, Route, useNavigate, Navigate, Link } from "react-router-dom";
+import {
+  Routes,
+  Route,
+  useNavigate,
+  Navigate,
+  useLocation,
+  useOutlet,
+} from "react-router-dom";
 import { useRole } from "../../context/RoleContext";
 import { InstructorNavigation } from "../../components/InstructorNavigation";
-import { Bell, Menu } from "lucide-react";
-import { useState } from "react";
+import { Loader2 } from "lucide-react";
+import { useState, useEffect } from "react";
 import { Sidebar } from "../../components/Sidebar";
+import { AnimatePresence, motion } from "motion/react";
+
 import { InstructorDashboard } from "./InstructorDashboard";
 import { InstructorCourses } from "./InstructorCourses";
 import { InstructorCourseCreate } from "./InstructorCourseCreate";
@@ -27,11 +36,12 @@ import { InstructorStudents } from "./InstructorStudents";
 export function InstructorLayout() {
   const { loading, currentUser } = useRole();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const location = useLocation();
 
   if (loading) {
     return (
-      <div className="h-screen w-full flex items-center justify-center bg-black text-white">
-        Loading...
+      <div className="flex h-screen w-full items-center justify-center bg-black">
+        <Loader2 className="h-8 w-8 animate-spin text-[#10B981]" />
       </div>
     );
   }
@@ -40,106 +50,119 @@ export function InstructorLayout() {
   if (currentUser?.role !== "expert" && currentUser?.role !== "instructor")
     return <Navigate to="/student/dashboard" replace />;
 
+  const isFullScreenView = [
+    "/messages",
+    "/courses/create",
+    "/courses/edit",
+    "/quiz/", // Notice trailing slash so list page isn't fullscreen
+    "/devoirs/", // Notice trailing slash
+    "/settings",
+    "/profile"
+  ].some(path => location.pathname.includes(path));
+
+  useEffect(() => {
+    const metaThemeColor = document.querySelector('meta[name="theme-color"]');
+    if (metaThemeColor) {
+      if (isFullScreenView) {
+        metaThemeColor.setAttribute("content", "#020617"); // slate-950 for full screen views
+      } else {
+        metaThemeColor.setAttribute("content", "#000000"); // black for main views
+      }
+    }
+  }, [isFullScreenView]);
+
   return (
-    <div className="antialiased min-h-screen flex bg-black">
+    <div className="flex flex-col relative selection:bg-[#10B981] selection:text-black antialiased h-[100dvh] overflow-hidden bg-black">
       {/* Background Gradients */}
-      <div className="fixed top-0 right-0 w-[500px] h-[500px] bg-secondary/10 rounded-full blur-[120px] -mr-40 -mt-40 pointer-events-none z-0"></div>
-      <div className="fixed bottom-0 left-0 w-[500px] h-[500px] bg-primary/5 rounded-full blur-[120px] -ml-40 -mb-40 pointer-events-none z-0"></div>
+      <div className="absolute top-0 right-0 w-80 h-80 bg-secondary/10 rounded-full blur-[100px] -mr-40 -mt-40 pointer-events-none z-0"></div>
+      <div className="absolute bottom-0 left-0 w-80 h-80 bg-primary/10 rounded-full blur-[100px] -ml-40 -mb-40 pointer-events-none z-0"></div>
 
-      <InstructorNavigation />
+      <div className="flex-1 w-full max-w-7xl mx-auto flex overflow-hidden">
+        {/* Desktop Sidebar */}
+        <Sidebar
+          isOpen={isSidebarOpen}
+          onClose={() => setIsSidebarOpen(false)}
+        />
 
-      <div className="flex-1 flex flex-col relative z-10 w-full max-w-full md:max-w-none pb-32 md:pb-0 h-screen overflow-y-auto hide-scrollbar">
-        {/* Mobile Header */}
-        <header className="md:hidden fixed top-0 w-full z-40 glass safe-top">
-          <div className="flex items-center justify-between px-6 py-4">
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setIsSidebarOpen(true)}
-                className="p-2 -ml-2 text-white hover:bg-white/10 rounded-full transition-colors relative z-50"
-              >
-                <Menu className="w-6 h-6" />
-              </button>
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-secondary to-amber-600 flex items-center justify-center text-background font-black text-sm shadow-[0_0_15px_rgba(204,119,34,0.3)]">
-                  E
-                </div>
-                <span className="font-serif font-bold text-lg tracking-tight text-white drop-shadow-md">
-                  EXPERT
-                </span>
-              </div>
-            </div>
-            <div className="flex items-center gap-4">
-              <button className="w-10 h-10 rounded-full glass-light flex items-center justify-center text-gray-400 hover:text-white transition card-hover relative">
-                <Bell className="w-5 h-5" />
-                <span className="absolute top-2 right-2.5 w-2 h-2 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.8)]"></span>
-              </button>
-              <Link to="/instructor/profile" className="w-10 h-10 rounded-full bg-card border border-white/10 overflow-hidden ring-2 ring-secondary/50 shadow-[0_0_10px_rgba(204,119,34,0.2)] block">
-                <img
-                  src={
-                    currentUser?.profilePictureURL ||
-                    "https://i.pravatar.cc/150?img=12"
+        <main
+          id="main-scroll-container"
+          className="flex-1 w-full max-w-md md:max-w-none mx-auto relative z-10 hide-scrollbar flex flex-col overflow-hidden"
+        >
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={location.pathname}
+              initial={{ x: "100%", opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: "100%", opacity: 0 }}
+              transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              className={`flex-1 flex flex-col h-full w-full overflow-y-auto hide-scrollbar ${isFullScreenView ? "pb-0 pt-0 px-0" : "px-4 pb-32 md:pb-8 pt-4 md:pt-8"}`}
+            >
+              <Routes location={location}>
+                <Route path="/" element={<InstructorDashboard />} />
+                <Route path="dashboard" element={<InstructorDashboard />} />
+                <Route path="courses" element={<InstructorCourses />} />
+                <Route
+                  path="courses/create"
+                  element={<InstructorCourseCreate />}
+                />
+                <Route
+                  path="courses/edit/:id"
+                  element={<InstructorCourseEdit />}
+                />
+                <Route path="quiz" element={<InstructorQuiz />} />
+                <Route
+                  path="quiz/:id"
+                  element={
+                    <GenericPlaceholder
+                      title="Éditeur de Quiz"
+                      subtitle="Création de questions et aide IA"
+                    />
                   }
-                  alt="Profile"
-                  className="w-full h-full object-cover"
                 />
-              </Link>
-            </div>
-          </div>
-        </header>
-
-        {/* Content Area */}
-        <main className="flex-1 px-4 md:px-8 py-24 md:py-8 max-w-6xl mx-auto w-full">
-          <Routes>
-            <Route path="/" element={<InstructorDashboard />} />
-            <Route path="dashboard" element={<InstructorDashboard />} />
-            <Route path="courses" element={<InstructorCourses />} />
-            <Route path="courses/create" element={<InstructorCourseCreate />} />
-            <Route path="courses/edit/:id" element={<InstructorCourseEdit />} />
-            <Route path="quiz" element={<InstructorQuiz />} />
-            <Route
-              path="quiz/:id"
-              element={
-                <GenericPlaceholder
-                  title="Éditeur de Quiz"
-                  subtitle="Création de questions et aide IA"
+                <Route path="qna" element={<InstructorQna />} />
+                <Route path="resources" element={<InstructorResources />} />
+                <Route path="devoirs" element={<InstructorDevoirs />} />
+                <Route
+                  path="devoirs/:id"
+                  element={
+                    <GenericPlaceholder
+                      title="Correcteur Mathias IA"
+                      subtitle="Aide à la notation et feedback"
+                    />
+                  }
                 />
-              }
-            />
-            <Route path="qna" element={<InstructorQna />} />
-            <Route path="resources" element={<InstructorResources />} />
-            <Route path="devoirs" element={<InstructorDevoirs />} />
-            <Route
-              path="devoirs/:id"
-              element={
-                <GenericPlaceholder
-                  title="Correcteur Mathias IA"
-                  subtitle="Aide à la notation et feedback"
+                <Route path="students" element={<InstructorStudents />} />
+                <Route path="messages" element={<MessagesView />} />
+                <Route path="revenus" element={<InstructorWealth />} />
+                <Route
+                  path="ambassador"
+                  element={
+                    <GenericPlaceholder
+                      title="Ambassadeur Elite"
+                      subtitle="Programme de partenariat Premium"
+                    />
+                  }
                 />
-              }
-            />
-            <Route path="students" element={<InstructorStudents />} />
-            <Route path="messages" element={<MessagesView />} />
-            <Route path="revenus" element={<InstructorWealth />} />
-            <Route
-              path="ambassador"
-              element={
-                <GenericPlaceholder
-                  title="Ambassadeur Elite"
-                  subtitle="Programme de partenariat Premium"
+                <Route path="annonces" element={<InstructorAnnouncements />} />
+                <Route path="coupons" element={<InstructorCoupons />} />
+                <Route path="avis" element={<InstructorAvis />} />
+                <Route
+                  path="certificats"
+                  element={<InstructorCertificates />}
                 />
-              }
-            />
-            <Route path="annonces" element={<InstructorAnnouncements />} />
-            <Route path="coupons" element={<InstructorCoupons />} />
-            <Route path="avis" element={<InstructorAvis />} />
-            <Route path="certificats" element={<InstructorCertificates />} />
-            <Route path="settings" element={<InstructorSettings />} />
-            <Route path="profile" element={<InstructorProfile />} />
-          </Routes>
+                <Route path="settings" element={<InstructorSettings />} />
+                <Route path="profile" element={<InstructorProfile />} />
+              </Routes>
+            </motion.div>
+          </AnimatePresence>
         </main>
       </div>
 
-      <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+      {!isFullScreenView && (
+        <div className="fixed bottom-0 w-full z-50 md:hidden">
+          <InstructorNavigation onMenuClick={() => setIsSidebarOpen(true)} />
+        </div>
+      )}
     </div>
   );
 }
@@ -153,8 +176,8 @@ function GenericPlaceholder({
 }) {
   const navigate = useNavigate();
   return (
-    <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-6 animate-in fade-in duration-500">
-      <div className="w-24 h-24 rounded-full glass border border-secondary/30 flex items-center justify-center shadow-[0_0_30px_rgba(204,119,34,0.15)] relative">
+    <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-6 animate-in fade-in duration-500 p-4">
+      <div className="w-24 h-24 rounded-full bg-slate-900 border border-secondary/30 flex items-center justify-center shadow-[0_0_30px_rgba(204,119,34,0.15)] relative">
         <div className="absolute inset-0 rounded-full border-t-2 border-r-2 border-secondary animate-spin"></div>
         <div className="w-12 h-12 rounded-full bg-secondary/10 flex items-center justify-center">
           <span className="text-secondary font-serif font-black text-xl">
@@ -170,7 +193,7 @@ function GenericPlaceholder({
           </p>
         )}
       </div>
-      <p className="text-gray-400 text-sm text-center max-w-md leading-relaxed">
+      <p className="text-slate-400 text-sm text-center max-w-md leading-relaxed">
         L'infrastructure souveraine de Ndara Afrique prépare cette interface
         expert. La synchronisation des noeuds blockchain est en cours.
       </p>

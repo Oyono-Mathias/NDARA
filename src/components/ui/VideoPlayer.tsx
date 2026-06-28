@@ -36,6 +36,36 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     );
   }
 
+  // Extraction du videoId
+  let videoId = src;
+  if (src.includes('/')) {
+    try {
+      const parts = src.split('/').filter(Boolean);
+      videoId = parts[parts.length - 1];
+    } catch (e) {
+      console.error("Impossible de parser l'ID de la vidéo:", e);
+    }
+  }
+
+  // Cloudflare Stream listener
+  useEffect(() => {
+    if (provider !== 'cloudflare' && !src.includes('cloudflarestream.com') && !src.includes('/iframe')) return;
+    
+    const handleMessage = (event: MessageEvent) => {
+      try {
+        const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+        if (data.event === 'ended') {
+          console.log("Cloudflare Stream video ended via postMessage");
+          onEnded?.();
+        }
+      } catch (e) {
+        // ignore
+      }
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [src, provider, onEnded]);
+
   // ==== CLOUDFLARE STREAM RENDER ====
   // Si le provider est explicitly cloudflare, on render l'iframe optimisée 
   if (provider === 'cloudflare' || src.includes('cloudflarestream.com') || src.includes('/iframe')) {
@@ -62,17 +92,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
   // ==== BUNNY STREAM RENDER (Default HLS) ====
   
-  // Extraction du videoId
-  let videoId = src;
-  if (src.includes('/')) {
-    try {
-      const parts = src.split('/').filter(Boolean);
-      videoId = parts[parts.length - 1];
-    } catch (e) {
-      console.error("Impossible de parser l'ID de la vidéo:", e);
-    }
-  }
-
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;

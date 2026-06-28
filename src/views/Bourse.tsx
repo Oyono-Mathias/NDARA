@@ -15,6 +15,7 @@ import { useState, useEffect } from "react";
 import { collection, onSnapshot, query, where, orderBy, limit } from "firebase/firestore";
 import { db } from "../firebase";
 import { useRole } from "../context/RoleContext";
+import { BottomSheet } from "../components/ui/BottomSheet";
 
 export function BourseView() {
   const navigate = useNavigate();
@@ -24,6 +25,8 @@ export function BourseView() {
   const [marketData, setMarketData] = useState<any[]>([]);
   const [courses, setCourses] = useState<any[]>([]);
   const [activeOrders, setActiveOrders] = useState<any[]>([]);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [sortBy, setSortBy] = useState<'volume' | 'price_desc' | 'price_asc'>('volume');
   
   // Real-time market metrics
   const [marketStats, setMarketStats] = useState({
@@ -244,11 +247,15 @@ export function BourseView() {
       <section className="px-1">
         <div className="flex justify-between items-center mb-3 px-1">
           <h2 className="text-[15px] font-bold text-white">📋 Tous les cours</h2>
-          <button className="text-xs font-semibold text-primary">Trier par</button>
+          <button onClick={() => setIsFilterOpen(true)} className="text-xs font-semibold text-primary">Trier par</button>
         </div>
         
         <div className="space-y-2">
-          {coursesWithChange.length > 0 ? coursesWithChange.map((c) => (
+          {coursesWithChange.length > 0 ? coursesWithChange.sort((a, b) => {
+            if (sortBy === 'price_desc') return b.price - a.price;
+            if (sortBy === 'price_asc') return a.price - b.price;
+            return b.students - a.students;
+          }).map((c) => (
             <div key={c.id} className={`p-3.5 rounded-2xl border transition-all active:scale-[0.98] cursor-pointer
               ${c.isUp ? 'bg-gradient-to-br from-primary/10 to-transparent border-primary/20' : 'bg-gradient-to-br from-rose-500/10 to-transparent border-rose-500/20'}`}
               onClick={() => navigate(`/student/bourse/${c.id}`)}  
@@ -314,6 +321,34 @@ export function BourseView() {
           )}
         </div>
       </section>
+
+      <BottomSheet isOpen={isFilterOpen} onClose={() => setIsFilterOpen(false)} title="Trier les cours">
+        <div className="space-y-4 pb-8">
+          <button 
+            onClick={() => { setSortBy('volume'); setIsFilterOpen(false); }}
+            className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all ${sortBy === 'volume' ? 'bg-primary/10 border-primary/30 text-primary' : 'bg-slate-900 border-white/5 text-white hover:bg-white/5'}`}
+          >
+            <span className="font-bold">Par Popularité (Volume)</span>
+            {sortBy === 'volume' && <TrendingUp className="w-5 h-5" />}
+          </button>
+          
+          <button 
+            onClick={() => { setSortBy('price_desc'); setIsFilterOpen(false); }}
+            className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all ${sortBy === 'price_desc' ? 'bg-primary/10 border-primary/30 text-primary' : 'bg-slate-900 border-white/5 text-white hover:bg-white/5'}`}
+          >
+            <span className="font-bold">Prix: Plus élevé</span>
+            {sortBy === 'price_desc' && <TrendingUp className="w-5 h-5" />}
+          </button>
+
+          <button 
+            onClick={() => { setSortBy('price_asc'); setIsFilterOpen(false); }}
+            className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all ${sortBy === 'price_asc' ? 'bg-primary/10 border-primary/30 text-primary' : 'bg-slate-900 border-white/5 text-white hover:bg-white/5'}`}
+          >
+            <span className="font-bold">Prix: Moins élevé</span>
+            {sortBy === 'price_asc' && <TrendingDown className="w-5 h-5" />}
+          </button>
+        </div>
+      </BottomSheet>
 
     </div>
   );

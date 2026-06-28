@@ -58,6 +58,7 @@ import { EbookMarket } from "./views/EbookMarket";
 import OfflineDownloads from "./views/OfflineDownloads";
 
 import { CourseDetail } from "./views/CourseDetail";
+import { OfflineIndicator } from "./components/ui/OfflineIndicator";
 
 // Layouts
 import { PublicLayout } from "./layouts/PublicLayout";
@@ -105,6 +106,7 @@ function GenericPlaceholder({ title }: { title: string }) {
 export default function App() {
   return (
     <BrowserRouter>
+      <OfflineIndicator />
       <Routes>
         {/* === PUBLIC ROUTES === */}
         <Route element={<PublicLayout />}>

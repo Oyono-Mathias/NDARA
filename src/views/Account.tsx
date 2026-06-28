@@ -3,6 +3,7 @@ import { useRole } from "../context/RoleContext";
 import { useState } from "react";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "../firebase";
+import { TopAppBar } from "../components/ui/TopAppBar";
 
 export function AccountView() {
   const { currentUser, role } = useRole();
@@ -29,8 +30,11 @@ export function AccountView() {
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500 pb-8">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+    <div className="space-y-8 animate-in fade-in duration-500 pb-24 bg-slate-950 min-h-screen">
+      <TopAppBar title="Mon Compte" showBack={true} transparent />
+      
+      <div className="px-4 space-y-8 pt-4 max-w-md mx-auto">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <h1 className="font-serif text-3xl text-white">Carte d'Identité</h1>
         
         {role === "student" && (
@@ -117,6 +121,7 @@ export function AccountView() {
               </div>
           </button>
        </div>
+      </div>
     </div>
   );
 }

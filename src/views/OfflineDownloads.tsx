@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { DownloadCloud, Trash2, Video, Database } from "lucide-react";
 import { useOfflineStorage } from "../hooks/useOfflineStorage";
+import { TopAppBar } from "../components/ui/TopAppBar";
 
 export default function OfflineDownloads() {
   const { downloads, totalSize, removeDownload } = useOfflineStorage();
@@ -12,8 +13,11 @@ export default function OfflineDownloads() {
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500 pb-20">
-      <div className="flex items-center justify-between">
+    <div className="space-y-8 animate-in fade-in duration-500 pb-24 bg-slate-950 min-h-screen">
+      <TopAppBar title="Téléchargements" showBack={true} transparent />
+
+      <div className="px-4 space-y-8 pt-4 max-w-md mx-auto">
+        <div className="flex items-center justify-between">
         <div>
           <h1 className="font-serif text-3xl font-black text-white">Téléchargements</h1>
           <p className="text-slate-400 mt-2">Gérez vos vidéos accessibles sans connexion internet.</p>
@@ -71,6 +75,7 @@ export default function OfflineDownloads() {
           ))}
         </div>
       )}
+      </div>
     </div>
   );
 }
