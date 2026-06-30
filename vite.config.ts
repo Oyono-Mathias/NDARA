@@ -14,6 +14,11 @@ export default defineConfig(() => {
         srcDir: 'src',
         filename: 'sw.ts',
         registerType: 'autoUpdate',
+        devOptions: {
+          enabled: true,
+          type: 'module',
+          navigateFallback: 'index.html',
+        },
         injectManifest: {
           maximumFileSizeToCacheInBytes: 5 * 1024 * 1024
         },
@@ -24,6 +29,8 @@ export default defineConfig(() => {
           theme_color: '#000000',
           background_color: '#000000',
           display: 'standalone',
+          start_url: '/',
+          id: '/',
           icons: [
             {
               src: 'pwa-192x192.jpg',
@@ -46,10 +53,9 @@ export default defineConfig(() => {
       })
     ],
     resolve: {
-      alias: [
-        { find: /^@\/components\/(.*)/, replacement: path.resolve(__dirname, './src/views/components/$1') },
-        { find: '@', replacement: path.resolve(__dirname, './src') }
-      ],
+      alias: {
+        "@": path.resolve(__dirname, "./src"),
+      },
     },
     server: {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.

@@ -157,7 +157,7 @@ export function AdminInterface() {
 
   if (isLoading) {
     return (
-      <div className="space-y-8 animate-in fade-in duration-700 pb-20 relative font-sans">
+      <div className="w-full px-4 flex flex-col items-stretch space-y-8 animate-in fade-in duration-700 pb-20 relative font-sans">
         <div className="space-y-2 relative z-10">
           <div className="h-8 w-64 bg-slate-800 rounded-lg animate-pulse"></div>
           <div className="h-4 w-96 bg-slate-800/80 rounded animate-pulse"></div>
@@ -169,7 +169,7 @@ export function AdminInterface() {
   }
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-700 pb-24 relative font-sans">
+    <div className="w-full px-4 flex flex-col items-stretch space-y-8 animate-in fade-in duration-700 pb-24 relative font-sans">
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[400px] bg-emerald-500/5 blur-[100px] pointer-events-none" />
 
       <header className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-5 relative z-10">

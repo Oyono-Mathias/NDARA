@@ -16,7 +16,7 @@ export default function OfflineDownloads() {
     <div className="space-y-8 animate-in fade-in duration-500 pb-24 bg-slate-950 min-h-screen">
       <TopAppBar title="Téléchargements" showBack={true} transparent />
 
-      <div className="px-4 space-y-8 pt-4 max-w-md mx-auto">
+      <div className="px-4 space-y-8 pt-4 w-full max-w-3xl mx-auto">
         <div className="flex items-center justify-between">
         <div>
           <h1 className="font-serif text-3xl font-black text-white">Téléchargements</h1>

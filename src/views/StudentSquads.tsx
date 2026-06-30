@@ -165,7 +165,7 @@ export function StudentSquads() {
   };
 
   const filteredSquads = squads.filter(s => 
-    s.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    (s.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
     s.courseTitle?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     s.description?.toLowerCase().includes(searchQuery.toLowerCase())
   );

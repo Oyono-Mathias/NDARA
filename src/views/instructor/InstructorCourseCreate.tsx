@@ -424,7 +424,7 @@ export function InstructorCourseCreate() {
   const totalFiles = images.length + videos.length + docs.length;
 
   return (
-    <div className="min-h-screen bg-[#0B0F19] text-[#F8FAFC] pb-36 font-sans -m-6 rounded-2xl relative overflow-hidden">
+    <div className="min-h-screen bg-[#0B0F19] text-[#F8FAFC] pb-36 font-sans p-4 rounded-2xl relative overflow-hidden">
       <style
         dangerouslySetInnerHTML={{
           __html: `

@@ -40,10 +40,7 @@ import { NotificationsView } from "./views/Notifications";
 import { InstructorLayout } from "./views/instructor/InstructorLayout";
 import { InstructorPublicProfile } from "./views/InstructorPublicProfile";
 import { StudentCourseRedirect } from "./views/StudentCourseRedirect";
-import { RedirectAssignments } from "./views/RedirectAssignments";
 import { WishlistView } from "./views/WishlistView";
-import { RedirectMesDevoirs } from "./views/RedirectMesDevoirs";
-import { RedirectMesFormations } from "./views/RedirectMesFormations";
 import { VerificationView } from "./views/VerificationView";
 import { ReferralCaptureView } from "./views/ReferralCaptureView";
 import { ProfileRedirect } from "./views/ProfileRedirect";
@@ -155,9 +152,9 @@ export default function App() {
           <Route path="cart" element={<CartView />} />
           <Route path="mathias" element={<MathiasTutor />} />
           <Route path="certificates" element={<CertificatesView />} />
-          <Route path="assignments" element={<RedirectAssignments />} />
-          <Route path="mes-devoirs" element={<RedirectMesDevoirs />} />
-          <Route path="mes-formations" element={<RedirectMesFormations />} />
+          <Route path="assignments" element={<AssignmentsView />} />
+          <Route path="mes-devoirs" element={<AssignmentsView />} />
+          <Route path="mes-formations" element={<CoursesView />} />
           <Route path="wishlist" element={<WishlistView />} />
           <Route path="devoirs" element={<AssignmentsView />} />
           <Route path="devoirs/:id" element={<AssignmentDetail />} />

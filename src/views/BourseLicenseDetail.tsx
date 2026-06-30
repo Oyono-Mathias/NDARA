@@ -519,7 +519,7 @@ export function BourseLicenseDetail() {
           <button 
             onClick={() => {
               setShowSuccessModal(false);
-              navigate('/student/dashboard');
+              navigate('/student/bourse');
             }}
             className="w-full max-w-xs p-4 rounded-xl bg-gradient-to-br from-emerald-600 to-emerald-400 text-white font-bold text-[15px] mb-3 active:scale-95 transition-transform"
           >

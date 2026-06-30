@@ -21,7 +21,8 @@ export function Sidebar({ isOpen, onClose }: { isOpen: boolean, onClose: () => v
         }
     };
 
-    const isInstructorMode = location.pathname.startsWith('/instructor');
+    const isInstructorRoute = location.pathname.startsWith('/instructor') && !location.pathname.startsWith('/instructor/p/');
+    const isInstructorMode = isInstructorRoute || (location.pathname.startsWith('/instructor') && (currentUser?.role === 'expert' || currentUser?.role === 'instructor' || currentUser?.role === 'admin'));
 
     const sidebarContent = (
         <div className="flex-1 overflow-y-auto hide-scrollbar pb-24">

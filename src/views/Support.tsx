@@ -60,7 +60,7 @@ export function SupportView() {
     <div className="space-y-6 animate-in fade-in duration-500 pb-24 bg-slate-950 min-h-screen">
       <TopAppBar title="Support" showBack={true} transparent />
       
-      <div className="px-4 space-y-6 pt-4 max-w-md mx-auto">
+      <div className="px-4 space-y-6 pt-4 w-full max-w-3xl mx-auto">
         <div className="flex items-center justify-between mb-2">
         <h1 className="font-serif text-3xl text-white">Support</h1>
       </div>

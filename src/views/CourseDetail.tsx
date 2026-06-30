@@ -34,6 +34,19 @@ export function CourseDetail() {
                 const data = { id: docSnap.id, ...docSnap.data() } as any;
                 setCourse(data);
                 
+                if (currentUser?.uid) {
+                    try {
+                        const { setDoc, doc, serverTimestamp } = await import('firebase/firestore');
+                        await setDoc(doc(db, 'user_history', `${currentUser.uid}_${data.id}`), {
+                            userId: currentUser.uid,
+                            courseId: data.id,
+                            viewedAt: serverTimestamp()
+                        });
+                    } catch (e) {
+                        console.error('Failed to log course view', e);
+                    }
+                }
+
                 // Initialize first module as open
                 if (data.content && data.content.length > 0) {
                     setOpenModules({ [data.content[0].id || '0']: true });
@@ -141,6 +154,7 @@ export function CourseDetail() {
                 await setDoc(newDocRef, {
                     userId: currentUser.uid,
                     courseId: course.id,
+                    type: 'course',
                     createdAt: serverTimestamp()
                 });
             }
@@ -152,7 +166,7 @@ export function CourseDetail() {
     if (loading) {
         return (
             <div className="antialiased min-h-screen flex justify-center bg-black">
-                <div className="w-full max-w-md bg-[#0f172a] min-h-screen relative flex flex-col shadow-2xl overflow-hidden">
+                <div className="w-full max-w-3xl bg-[#0f172a] min-h-screen relative flex flex-col shadow-2xl overflow-hidden">
                     {/* Header Skeleton */}
                     <Skeleton className="h-64 rounded-none flex-shrink-0 relative">
                         <Skeleton className="absolute top-12 left-4 w-12 h-12 rounded-full" />
@@ -206,7 +220,7 @@ export function CourseDetail() {
         <div className="antialiased h-[100dvh] overflow-y-auto flex justify-center bg-black relative" onScroll={(e) => setScrollY(e.currentTarget.scrollTop)}>
             <div className="fixed top-0 left-0 w-full h-full pointer-events-none z-[9999] opacity-[0.04]" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=%270 0 200 200%27 xmlns=%27http://www.w3.org/2000/svg%27%3E%3Cfilter id=%27noiseFilter%27%3E%3CfeTurbulence type=%27fractalNoise%27 baseFrequency=%270.65%27 numOctaves=%273%27 stitchTiles=%27stitch%27/%3E%3C/filter%3E%3Crect width=%27100%25%27 height=%27100%25%27 filter=%27url(%23noiseFilter)%27/%3E%3C/svg%3E")' }}></div>
 
-            <div className="w-full max-w-md bg-[#0f172a] min-h-full relative flex flex-col shadow-2xl">
+            <div className="w-full max-w-3xl bg-[#0f172a] min-h-full relative flex flex-col shadow-2xl">
                 <header className="sticky top-0 w-full h-64 flex-shrink-0 z-0 overflow-hidden">
                     <div 
                         className="absolute inset-0 origin-center" 
@@ -395,7 +409,7 @@ export function CourseDetail() {
                     </div>
                 </main>
 
-                <div className="fixed bottom-0 w-full max-w-md bg-[#1e293b]/95 backdrop-blur-lg border-t border-white/5 z-50 shadow-[0_-10px_40px_rgba(0,0,0,0.5)] safe-bottom">
+                <div className="fixed bottom-0 w-full max-w-3xl bg-[#1e293b]/95 backdrop-blur-lg border-t border-white/5 z-50 shadow-[0_-10px_40px_rgba(0,0,0,0.5)] safe-bottom">
                     <div className="flex items-center justify-between px-4 py-4">
                         <div>
                             <p className="text-gray-400 text-[10px] font-bold uppercase tracking-wide mb-0.5">Prix de la formation</p>

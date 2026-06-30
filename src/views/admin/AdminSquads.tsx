@@ -111,7 +111,7 @@ export function AdminSquads() {
 
   if (isLoading) {
     return (
-      <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in duration-700 font-sans pb-20">
+      <div className="w-full px-4 flex flex-col items-stretch space-y-6 animate-in fade-in duration-700 font-sans pb-20">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
            <div className="space-y-2">
              <div className="h-8 w-64 bg-slate-800 rounded-lg animate-pulse"></div>
@@ -125,7 +125,7 @@ export function AdminSquads() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in duration-700 font-sans pb-20">
+    <div className="w-full px-4 flex flex-col items-stretch space-y-6 animate-in fade-in duration-700 font-sans pb-20">
       
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">

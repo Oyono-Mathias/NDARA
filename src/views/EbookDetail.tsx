@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ChevronLeft, Share2, Heart, Star, BookOpen, Globe, CreditCard, Lock, FileText, Smartphone, Tablet, Loader2, Download } from "lucide-react";
-import { doc, onSnapshot, collection, query, where, getDocs } from "firebase/firestore";
+import { doc, onSnapshot, collection, query, where, getDocs, deleteDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "../firebase";
 import { useRole } from "../context/RoleContext";
 import { BottomSheet } from "../components/ui/BottomSheet";
@@ -15,6 +15,7 @@ export function EbookDetail() {
   const [loading, setLoading] = useState(true);
 
   const [isFav, setIsFav] = useState(false);
+  const [wishlistDocId, setWishlistDocId] = useState<string | null>(null);
   const [showDescComplete, setShowDescComplete] = useState(false);
   const [showBuyModal, setShowBuyModal] = useState(false);
   const [showSampleModal, setShowSampleModal] = useState(false);
@@ -51,7 +52,44 @@ export function EbookDetail() {
         }
     };
     checkPurchase();
+
+    // Vérification de la liste de souhaits
+    const qWish = query(
+      collection(db, 'user_wishlist'),
+      where('userId', '==', currentUser.uid),
+      where('ebookId', '==', id)
+    );
+    const unsubWish = onSnapshot(qWish, (snap) => {
+      if (!snap.empty) {
+        setIsFav(true);
+        setWishlistDocId(snap.docs[0].id);
+      } else {
+        setIsFav(false);
+        setWishlistDocId(null);
+      }
+    });
+
+    return () => unsubWish();
   }, [id, currentUser?.uid]);
+
+  const toggleFavorite = async () => {
+      if (!currentUser || !ebook) return;
+      try {
+          if (isFav && wishlistDocId) {
+              await deleteDoc(doc(db, 'user_wishlist', wishlistDocId));
+          } else {
+              const newDocRef = doc(collection(db, 'user_wishlist'));
+              await setDoc(newDocRef, {
+                  userId: currentUser.uid,
+                  ebookId: ebook.id,
+                  type: 'ebook',
+                  createdAt: serverTimestamp()
+              });
+          }
+      } catch (error) {
+          console.error("Erreur lors de l'ajout aux favoris", error);
+      }
+  };
 
   const handleBuy = async () => {
     if (!currentUser?.uid || !ebook) return;
@@ -158,14 +196,14 @@ export function EbookDetail() {
               <button className="w-10 h-10 rounded-full bg-black/50 backdrop-blur-md flex items-center justify-center hover:bg-white/10 transition-colors">
                 <Share2 className="w-5 h-5 text-white" />
               </button>
-              <button onClick={() => setIsFav(!isFav)} className="w-10 h-10 rounded-full bg-black/50 backdrop-blur-md flex items-center justify-center hover:bg-white/10 transition-colors">
+              <button onClick={toggleFavorite} className="w-10 h-10 rounded-full bg-black/50 backdrop-blur-md flex items-center justify-center hover:bg-white/10 transition-colors">
                 <Heart className={`w-5 h-5 transition-all ${isFav ? 'fill-rose-500 text-rose-500 scale-110' : 'text-white'}`} />
               </button>
             </div>
         </div>
       </header>
 
-      <main className="flex-1 px-4 pb-32 -mt-8 relative z-10 w-full max-w-md mx-auto">
+      <main className="flex-1 px-4 pb-32 -mt-8 relative z-10 w-full max-w-3xl mx-auto">
         <div className="bg-[#0f121e] rounded-t-[2rem] p-5 min-h-screen">
           {/* Info Card */}
           <div className="-mt-16 relative z-20 mb-6">

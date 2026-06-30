@@ -86,7 +86,7 @@ export function DirectoryView() {
     }
 
     return (
-        <div className="flex flex-col gap-0 pb-24 bg-[#050505] min-h-screen relative -mt-32 max-w-md mx-auto z-10 w-full pt-32">
+        <div className="flex flex-col gap-0 pb-24 bg-[#050505] min-h-screen relative -mt-32 max-w-3xl mx-auto z-10 w-full pt-32">
             
             <header className="sticky top-0 z-40 bg-black/95 backdrop-blur-md border-b border-white/5 safe-area-pt">
                 <div className="px-6 py-6 pt-4 flex items-center justify-between">

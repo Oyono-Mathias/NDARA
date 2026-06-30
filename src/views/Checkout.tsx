@@ -191,7 +191,7 @@ export function CheckoutView() {
   const currencySymbol = countryData?.currency || 'XOF';
 
   return (
-    <div className="flex flex-col gap-0 pb-40 min-h-screen relative overflow-hidden bg-slate-950 -mt-32 max-w-md mx-auto z-10 w-full pt-20">
+    <div className="flex flex-col gap-0 pb-40 min-h-screen relative overflow-hidden bg-slate-950 -mt-32 max-w-3xl mx-auto z-10 w-full pt-20">
       
       <header className="sticky top-0 z-50 bg-slate-950/95 backdrop-blur-md border-b border-white/5 safe-area-pt">
         <div className="flex items-center justify-between px-6 py-4">

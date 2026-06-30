@@ -47,7 +47,7 @@ export function AdminInstructors() {
 
   if (isLoading) {
     return (
-      <div className="space-y-6 animate-in fade-in duration-500 pb-20 relative">
+      <div className="w-full px-4 flex flex-col items-stretch space-y-6 animate-in fade-in duration-500 pb-20 relative">
         <div className="space-y-2">
           <div className="h-8 w-64 bg-slate-800 rounded-lg animate-pulse"></div>
           <div className="h-4 w-96 bg-slate-800/80 rounded animate-pulse"></div>
@@ -70,7 +70,7 @@ export function AdminInstructors() {
   const pendingCount = instructors.filter(i => i.role === "pending_instructor" || i.status === "pending").length;
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500 pb-20 relative">
+    <div className="w-full px-4 flex flex-col items-stretch space-y-6 animate-in fade-in duration-500 pb-20 relative">
       <header>
         <h1 className="text-3xl font-black text-white uppercase tracking-widest flex items-center gap-3">
           Validation des Formateurs

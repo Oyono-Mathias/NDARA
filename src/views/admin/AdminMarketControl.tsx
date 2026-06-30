@@ -62,7 +62,7 @@ export function AdminMarketControl() {
 
   if (isLoading) {
     return (
-      <div className="p-6 max-w-6xl mx-auto space-y-8 animate-in fade-in duration-700 font-sans">
+      <div className="w-full px-4 flex flex-col items-stretch space-y-8 animate-in fade-in duration-700 font-sans">
         <div className="space-y-2">
           <div className="h-10 w-64 bg-slate-800 rounded-lg animate-pulse"></div>
           <div className="h-4 w-96 bg-slate-800/80 rounded animate-pulse"></div>
@@ -234,7 +234,7 @@ export function AdminMarketControl() {
   };
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
+    <div className="w-full px-4 flex flex-col items-stretch space-y-6">
       <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 mb-8">
         <div>
            <h1 className="text-3xl font-black text-white uppercase tracking-tight">Supervision des Marchés</h1>

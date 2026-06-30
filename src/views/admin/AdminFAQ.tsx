@@ -2,7 +2,7 @@ import { Brain, FileText, CheckCircle2 } from "lucide-react";
 
 export function AdminFAQ() {
   return (
-    <div className="space-y-6 animate-in fade-in duration-500 font-mono">
+    <div className="w-full px-4 flex flex-col items-stretch space-y-6 animate-in fade-in duration-500 font-mono">
        <div className="flex items-center justify-between border-b border-[#10B981]/20 pb-6 mb-6">
          <h1 className="text-2xl font-black text-white tracking-widest uppercase flex items-center gap-3">
             <Brain className="text-[#10B981] w-6 h-6" /> BASE_TRAINING_IA

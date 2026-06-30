@@ -61,7 +61,7 @@ export function InstructorCoupons() {
   }, [coupons, searchTerm]);
 
   return (
-    <div className="flex flex-col gap-8 pb-40 min-h-screen relative overflow-hidden bg-transparent font-sans -m-4 md:-m-8 p-4 md:p-8">
+    <div className="flex flex-col gap-8 pb-40 min-h-screen relative overflow-hidden bg-transparent font-sans px-4 pt-4 md:p-8">
       <div className="grain-overlay opacity-[0.03] pointer-events-none" />
 
       <CouponFormModal

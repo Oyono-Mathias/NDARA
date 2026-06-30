@@ -2,7 +2,7 @@ import { StudentsClient } from "../../components/instructor/students/StudentsCli
 
 export function InstructorStudents() {
   return (
-    <div className="flex flex-col gap-0 pb-24 min-h-screen bg-transparent font-sans -m-4 md:-m-8 p-4 md:p-8 relative">
+    <div className="flex flex-col gap-0 pb-24 min-h-screen bg-transparent font-sans px-4 pt-4 md:p-8 relative">
       <div className="grain-overlay opacity-[0.03] pointer-events-none" />
 
       <header className="z-10 bg-[#0f172a]/95 backdrop-blur-md rounded-3xl p-6 mb-8 border border-white/5 animate-in fade-in duration-700">

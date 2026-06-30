@@ -104,13 +104,14 @@ service cloud.firestore {
     // === 6. ENROLLMENTS (Inscriptions) ===
     match /enrollments/{enrollmentId} {
       allow read: if isAdmin() 
-        || (isAuthenticated() && request.auth.uid == resource.data.studentId) 
-        || (isAuthenticated() && request.auth.uid == resource.data.instructorId);
+        || (isAuthenticated() && 'studentId' in resource.data && resource.data.studentId == request.auth.uid) 
+        || (isAuthenticated() && 'instructorId' in resource.data && resource.data.instructorId == request.auth.uid);
       
       allow create: if isAuthenticated() && request.resource.data.studentId == request.auth.uid; 
       
       // Les étudiants ne peuvent modifier que leur progression
       allow update: if isAdmin() || (isAuthenticated() 
+        && 'studentId' in resource.data
         && resource.data.studentId == request.auth.uid 
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['progress', 'lastAccessedAt', 'completedModules', 'completedLessons', 'isEligibleForCertificate', 'completedAt']));
         
@@ -120,29 +121,37 @@ service cloud.firestore {
     // === 7. DEVOIRS (Soumissions) ===
     match /assignments_submissions/{devoirId} {
       // Lecture: étudiant ou instructeur concerné du cours
-      allow read: if isAuthenticated() && (resource.data.studentId == request.auth.uid || resource.data.instructorId == request.auth.uid || isAdmin());
+      allow read: if isAuthenticated() && (
+        ('studentId' in resource.data && resource.data.studentId == request.auth.uid) || 
+        ('instructorId' in resource.data && resource.data.instructorId == request.auth.uid) || 
+        isAdmin()
+      );
       
       // Création: l'étudiant soumet son devoir
       allow create: if isAuthenticated() && request.resource.data.studentId == request.auth.uid;
       
       allow update: if isAuthenticated() && (
         // Etudiant: modifie son devoir mais PAS la note/le retour instructeur
-        (resource.data.studentId == request.auth.uid && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['grade', 'feedback'])) 
+        ('studentId' in resource.data && resource.data.studentId == request.auth.uid && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['grade', 'feedback'])) 
         ||
         // Instructeur: ne peut modifier QUE la note, le feedback et le statut
-        (resource.data.instructorId == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['grade', 'feedback', 'status']))
+        ('instructorId' in resource.data && resource.data.instructorId == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['grade', 'feedback', 'status']))
         || isAdmin()
       );
       
-      allow delete: if isAuthenticated() && resource.data.studentId == request.auth.uid;
+      allow delete: if isAuthenticated() && 'studentId' in resource.data && resource.data.studentId == request.auth.uid;
     }
 
     // === 8. QUIZ SUBMISSIONS ===
     match /quiz_results/{submissionId} {
-      allow read: if isAuthenticated() && (resource.data.studentId == request.auth.uid || resource.data.instructorId == request.auth.uid || isAdmin());
+      allow read: if isAuthenticated() && (
+        ('studentId' in resource.data && resource.data.studentId == request.auth.uid) || 
+        ('instructorId' in resource.data && resource.data.instructorId == request.auth.uid) || 
+        isAdmin()
+      );
       allow create: if isAuthenticated() && request.resource.data.studentId == request.auth.uid;
       // Les notes de quiz automatisées sont gérées par le calcul client + validation backend eventuelle
-      allow update: if isAdmin() || resource.data.studentId == request.auth.uid;
+      allow update: if isAdmin() || ('studentId' in resource.data && resource.data.studentId == request.auth.uid);
       allow delete: if isAdmin();
     }
 
@@ -287,10 +296,15 @@ service cloud.firestore {
       allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
       allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
     }
+    match /user_history/{docId} {
+      allow read: if isAuthenticated() && (('userId' in resource.data && resource.data.userId == request.auth.uid) || isAdmin());
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAuthenticated() && 'userId' in resource.data && resource.data.userId == request.auth.uid;
+    }
     match /course_notes/{docId} {
-      allow read: if isAuthenticated() && (resource.data.studentId == request.auth.uid || isAdmin());
+      allow read: if isAuthenticated() && (('studentId' in resource.data && resource.data.studentId == request.auth.uid) || isAdmin());
       allow create: if isAuthenticated() && request.resource.data.studentId == request.auth.uid;
-      allow update, delete: if isAuthenticated() && resource.data.studentId == request.auth.uid;
+      allow update, delete: if isAuthenticated() && 'studentId' in resource.data && resource.data.studentId == request.auth.uid;
     }
     match /student_badges/{docId} {
       allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());

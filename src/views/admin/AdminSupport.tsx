@@ -226,7 +226,7 @@ export function AdminSupport() {
   const openCount = tickets.filter(t => t.status !== 'resolved' && t.status !== 'closed').length;
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-700 pb-24 relative font-sans">
+    <div className="w-full px-4 flex flex-col items-stretch space-y-8 animate-in fade-in duration-700 pb-24 relative font-sans">
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[400px] bg-blue-500/5 blur-[100px] pointer-events-none" />
 
       <header className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-5 relative z-10">

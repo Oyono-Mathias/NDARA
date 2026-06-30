@@ -297,8 +297,8 @@ export function AdminSettings() {
               {[...Array(6)].map((_, i) => <div key={i} className="w-full h-14 bg-slate-800/50 rounded-xl"></div>)}
            </div>
         </aside>
-        <main className="flex-1 p-6 lg:p-12">
-          <div className="space-y-4 max-w-3xl">
+        <main className="flex-1 px-4 lg:px-12 py-6">
+          <div className="space-y-4 w-full">
              <div className="h-10 w-64 bg-slate-800 rounded animate-pulse"></div>
              <div className="flex gap-4 border-b border-slate-800/50 pb-4">
                {[...Array(3)].map((_, i) => <div key={i} className="w-24 h-6 bg-slate-800 rounded animate-pulse"></div>)}
@@ -441,8 +441,8 @@ export function AdminSettings() {
               </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto px-6 lg:px-12 py-8 pb-32 hide-scrollbar">
-              <div className="max-w-3xl space-y-8 animate-in fade-in duration-300">
+          <div className="flex-1 overflow-y-auto px-4 lg:px-12 py-8 pb-32 hide-scrollbar">
+              <div className="w-full space-y-8 animate-in fade-in duration-300">
                   {renderModuleForm(activeModuleId)}
               </div>
           </div>

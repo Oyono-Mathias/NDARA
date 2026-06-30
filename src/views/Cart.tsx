@@ -62,7 +62,7 @@ export function CartView() {
   };
 
   return (
-    <div className="flex flex-col gap-0 pb-40 min-h-screen relative overflow-hidden bg-slate-950 -mt-32 max-w-md mx-auto z-10 w-full pt-20">
+    <div className="flex flex-col gap-0 pb-40 min-h-screen relative overflow-hidden bg-slate-950 -mt-32 max-w-3xl mx-auto z-10 w-full pt-20">
       
       {/* --- HEADER --- */}
       <header className="sticky top-0 z-50 bg-slate-950/95 backdrop-blur-md border-b border-white/5 safe-top">
@@ -207,7 +207,7 @@ export function CartView() {
       {/* --- FIXED ACTION BAR --- */}
       {items.length > 0 && (
         <div className="fixed bottom-0 left-0 right-0 p-4 bg-[#1e293b]/95 backdrop-blur-xl border-t border-white/5 z-50 safe-area-pb shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
-            <div className="max-w-md mx-auto space-y-4 px-6 md:px-0">
+            <div className="max-w-3xl mx-auto space-y-4 px-6 md:px-0">
                 <div className="flex items-center justify-center gap-2">
                     <div className="w-5 h-5 rounded-full bg-[#10b981]/20 flex items-center justify-center">
                         <Lock className="h-3 w-3 text-[#10b981]" />

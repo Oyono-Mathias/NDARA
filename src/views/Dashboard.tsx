@@ -15,6 +15,7 @@ export function Dashboard() {
   const { currentUser } = useRole();
   const [coursesCount, setCoursesCount] = useState({ total: 0, active: 0, completed: 0 });
   const [recentCourses, setRecentCourses] = useState<any[]>([]);
+  const [historyCourses, setHistoryCourses] = useState<any[]>([]);
   const [recommendedCourses, setRecommendedCourses] = useState<any[]>([]);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [avgProgress, setAvgProgress] = useState(0);
@@ -30,9 +31,15 @@ export function Dashboard() {
         try {
             // FinOps: Utilisation de getCountFromServer (1 read) pour les compteurs globaux
             const enrollmentsRef = collection(db, 'enrollments');
-            const totalSnap = await getCountFromServer(query(enrollmentsRef, where('studentId', '==', currentUser.uid)));
-            const completedSnap = await getCountFromServer(query(enrollmentsRef, where('studentId', '==', currentUser.uid), where('progress', '==', 100)));
-            const activeSnap = await getCountFromServer(query(enrollmentsRef, where('studentId', '==', currentUser.uid), where('progress', '>', 0), where('progress', '<', 100)));
+            let totalSnap, completedSnap, activeSnap;
+            try {
+                totalSnap = await getCountFromServer(query(enrollmentsRef, where('studentId', '==', currentUser.uid)));
+                completedSnap = await getCountFromServer(query(enrollmentsRef, where('studentId', '==', currentUser.uid), where('progress', '==', 100)));
+                activeSnap = await getCountFromServer(query(enrollmentsRef, where('studentId', '==', currentUser.uid), where('progress', '>', 0), where('progress', '<', 100)));
+            } catch(e) {
+                console.error("Dashboard FinOps Error: enrollments count", e);
+                throw new Error("enrollments count");
+            }
             
             if (isMounted) {
                 setCoursesCount({ 
@@ -43,7 +50,13 @@ export function Dashboard() {
             }
 
             // Récupération de quelques cours (Limité à 2)
-            const enrolSnap = await getDocs(query(enrollmentsRef, where('studentId', '==', currentUser.uid), limit(2)));
+            let enrolSnap;
+            try {
+                enrolSnap = await getDocs(query(enrollmentsRef, where('studentId', '==', currentUser.uid), limit(2)));
+            } catch(e) {
+                console.error("Dashboard FinOps Error: enrolSnap", e);
+                throw new Error("enrolSnap");
+            }
             const enrolledCourseIds = enrolSnap.docs.map(d => d.data().courseId);
             
             if (enrolledCourseIds.length > 0) {
@@ -69,8 +82,48 @@ export function Dashboard() {
                  if (isMounted) setRecentCourses(myRecent);
             }
 
+            // Historique récent
+            let historySnap;
+            try {
+                historySnap = await getDocs(query(
+                    collection(db, 'user_history'),
+                    where('userId', '==', currentUser.uid),
+                    orderBy('viewedAt', 'desc'),
+                    limit(5)
+                ));
+            } catch(e) {
+                console.error("Dashboard FinOps Error: historySnap", e);
+                throw new Error("historySnap");
+            }
+            
+            if (!historySnap.empty) {
+                const historyIds = historySnap.docs.map(d => d.data().courseId).filter(Boolean);
+                if (historyIds.length > 0) {
+                    const uniqueHistoryIds = [...new Set(historyIds)].slice(0, 10);
+                    const historyPromises = uniqueHistoryIds.map(async id => {
+                        try {
+                            const snap = await getDoc(doc(db, 'courses', String(id)));
+                            if (snap.exists() && snap.data().status === 'Published') {
+                                return { id: snap.id, ...snap.data() };
+                            }
+                        } catch (e) {
+                            console.warn("Failed to fetch history course: " + id, e);
+                        }
+                        return null;
+                    });
+                    const hData = (await Promise.all(historyPromises)).filter(Boolean);
+                    if (isMounted) setHistoryCourses(hData);
+                }
+            }
+
             // Recommended (Limité à 5)
-            const allCoursesSnap = await getDocs(query(collection(db, 'courses'), where('status', '==', 'Published'), limit(5)));
+            let allCoursesSnap;
+            try {
+                allCoursesSnap = await getDocs(query(collection(db, 'courses'), where('status', '==', 'Published'), limit(5)));
+            } catch(e) {
+                console.error("Dashboard FinOps Error: allCoursesSnap", e);
+                throw new Error("allCoursesSnap");
+            }
             if (isMounted) {
                  const recommended = allCoursesSnap.docs
                      .filter(d => !enrolledCourseIds.includes(d.id))
@@ -272,6 +325,26 @@ export function Dashboard() {
             )}
         </div>
       </section>
+
+      {/* Historique récent */}
+      {historyCourses.length > 0 && (
+        <section className="px-5 mb-8">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-base font-bold text-white tracking-tight">Historique récent</h2>
+            </div>
+            
+            <div className="flex gap-4 overflow-x-auto hide-scrollbar pb-4 snap-x snap-mandatory">
+                {historyCourses.map((course, i) => (
+                    <TouchArea as="div" key={`hist-${course.id || i}`} onClick={() => navigate(`/student/catalog/${course.id}`)} className="min-w-[140px] max-w-[140px] glass-light rounded-2xl overflow-hidden border border-white/5 cursor-pointer card-hover snap-start shrink-0 block">
+                        <img src={formatImageUrl(course.thumbnail) || "https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&q=80"} alt={course.title} className="w-full h-20 object-cover" />
+                        <div className="p-3">
+                            <h3 className="text-xs font-bold text-white mb-1 leading-snug line-clamp-2">{course.title}</h3>
+                        </div>
+                    </TouchArea>
+                ))}
+            </div>
+        </section>
+      )}
 
       {/* Recommended for you (Horizontal Scroll) */}
       <section>

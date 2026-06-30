@@ -2,8 +2,8 @@ import { Bot, Send, Sparkles, Paperclip, Mic, Loader2 } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import React, { useState, useEffect, useRef } from "react";
 import { useRole } from "../context/RoleContext";
-import { db } from "../firebase";
-import { doc, getDoc, setDoc, addDoc, collection, query, orderBy, onSnapshot } from "firebase/firestore";
+import { db, auth } from "../firebase";
+import { doc, getDoc, setDoc, addDoc, updateDoc, collection, query, orderBy, onSnapshot } from "firebase/firestore";
 
 interface Message {
   id: string;
@@ -35,8 +35,6 @@ export function MathiasTutor() {
         content: "Bara ala, c'est Mathias. Je suis là pour t'accompagner dans ta formation. Comment puis-je t'aider aujourd'hui ?"
       });
 
-      let typing = false;
-
       snap.docs.forEach(doc => {
         const data = doc.data();
         if (data.prompt) {
@@ -44,14 +42,11 @@ export function MathiasTutor() {
         }
         if (data.response) {
            msgs.push({ id: doc.id + "_model", role: "model", content: data.response });
-        } else if (data.prompt) {
-           typing = true;
         }
       });
 
       setMessages(msgs);
       setIsHistoryLoading(false);
-      setIsTyping(typing);
     }, (error) => {
       console.error(error);
       setIsHistoryLoading(false);
@@ -83,16 +78,59 @@ export function MathiasTutor() {
 
     const chatRef = collection(db, 'users', currentUser.uid, 'mathias_chats');
     
-    // Ajout du document dans la collection, qui sera traité par l'extension IA
+    let docRef;
     try {
-      await addDoc(chatRef, {
+      docRef = await addDoc(chatRef, {
         prompt: userMessageContent,
-        systemInstruction: "Tu es Mathias, le tuteur officiel de la plateforme NDARA, encourageant, pédagogue et expert. Réponds aux questions de l'étudiant en t'appuyant sur le contexte du cours.",
-        createdAt: new Date(), // using local JS date for immediate optimistic ordering 
+        createdAt: new Date(),
       });
     } catch (err) {
       console.error("Erreur d'envoi du message", err);
       setIsTyping(false);
+      return;
+    }
+
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      
+      const payload = {
+         message: userMessageContent,
+         history: messages.filter(m => m.id !== 'init').map(m => ({
+            role: m.role,
+            content: m.content
+         }))
+      };
+
+      const res = await fetch(`/api/chat`, {
+         method: 'POST',
+         headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+         },
+         body: JSON.stringify(payload)
+      });
+      
+      if (!res.ok) {
+         throw new Error("Erreur api");
+      }
+      
+      const data = await res.json();
+      
+      if (data.reply && docRef) {
+          await updateDoc(docRef, { response: data.reply });
+      } else {
+          throw new Error("Pas de réponse");
+      }
+    } catch (err) {
+      console.error("Erreur api/chat", err);
+      if (docRef) {
+         await updateDoc(docRef, { response: "Désolé, l'IA Mathias est momentanément indisponible (Erreur de réseau)." });
+      }
+    } finally {
+       // isTyping is handled by onSnapshot primarily, but we can set it to false here as a fallback if the snapshot doesn't trigger quickly enough, 
+       // but actually the snapshot sets typing based on (prompt && !response). 
+       // Once response is there, snapshot will set typing to false.
+       setIsTyping(false);
     }
   };
 

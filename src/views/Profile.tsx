@@ -68,8 +68,21 @@ export function ProfileView() {
   const navigate = useNavigate();
   const location = useLocation();
   const locale = useLocale();
-  const theme = 'dark';
-  const setTheme = (t: string) => document.documentElement.classList.toggle('dark', t === 'dark');
+  
+  const [theme, setThemeState] = useState(() => {
+      return document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+  });
+  
+  const setTheme = (t: string) => {
+      setThemeState(t);
+      if (t === 'dark') {
+          document.documentElement.classList.add('dark');
+          localStorage.setItem('theme', 'dark');
+      } else {
+          document.documentElement.classList.remove('dark');
+          localStorage.setItem('theme', 'light');
+      }
+  };
   
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [counters, setCounters] = useState({ enrollments: 0, certificates: 0, reviews: 0 });
@@ -135,7 +148,7 @@ export function ProfileView() {
     <div className="flex flex-col gap-0 pb-32 bg-[#0f172a] min-h-screen relative overflow-x-hidden">
       <div className="grain-overlay" />
       
-      <header className="fixed top-0 w-full max-w-md z-50 bg-[#0f172a]/95 backdrop-blur-md border-b border-white/5 safe-area-pt">
+      <header className="sticky top-0 w-full z-50 bg-[#0f172a]/95 backdrop-blur-md border-b border-white/5 safe-area-pt">
         <div className="flex items-center justify-between px-4 sm:px-6 py-4">
             <h1 className="font-black text-xl text-white uppercase tracking-tight">{t('title')}</h1>
             <TouchArea as="button" className="rounded-full bg-slate-900 text-slate-400 p-2 border border-white/5" onClick={() => navigate('/student/account')}>
@@ -144,7 +157,7 @@ export function ProfileView() {
         </div>
       </header>
 
-      <main className="flex-1 px-2 sm:px-6 pt-24 space-y-6 sm:space-y-8 animate-in fade-in duration-700 max-w-md mx-auto w-full relative z-10">
+      <main className="flex-1 px-4 sm:px-6 pt-6 space-y-6 sm:space-y-8 animate-in fade-in duration-700 w-full max-w-3xl mx-auto relative z-10">
         
         {/* --- USER HEADER --- */}
         <div className="bg-slate-900 rounded-[2rem] sm:rounded-[2.5rem] border border-white/5 overflow-hidden shadow-2xl relative">
@@ -189,8 +202,8 @@ export function ProfileView() {
         </div>
 
         {/* --- WALLET SHORTCUT --- */}
-        <Link to="/student/wallet" className="block">
-            <TouchArea className="bg-slate-900 border border-white/5 rounded-[2rem] p-5 sm:p-6 shadow-xl flex items-center justify-between relative overflow-hidden group">
+        <Link to="/student/wallet" className="block w-full">
+            <TouchArea className="w-full bg-slate-900 border border-white/5 rounded-[2rem] p-5 sm:p-6 shadow-xl flex items-center justify-between relative overflow-hidden group">
                 <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-amber-500" />
                 <div className="flex items-center gap-4">
                     <div className="w-12 h-12 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-500 shadow-inner shrink-0">
@@ -362,7 +375,7 @@ export function ProfileView() {
 
 function StatBox({ label, value, color }: { label: string, value: string, color: string }) {
     return (
-        <TouchArea className="bg-slate-900 border border-white/5 rounded-[2rem] p-3 sm:p-4 text-center shadow-xl active:scale-95 transition-transform flex flex-col justify-center">
+        <TouchArea className="bg-slate-900 border border-white/5 rounded-[2rem] p-3 sm:p-4 text-center shadow-xl active:scale-95 transition-transform flex flex-col justify-center w-full">
             <p className={cn("text-xl sm:text-2xl font-black leading-none mb-1 sm:mb-2", color)}>{value}</p>
             <p className="text-[7px] sm:text-[8px] font-black text-slate-600 uppercase tracking-widest">{label}</p>
         </TouchArea>
@@ -372,7 +385,7 @@ function StatBox({ label, value, color }: { label: string, value: string, color:
 function MenuLink({ icon: Icon, label, desc, color, href }: { icon: any, label: string, desc: string, color: string, href: string }) {
     return (
         <Link to={href} className="block w-full">
-            <TouchArea className="flex items-center justify-between p-4 sm:p-5 hover:bg-white/5 active:scale-[0.98] transition-all group">
+            <TouchArea className="flex items-center justify-between p-4 sm:p-5 hover:bg-white/5 active:scale-[0.98] transition-all group w-full">
                 <div className="flex items-center gap-3 sm:gap-4">
                     <div className={cn("w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl flex items-center justify-center transition-transform group-hover:scale-110" , color)}>
                         <Icon className="h-5 w-5 sm:h-6 sm:w-6" />

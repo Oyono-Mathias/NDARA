@@ -5,6 +5,13 @@ import './index.css';
 import { RoleProvider } from './context/RoleContext';
 import { registerSW } from 'virtual:pwa-register';
 
+const savedTheme = localStorage.getItem('theme') || 'dark';
+if (savedTheme === 'dark') {
+  document.documentElement.classList.add('dark');
+} else {
+  document.documentElement.classList.remove('dark');
+}
+
 // Register Service Worker for offline video caching
 if ('serviceWorker' in navigator) {
   registerSW({

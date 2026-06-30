@@ -153,7 +153,7 @@ export function InstructorCourseEdit() {
   const isApprovedBuyout = course.buyoutStatus === "approved";
 
   return (
-    <div className="space-y-8 bg-slate-900/50 p-6 -m-6 rounded-2xl min-h-full">
+    <div className="space-y-8 bg-slate-900/50 p-4 rounded-2xl min-h-full">
       <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <Link

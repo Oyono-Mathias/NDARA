@@ -61,7 +61,7 @@ export function CoursesView() {
 
     if (searchTerm.trim()) {
         const s = searchTerm.toLowerCase();
-        list = list.filter(c => c.title.toLowerCase().includes(s));
+        list = list.filter(c => (c.title || '').toLowerCase().includes(s));
     }
 
     return list;
@@ -83,7 +83,7 @@ export function CoursesView() {
   };
 
   return (
-    <div className="flex flex-col gap-0 pb-24 min-h-screen relative overflow-hidden bg-black max-w-md mx-auto z-10 w-full pt-16">
+    <div className="flex flex-col gap-0 pb-24 min-h-screen relative overflow-hidden bg-black mx-auto z-10 w-full pt-16">
       {/* --- HEADER FIXE --- */}
       <header className="sticky top-0 z-40 bg-black/95 backdrop-blur-md border-b border-white/5 safe-area-pt">
         <div className="px-4 py-4 pt-4">

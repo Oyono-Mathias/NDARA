@@ -125,7 +125,7 @@ export function AmbassadorView() {
     const stats = activeProfile?.affiliateStats || { clicks: 0, registrations: 0, sales: 0, earnings: 0 };
 
     return (
-        <div className="flex flex-col gap-8 pb-32 min-h-screen relative overflow-hidden bg-black max-w-md mx-auto w-full">
+        <div className="flex flex-col gap-8 pb-32 min-h-screen relative overflow-hidden bg-black max-w-3xl mx-auto w-full">
             <TopAppBar title="Ambassadeur" showBack={true} transparent rightAction={
                  <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center mr-2 mt-1">
                     <Medal className="h-4 w-4 text-primary" />

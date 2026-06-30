@@ -86,7 +86,7 @@ export function InstructorLayout() {
 
         <main
           id="main-scroll-container"
-          className="flex-1 w-full max-w-md md:max-w-none mx-auto relative z-10 hide-scrollbar flex flex-col overflow-hidden"
+          className="flex-1 w-full mx-auto relative z-10 hide-scrollbar flex flex-col overflow-hidden items-stretch"
         >
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
@@ -95,7 +95,7 @@ export function InstructorLayout() {
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: "100%", opacity: 0 }}
               transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className={`flex-1 flex flex-col h-full w-full overflow-y-auto hide-scrollbar ${isFullScreenView ? "pb-0 pt-0 px-0" : "px-4 pb-32 md:pb-8 pt-4 md:pt-8"}`}
+              className={`flex-1 flex flex-col h-full w-full overflow-y-auto hide-scrollbar ${isFullScreenView ? "pb-0 pt-0" : "pb-32 md:pb-8 pt-4 md:pt-8"}`}
             >
               <Routes location={location}>
                 <Route path="/" element={<InstructorDashboard />} />

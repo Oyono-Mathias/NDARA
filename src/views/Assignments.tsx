@@ -80,7 +80,7 @@ export function AssignmentsView() {
 
   const filteredAssignments = useMemo(() => {
     return assignments.filter(a => 
-      a.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (a.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (a.courseTitle && a.courseTitle.toLowerCase().includes(searchTerm.toLowerCase()))
     );
   }, [assignments, searchTerm]);

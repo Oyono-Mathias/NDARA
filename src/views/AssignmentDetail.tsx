@@ -45,7 +45,7 @@ export function AssignmentDetail() {
             const qAssign = query(collectionGroup(db, 'assignments'), where('__name__', '==', assignmentId));
             const unsubAssign = onSnapshot(qAssign, (snap) => {
                 if (snap.empty) {
-                    navigate('/student/assignments');
+                    navigate('/student/devoirs');
                     return;
                 }
                 const assignDoc = snap.docs[0];
@@ -131,7 +131,7 @@ export function AssignmentDetail() {
       };
 
       await setDoc(subRef, payload);
-      navigate('/student/assignments');
+      navigate('/student/devoirs');
     } catch (error) {
       console.error("Erreur d'envoi", error);
     } finally {
@@ -190,7 +190,7 @@ export function AssignmentDetail() {
         </div>
       </header>
 
-      <main className="flex-1 px-4 pb-32 -mt-8 relative z-10 w-full max-w-md mx-auto">
+      <main className="flex-1 px-4 pb-32 -mt-8 relative z-10 w-full max-w-3xl mx-auto">
         <div className="bg-[#0f172a] rounded-t-[2rem] p-5 min-h-screen">
           <div className="space-y-6">
             {/* CONSIGNES */}

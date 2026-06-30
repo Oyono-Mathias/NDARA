@@ -109,7 +109,7 @@ export function AdminAiConfig() {
 
   if (loading) {
     return (
-      <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-700 pb-20 relative font-sans">
+      <div className="w-full px-4 flex flex-col items-stretch space-y-8 animate-in fade-in duration-700 pb-20 relative font-sans">
         <div className="flex justify-between items-end">
            <div className="space-y-2 relative z-10">
              <div className="h-8 w-64 bg-slate-800 rounded-lg animate-pulse"></div>
@@ -131,7 +131,7 @@ export function AdminAiConfig() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in duration-700 pb-20 relative font-sans">
+    <div className="w-full px-4 flex flex-col items-stretch space-y-6 animate-in fade-in duration-700 pb-20 relative font-sans">
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[400px] bg-emerald-500/5 blur-[100px] pointer-events-none" />
 
       <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 relative z-10">

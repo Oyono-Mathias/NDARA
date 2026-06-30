@@ -159,7 +159,7 @@ function SearchPageContent() {
     <div className="min-h-screen bg-black pb-24 animate-in fade-in duration-700 relative overflow-x-hidden">
       <div className="absolute inset-0 bg-primary/5 blur-[120px] rounded-full pointer-events-none" />
       
-      <header className="fixed top-0 w-full z-50 bg-black/95 backdrop-blur-md safe-area-pt border-b border-white/5 max-w-md mx-auto left-0 right-0">
+      <header className="fixed top-0 w-full z-50 bg-black/95 backdrop-blur-md safe-area-pt border-b border-white/5 max-w-3xl mx-auto left-0 right-0">
         <div className="px-4 py-4 space-y-4">
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -202,7 +202,7 @@ function SearchPageContent() {
         </div>
       </header>
 
-      <main className="px-4 pt-44 max-w-md mx-auto w-full z-10 relative">
+      <main className="px-4 pt-44 max-w-3xl mx-auto w-full z-10 relative">
         <div className="flex items-center justify-between mb-6 px-1">
             <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest">
                 <span className="text-white">{filteredResults.length}</span> {tCommon('found_results', { count: filteredResults.length })}
@@ -287,7 +287,7 @@ function SearchPageContent() {
 export function SearchAndCatalog() {
     return (
         <Suspense fallback={
-            <div className="min-h-screen bg-black px-4 pt-32 max-w-md mx-auto w-full z-10 relative">
+            <div className="min-h-screen bg-black px-4 pt-32 max-w-3xl mx-auto w-full z-10 relative">
                 <div className="space-y-4">
                     {[...Array(4)].map((_, i) => (
                         <div key={i} className="flex gap-4 p-4 bg-[#111111] rounded-[2rem] border border-white/5">

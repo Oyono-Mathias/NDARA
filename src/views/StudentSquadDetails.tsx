@@ -248,7 +248,7 @@ export function StudentSquadDetails() {
       <div className="bg-background border-t border-white/5 p-4 fixed bottom-0 left-0 right-0 z-30 pb-safe">
         <form 
           onSubmit={handleSendMessage}
-          className="flex items-center gap-2 bg-white/5 border border-white/10 p-1.5 rounded-full focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/50 transition-all shadow-inner max-w-md mx-auto"
+          className="flex items-center gap-2 bg-white/5 border border-white/10 p-1.5 rounded-full focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/50 transition-all shadow-inner max-w-3xl mx-auto"
         >
           <input
             type="text"
