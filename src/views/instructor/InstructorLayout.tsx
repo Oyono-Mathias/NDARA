@@ -72,12 +72,12 @@ export function InstructorLayout() {
   }, [isFullScreenView]);
 
   return (
-    <div className="flex flex-col relative selection:bg-[#10B981] selection:text-black antialiased h-[100dvh] overflow-hidden bg-black">
+    <div className="w-full h-[100dvh] max-h-[100dvh] flex flex-col justify-between items-stretch overflow-hidden bg-black relative selection:bg-[#10B981] selection:text-black antialiased">
       {/* Background Gradients */}
       <div className="absolute top-0 right-0 w-80 h-80 bg-secondary/10 rounded-full blur-[100px] -mr-40 -mt-40 pointer-events-none z-0"></div>
       <div className="absolute bottom-0 left-0 w-80 h-80 bg-primary/10 rounded-full blur-[100px] -ml-40 -mb-40 pointer-events-none z-0"></div>
 
-      <div className="flex-1 w-full max-w-7xl mx-auto flex overflow-hidden">
+      <div className="flex-1 w-full max-w-7xl mx-auto flex flex-col md:flex-row overflow-hidden relative">
         {/* Desktop Sidebar */}
         <Sidebar
           isOpen={isSidebarOpen}
@@ -86,7 +86,7 @@ export function InstructorLayout() {
 
         <main
           id="main-scroll-container"
-          className="flex-1 w-full mx-auto relative z-10 hide-scrollbar flex flex-col overflow-hidden items-stretch"
+          className="flex-1 w-full mx-auto relative z-10 hide-scrollbar flex flex-col overflow-hidden items-stretch min-h-0"
         >
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
@@ -95,7 +95,7 @@ export function InstructorLayout() {
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: "100%", opacity: 0 }}
               transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className={`flex-1 flex flex-col h-full w-full overflow-y-auto hide-scrollbar ${isFullScreenView ? "pb-0 pt-0" : "pb-32 md:pb-8 pt-4 md:pt-8"}`}
+              className={`flex-1 flex flex-col w-full hide-scrollbar ${isFullScreenView ? "overflow-hidden pb-0 pt-0" : "overflow-y-auto pb-0 md:pb-8 pt-0 md:pt-8"}`}
             >
               <Routes location={location}>
                 <Route path="/" element={<InstructorDashboard />} />
@@ -156,13 +156,13 @@ export function InstructorLayout() {
             </motion.div>
           </AnimatePresence>
         </main>
+        
+        {!isFullScreenView && (
+          <div className="shrink-0 w-full z-50 md:hidden bg-black/90 backdrop-blur-md border-t border-white/5 pb-[max(0px,env(safe-area-inset-bottom))]">
+            <InstructorNavigation onMenuClick={() => setIsSidebarOpen(true)} />
+          </div>
+        )}
       </div>
-
-      {!isFullScreenView && (
-        <div className="fixed bottom-0 w-full z-50 md:hidden">
-          <InstructorNavigation onMenuClick={() => setIsSidebarOpen(true)} />
-        </div>
-      )}
     </div>
   );
 }

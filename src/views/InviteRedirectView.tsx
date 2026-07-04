@@ -20,7 +20,7 @@ export function InviteRedirectView() {
                     const code = userData.referralCode || 'NDARA';
                     navigate(`/invite/${uid}?code=${code}`, { replace: true });
                 } else {
-                    navigate('/student/search', { replace: true });
+                    navigate('/student/catalog', { replace: true });
                 }
             } catch(e) {
                 console.error(e);

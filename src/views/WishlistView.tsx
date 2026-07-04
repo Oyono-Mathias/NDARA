@@ -134,7 +134,7 @@ export function WishlistView() {
             <p className="text-slate-500 text-xs mt-3 leading-relaxed max-w-[220px] mx-auto font-medium italic">
               Explorez le catalogue et marquez d'un cœur les formations qui vous inspirent.
             </p>
-            <Link to="/student/search" className="mt-8 bg-primary hover:bg-emerald-400 text-black rounded-full h-12 px-8 font-black uppercase text-[10px] tracking-widest flex items-center justify-center shadow-[0_4px_20px_rgba(16,185,129,0.3)] transition-all active:scale-95 group">
+            <Link to="/student/catalog" className="mt-8 bg-primary hover:bg-emerald-400 text-black rounded-full h-12 px-8 font-black uppercase text-[10px] tracking-widest flex items-center justify-center shadow-[0_4px_20px_rgba(16,185,129,0.3)] transition-all active:scale-95 group">
                 Parcourir le catalogue
                 <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
             </Link>

@@ -159,7 +159,7 @@ export function EbookDetail() {
   }
 
   return (
-    <div className="h-[100dvh] overflow-y-auto bg-[#050505] flex flex-col relative" onScroll={(e) => setScrollY(e.currentTarget.scrollTop)}>
+    <div className="h-full overflow-y-auto bg-[#050505] flex flex-col relative" onScroll={(e) => setScrollY(e.currentTarget.scrollTop)}>
       
       {/* Collapsing Header */}
       <header className="sticky top-0 w-full h-[280px] flex-shrink-0 z-0 overflow-hidden">

@@ -1,0 +1,33 @@
+import { BaseService } from './baseService';
+import * as Models from '../../types/models';
+
+export const UsersService = new BaseService<Models.User>('users');
+export const CoursesService = new BaseService<Models.Course>('courses');
+export const LessonsService = new BaseService<Models.Lesson>('lessons');
+export const CategoriesService = new BaseService<Models.Category>('categories');
+export const EnrollmentsService = new BaseService<Models.Enrollment>('enrollments');
+export const ProgressService = new BaseService<Models.Progress>('progress');
+export const CertificatesService = new BaseService<Models.Certificate>('certificates');
+export const DownloadsService = new BaseService<Models.Download>('downloads');
+export const EbooksService = new BaseService<Models.Ebook>('ebooks');
+export const MarketplaceService = new BaseService<Models.MarketplaceItem>('marketplace');
+export const WalletsService = new BaseService<Models.Wallet>('wallets');
+export const WalletTransactionsService = new BaseService<Models.WalletTransaction>('walletTransactions');
+export const NotificationsService = new BaseService<Models.Notification>('notifications');
+export const MessagesService = new BaseService<Models.Message>('messages');
+export const ConversationsService = new BaseService<Models.Conversation>('conversations');
+export const CommunitiesService = new BaseService<Models.Community>('communities');
+export const SquadsService = new BaseService<Models.Squad>('squads');
+export const SandboxProjectsService = new BaseService<Models.SandboxProject>('sandboxProjects');
+export const TemplatesService = new BaseService<Models.Template>('templates');
+export const FavoritesService = new BaseService<Models.Favorite>('favorites');
+export const AmbassadorsService = new BaseService<Models.Ambassador>('ambassadors');
+export const LeaderboardService = new BaseService<Models.LeaderboardEntry>('leaderboard');
+export const SupportTicketsService = new BaseService<Models.SupportTicket>('supportTickets');
+export const SettingsService = new BaseService<Models.SystemSetting>('settings');
+
+export const ChaptersService = new BaseService<Models.Chapter>('chapters');
+export const ResourcesService = new BaseService<Models.Resource>('resources');
+export const QuizzesService = new BaseService<Models.Quiz>('quizzes');
+export const ExercisesService = new BaseService<Models.Exercise>('exercises');
+export const QuizResultsService = new BaseService<Models.QuizResult>('quiz_results');

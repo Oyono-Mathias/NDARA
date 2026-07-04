@@ -14,9 +14,8 @@ export function InstructorNavigation({ onMenuClick }: { onMenuClick?: () => void
   if (isHiddenRoute) return null;
 
   return (
-    <nav className={clsx("fixed bottom-0 w-full glass safe-bottom z-40 transition-transform duration-300 ease-in-out", visible ? "translate-y-0" : "translate-y-full")}>
-      <div className="flex justify-around items-center h-20 px-2 pb-2">
-        <MobileNavLink to="/instructor/dashboard" icon={LayoutDashboard} label="COCKPIT" current={location.pathname} />
+    <nav className="w-full flex justify-around items-center h-16 px-2">
+      <MobileNavLink to="/instructor/dashboard" icon={LayoutDashboard} label="COCKPIT" current={location.pathname} />
         <MobileNavLink to="/instructor/courses" icon={BookOpen} label="CATALOGUE" current={location.pathname} />
         <MobileNavLink to="/instructor/messages" icon={MessageSquare} label="MESSAGES" current={location.pathname} />
         <MobileNavLink to="/instructor/revenus" icon={Building} label="WEALTH" current={location.pathname} />
@@ -27,7 +26,6 @@ export function InstructorNavigation({ onMenuClick }: { onMenuClick?: () => void
             <span className="text-[10px] font-bold tracking-wide">MENU</span>
           </TouchArea>
         </button>
-      </div>
     </nav>
   );
 }

@@ -22,6 +22,10 @@ export function Dashboard() {
   const [studentBadges, setStudentBadges] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const [walletBalance, setWalletBalance] = useState(0);
+  const [recentTransactions, setRecentTransactions] = useState<any[]>([]);
+
+
   useEffect(() => {
     if (!currentUser?.uid) return;
     
@@ -351,7 +355,7 @@ export function Dashboard() {
         <div className="flex justify-between items-center mb-4 px-2">
           <h2 className="text-base font-bold text-white tracking-tight">Recommandés pour vous</h2>
           <button 
-            onClick={() => navigate('/student/search')}
+            onClick={() => navigate('/student/catalog')}
             className="text-xs font-semibold text-primary hover:text-emerald-400 flex items-center gap-1 transition-colors"
           >
             Tout voir <ChevronRight className="w-3.5 h-3.5" />
@@ -423,7 +427,7 @@ export function Dashboard() {
       </section>
       
       <button 
-        onClick={() => navigate('/student/search')}
+        onClick={() => navigate('/student/catalog')}
         className="fixed bottom-[104px] right-6 h-14 w-14 rounded-full bg-primary hover:bg-emerald-400 flex items-center justify-center shadow-[0_4px_20px_rgba(16,185,129,0.5)] z-50 active:scale-95 transition-all outline-none border-none"
       >
         <Search className="h-6 w-6 text-black font-black" />

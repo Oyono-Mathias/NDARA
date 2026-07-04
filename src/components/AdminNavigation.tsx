@@ -43,7 +43,7 @@ const adminNavigationConfig: NavSection[] = [
     title: "COCKPIT CEO",
     routes: [
       { label: "Tableau de Bord", icon: LayoutDashboard, path: "/admin" },
-      { label: "Monitoring", icon: BarChart2, path: "/admin/monitoring" },
+      { label: "Journal d'Activité", icon: History, path: "/admin/monitoring" },
       { label: "IA Mathias Config", icon: Activity, path: "/admin/ai" },
     ],
   },

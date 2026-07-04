@@ -3,9 +3,11 @@ import { getOfflineVideos, removeVideoOffline, OfflineVideo } from '../lib/offli
 
 export function useOfflineStorage() {
   const [downloads, setDownloads] = useState<OfflineVideo[]>([]);
-  const [totalSize, setTotalSize] = useState<string>('Calcul...');
+  const [totalSize, setTotalSize] = useState<string>('0 MB');
+  const [isLoading, setIsLoading] = useState(true);
 
   const loadDownloads = useCallback(async () => {
+    setIsLoading(true);
     setDownloads(getOfflineVideos());
     
     if ('storage' in navigator && 'estimate' in navigator.storage) {
@@ -23,6 +25,7 @@ export function useOfflineStorage() {
     } else {
         setTotalSize('Inconnu');
     }
+    setIsLoading(false);
   }, []);
 
   const removeDownload = async (videoId: string) => {
@@ -34,5 +37,5 @@ export function useOfflineStorage() {
     loadDownloads();
   }, [loadDownloads]);
 
-  return { downloads, totalSize, removeDownload, refresh: loadDownloads };
+  return { downloads, totalSize, removeDownload, refresh: loadDownloads, isLoading };
 }

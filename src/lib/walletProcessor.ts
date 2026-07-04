@@ -210,6 +210,16 @@ export async function purchaseCourseWithEscrow(
       }
     }
 
+
+
+    // 0. Check if already enrolled
+    const enrollmentsQuery = query(collection(serverDb, 'enrollments'), where('studentId', '==', studentId), where('courseId', '==', courseId));
+    const enrollmentsSnapshot = await getDocs(enrollmentsQuery);
+    if (!enrollmentsSnapshot.empty) {
+      throw new Error('Vous êtes déjà inscrit à cette formation.');
+    }
+
+
     const studentSnap = await transaction.get(studentRef);
     if (!studentSnap.exists()) {
       throw new Error('Profil de l\'étudiant introuvable.');

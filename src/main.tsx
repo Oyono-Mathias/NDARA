@@ -2,7 +2,7 @@ import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
-import { RoleProvider } from './context/RoleContext';
+import { AppProvider } from './providers/AppProvider';
 import { registerSW } from 'virtual:pwa-register';
 
 const savedTheme = localStorage.getItem('theme') || 'dark';
@@ -24,8 +24,8 @@ if ('serviceWorker' in navigator) {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <RoleProvider>
+    <AppProvider>
       <App />
-    </RoleProvider>
+    </AppProvider>
   </StrictMode>,
 );

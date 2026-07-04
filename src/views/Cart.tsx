@@ -197,7 +197,7 @@ export function CartView() {
                     <h2 className="text-2xl font-black text-white uppercase tracking-tight leading-none">Panier Vide</h2>
                     <p className="text-slate-500 text-sm max-w-[200px] mx-auto font-medium">Le savoir n'attend pas. Explorez nos formations.</p>
                 </div>
-                <button onClick={() => navigate('/student/search')} className="h-14 px-8 rounded-2xl bg-primary text-[#0f172a] font-black uppercase text-xs tracking-widest shadow-xl">
+                <button onClick={() => navigate('/student/catalog')} className="h-14 px-8 rounded-2xl bg-primary text-[#0f172a] font-black uppercase text-xs tracking-widest shadow-xl">
                     Découvrir les cours
                 </button>
             </div>
@@ -224,7 +224,7 @@ export function CartView() {
                 </button>
                 
                 <button 
-                    onClick={() => navigate('/student/search')}
+                    onClick={() => navigate('/student/catalog')}
                     className="w-full text-center block text-slate-500 text-[10px] font-black uppercase tracking-[0.2em] py-2"
                 >
                     Continuer mes achats

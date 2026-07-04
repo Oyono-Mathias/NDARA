@@ -1,7 +1,9 @@
 import React, { useState } from "react";
 import { Navigate, useLocation, Link, Outlet } from "react-router-dom";
 import { useRole } from "../../context/RoleContext";
-import { AdminNavigation } from "../../components/AdminNavigation";
+import { AdminSidebar } from "../../components/admin/AdminSidebar";
+import { AdminHeader } from "../../components/admin/AdminHeader";
+import { AdminFooter } from "../../components/admin/AdminFooter";
 import {
   Loader2,
   Menu,
@@ -25,7 +27,7 @@ function AdminBottomNav() {
   ];
 
   return (
-    <nav className="md:hidden flex items-center justify-between px-2 bg-[#090E17]/95 backdrop-blur-md border-t border-slate-800/80 fixed bottom-0 left-0 right-0 z-40 h-[68px] pb-safe">
+    <nav className="md:hidden flex items-center justify-between w-full px-2 h-16 shrink-0 z-40 pb-[max(0px,env(safe-area-inset-bottom))]">
       {tabs.map((tab) => {
         const Icon = tab.icon;
         const isActive =
@@ -79,9 +81,9 @@ export function AdminLayout() {
   }
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-[#090E17] text-white selection:bg-emerald-500/30 selection:text-emerald-200 antialiased">
+    <div className="w-full h-[100dvh] max-h-[100dvh] flex flex-row justify-between items-stretch overflow-hidden bg-[#090E17] text-white selection:bg-emerald-500/30 selection:text-emerald-200 antialiased relative">
       {/* Sidebar Navigation */}
-      <AdminNavigation
+      <AdminSidebar
         isSidebarOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
       />
@@ -89,27 +91,20 @@ export function AdminLayout() {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col h-full overflow-hidden relative z-10">
         {/* Mobile TopBar */}
-        <div className="md:hidden flex items-center h-16 px-4 border-b border-slate-800/50 bg-[#090E17]/90 backdrop-blur-md shrink-0 sticky top-0 z-30">
-          <button
-            onClick={() => setIsSidebarOpen(true)}
-            className="p-2 -ml-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/50 transition-colors"
-          >
-            <Menu className="w-6 h-6" />
-          </button>
-          <span className="ml-2 font-black text-white tracking-widest text-sm uppercase">
-            NDARA ADMIN
-          </span>
-        </div>
+        <AdminHeader onOpenSidebar={() => setIsSidebarOpen(true)} />
 
         {/* Scrollable Main Content */}
-        <div className="flex-1 flex flex-col h-full w-full overflow-y-auto hide-scrollbar pb-32 md:pb-8 pt-4 md:pt-8">
-          <main className="w-full px-4 flex flex-col items-stretch">
+        <div className="flex-1 flex flex-col w-full overflow-y-auto hide-scrollbar min-h-0">
+          <main className="w-full px-4 flex flex-col items-stretch pt-4 md:pt-8 pb-4 md:pb-8">
             <Outlet />
           </main>
+          <AdminFooter />
         </div>
 
         {/* Mobile Bottom Navigation */}
-        <AdminBottomNav />
+        <div className="shrink-0 w-full z-50 md:hidden bg-[#090E17]/95 backdrop-blur-md border-t border-slate-800/80 pb-[max(0px,env(safe-area-inset-bottom))]">
+          <AdminBottomNav />
+        </div>
       </div>
     </div>
   );

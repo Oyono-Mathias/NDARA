@@ -1,34 +1,50 @@
 import React, { useEffect, useState } from 'react';
 import { 
   collection, query, where, getDocs, onSnapshot,
-  limit, orderBy, getCountFromServer, getAggregateFromServer, sum, average 
+  limit, orderBy, getCountFromServer, collectionGroup
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { 
   Users, BookOpen, Wallet, Target, ArrowUpRight, 
-  Loader2, BadgeCheck, AlertCircle, Clock 
+  Loader2, BadgeCheck, AlertCircle, Clock,
+  GraduationCap, UserCog, Layers, PlayCircle,
+  FileText, Download, UsersRound, MessageSquare, Bell,
+  Activity, UserPlus, LogIn, Sparkles
 } from 'lucide-react';
 import { 
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer 
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  BarChart, Bar
 } from 'recharts';
 import { useRole } from '../../context/RoleContext';
 
 export function AdminDashboard() {
   const { isUserLoading, role } = useRole();
   const [stats, setStats] = useState({
-    totalRevenue: 0,
-    studentsCount: 0,
-    instructorsCount: 0,
-    coursesCount: 0,
-    avgCompletion: 0,
+    users: 0,
+    students: 0,
+    instructors: 0,
+    courses: 0,
+    categories: 0,
+    publishedCourses: 0,
+    enrollments: 0,
+    certificates: 0,
+    downloads: 0,
+    communities: 0,
+    messages: 0,
+    notifications: 0,
   });
-  const [recentTransactions, setRecentTransactions] = useState<any[]>([]);
+
+  const [recentUsers, setRecentUsers] = useState<any[]>([]);
+  const [recentCourses, setRecentCourses] = useState<any[]>([]);
+  const [recentEnrollments, setRecentEnrollments] = useState<any[]>([]);
+  const [recentConnections, setRecentConnections] = useState<any[]>([]);
   const [chartData, setChartData] = useState<any[]>([]);
+  
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (isUserLoading) return;
-    if (role !== 'admin') {
+    if (role !== 'admin' && role !== 'ceo') {
       setLoading(false);
       return;
     }
@@ -37,300 +53,214 @@ export function AdminDashboard() {
 
     async function fetchDashboardData() {
       try {
-        const paymentsRef = collection(db, 'payments');
-        
-        // 1. Chiffre d'Affaires Global (Aggregation 1 read)
-        const revenueSnap = await getAggregateFromServer(query(paymentsRef, where('status', 'in', ['Completed', 'succeeded', 'paid'])), {
-          total: sum('amount')
-        });
-
-        // 2. Nombre Total d'Utilisateurs (2 reads via getCountFromServer)
+        // 1. Fetch KPI counts
         const usersRef = collection(db, 'users');
-        const studentsSnap = await getCountFromServer(query(usersRef, where('role', '==', 'student')));
-        const instructorsSnap = await getCountFromServer(query(usersRef, where('role', '==', 'instructor')));
-
-        // 3. Nombre Total de Cours (1 read via getCountFromServer)
         const coursesRef = collection(db, 'courses');
-        const coursesSnap = await getCountFromServer(coursesRef);
-
-        // 4. Taux de Complétion Moyen (Aggregation 1 read)
-        const enrollmentsRef = collection(db, 'enrollments');
-        const completionSnap = await getAggregateFromServer(enrollmentsRef, {
-          avg: average('progress')
-        });
-
-        // 6. Chart Data (Group recent successful payments by month)
-        const allCompletedTxSnap = await getDocs(query(paymentsRef, where('status', 'in', ['Completed', 'succeeded', 'paid'])));
         
-        const months = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
-        const sixMonthsData = [];
-        const today = new Date();
-        for (let i = 5; i >= 0; i--) {
-          const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
-          sixMonthsData.push({
-            name: months[d.getMonth()],
-            monthIndex: d.getMonth(),
-            year: d.getFullYear(),
-            revenue: 0
-          });
-        }
-
-        allCompletedTxSnap.forEach(doc => {
-           const data = doc.data();
-           const dObj = data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt || 0);
-           const m = dObj.getMonth();
-           const y = dObj.getFullYear();
-           
-           const targetMonth = sixMonthsData.find(mData => mData.monthIndex === m && mData.year === y);
-           if (targetMonth) {
-             targetMonth.revenue += (Number(data.amount) || 0);
-           }
-        });
+        const [
+          totalUsers, students, instructors, totalCourses,
+          publishedCourses, categories, enrollments, certificates,
+          downloads, communities, messages, notifications
+        ] = await Promise.all([
+          getCountFromServer(usersRef),
+          getCountFromServer(query(usersRef, where('role', '==', 'student'))),
+          getCountFromServer(query(usersRef, where('role', '==', 'instructor'))),
+          getCountFromServer(coursesRef),
+          getCountFromServer(query(coursesRef, where('status', '==', 'Published'))),
+          getCountFromServer(collection(db, 'categories')).catch(() => ({ data: () => ({ count: 0 }) })),
+          getCountFromServer(collection(db, 'enrollments')),
+          getCountFromServer(collectionGroup(db, 'certificates')),
+          getCountFromServer(collection(db, 'downloads')).catch(() => ({ data: () => ({ count: 0 }) })),
+          getCountFromServer(collection(db, 'squads')),
+          getCountFromServer(collectionGroup(db, 'messages')),
+          getCountFromServer(collection(db, 'notifications'))
+        ]);
 
         if (isMounted) {
           setStats({
-            totalRevenue: revenueSnap.data().total || 0,
-            studentsCount: studentsSnap.data().count,
-            instructorsCount: instructorsSnap.data().count,
-            coursesCount: coursesSnap.data().count,
-            avgCompletion: completionSnap.data().avg || 0,
+            users: totalUsers.data().count,
+            students: students.data().count,
+            instructors: instructors.data().count,
+            courses: totalCourses.data().count,
+            publishedCourses: publishedCourses.data().count,
+            categories: categories.data().count,
+            enrollments: enrollments.data().count,
+            certificates: certificates.data().count,
+            downloads: downloads.data().count,
+            communities: communities.data().count,
+            messages: messages.data().count,
+            notifications: notifications.data().count,
           });
-          setChartData(sixMonthsData);
-          setLoading(false);
         }
       } catch (error) {
-        console.error("Erreur lors de la récupération des statistiques (FinOps):", error);
+        console.error("Erreur KPI:", error);
+      } finally {
         if (isMounted) setLoading(false);
       }
     }
 
     fetchDashboardData();
 
-    // 5. Récents Paiements Écoute Active (Realtime)
-    const unsubTx = onSnapshot(query(collection(db, 'payments'), orderBy('createdAt', 'desc'), limit(5)), (snap) => {
-       const txs = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-       if (isMounted) setRecentTransactions(txs);
+    // Listeners for recent activities
+    const unsubUsers = onSnapshot(query(collection(db, 'users'), orderBy('createdAt', 'desc'), limit(5)), (snap) => {
+      if (isMounted) setRecentUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+
+    const unsubCourses = onSnapshot(query(collection(db, 'courses'), orderBy('createdAt', 'desc'), limit(5)), (snap) => {
+      if (isMounted) setRecentCourses(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+
+    const unsubEnrollments = onSnapshot(query(collection(db, 'enrollments'), orderBy('enrolledAt', 'desc'), limit(5)), (snap) => {
+      if (isMounted) setRecentEnrollments(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+
+    const unsubConnections = onSnapshot(query(collection(db, 'audit_logs'), where('action', '==', 'LOGIN'), orderBy('timestamp', 'desc'), limit(5)), (snap) => {
+      if (isMounted) setRecentConnections(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     });
 
     return () => {
       isMounted = false;
-      unsubTx();
+      unsubUsers();
+      unsubCourses();
+      unsubEnrollments();
+      unsubConnections();
     };
   }, [isUserLoading, role]);
 
-  if (loading) {
+  if (loading || isUserLoading) {
     return (
-      <div className="w-full px-4 flex flex-col items-stretch space-y-6 lg:space-y-8 animate-in fade-in duration-500 pb-20 font-sans">
-        <div className="space-y-2">
-          <div className="h-8 w-64 bg-slate-800 rounded-lg animate-pulse"></div>
-          <div className="h-4 w-96 bg-slate-800/80 rounded animate-pulse"></div>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 lg:gap-6">
-          {[...Array(4)].map((_, i) => (
-             <div key={i} className="bg-slate-800/20 border border-slate-700/30 rounded-3xl p-6 h-32 animate-pulse flex flex-col justify-between">
-                <div className="w-10 h-10 rounded-2xl bg-slate-800"></div>
-                <div className="space-y-2">
-                  <div className="h-3 w-20 bg-slate-800 rounded"></div>
-                  <div className="h-6 w-32 bg-slate-800 rounded"></div>
-                </div>
-             </div>
-          ))}
-        </div>
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-           <div className="xl:col-span-2 bg-slate-800/20 border border-slate-700/30 rounded-3xl p-6 h-[400px] animate-pulse"></div>
-           <div className="bg-slate-800/20 border border-slate-700/30 rounded-3xl p-6 h-[400px] animate-pulse"></div>
-        </div>
+      <div className="flex h-[80vh] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
       </div>
     );
   }
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'XAF', maximumFractionDigits: 0 }).format(amount);
-  };
-
-  const formatStatus = (status: string) => {
-    switch(status?.toLowerCase()) {
-      case 'completed':
-      case 'succeeded':
-      case 'paid':
-        return <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"><BadgeCheck className="w-3 h-3" /> Succès</span>;
-      case 'pending':
-        return <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest bg-amber-500/10 text-amber-400 border border-amber-500/20"><Clock className="w-3 h-3" /> En attente</span>;
-      case 'failed':
-      case 'error':
-        return <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest bg-red-500/10 text-red-400 border border-red-500/20"><AlertCircle className="w-3 h-3" /> Échec</span>;
-      default:
-        return <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest bg-slate-500/10 text-slate-400 border border-slate-500/20">{status || 'Inconnu'}</span>;
-    }
-  };
+  const kpis = [
+    { label: "Total Utilisateurs", value: stats.users, icon: Users, color: "text-emerald-400", bg: "bg-emerald-400/10" },
+    { label: "Étudiants", value: stats.students, icon: GraduationCap, color: "text-blue-400", bg: "bg-blue-400/10" },
+    { label: "Formateurs", value: stats.instructors, icon: UserCog, color: "text-purple-400", bg: "bg-purple-400/10" },
+    { label: "Total Formations", value: stats.courses, icon: BookOpen, color: "text-amber-400", bg: "bg-amber-400/10" },
+    { label: "Cours Publiés", value: stats.publishedCourses, icon: PlayCircle, color: "text-emerald-400", bg: "bg-emerald-400/10" },
+    { label: "Catégories", value: stats.categories, icon: Layers, color: "text-indigo-400", bg: "bg-indigo-400/10" },
+    { label: "Inscriptions", value: stats.enrollments, icon: Target, color: "text-rose-400", bg: "bg-rose-400/10" },
+    { label: "Certificats", value: stats.certificates, icon: BadgeCheck, color: "text-yellow-400", bg: "bg-yellow-400/10" },
+    { label: "Téléchargements", value: stats.downloads, icon: Download, color: "text-cyan-400", bg: "bg-cyan-400/10" },
+    { label: "Communautés", value: stats.communities, icon: UsersRound, color: "text-orange-400", bg: "bg-orange-400/10" },
+    { label: "Messages", value: stats.messages, icon: MessageSquare, color: "text-pink-400", bg: "bg-pink-400/10" },
+    { label: "Notifications", value: stats.notifications, icon: Bell, color: "text-slate-400", bg: "bg-slate-400/10" },
+  ];
 
   return (
-    <div className="w-full px-4 flex flex-col items-stretch space-y-6 lg:space-y-8 animate-in fade-in duration-500 pb-20 font-sans">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+    <div className="space-y-6 pb-20 md:pb-8 animate-in fade-in duration-500">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-black text-white uppercase tracking-widest">Tableau de Bord CEO</h1>
-          <p className="text-sm text-slate-400 mt-1">Aperçu en temps réel des performances de la plateforme NDARA.</p>
+          <h1 className="text-2xl font-black text-white tracking-widest uppercase">Tableau de bord</h1>
+          <p className="text-sm text-slate-400 mt-1">Vue d'ensemble en temps réel de la plateforme.</p>
         </div>
       </div>
 
-      {/* KPI Cards (FinOps Optimized) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 lg:gap-6">
-        
-        {/* CA Global */}
-        <div className="bg-slate-800/40 border border-slate-700/50 rounded-3xl p-6 relative overflow-hidden group hover:border-emerald-500/50 transition-colors">
-          <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity pointer-events-none">
-            <Wallet className="w-24 h-24 text-emerald-500 -mt-8 -mr-8" />
-          </div>
-          <div className="flex justify-between items-start mb-4 relative z-10">
-            <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
-              <Wallet className="w-5 h-5 text-emerald-400" />
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        {kpis.map((kpi, index) => (
+          <div key={index} className="p-4 bg-slate-800/50 border border-slate-700/50 rounded-2xl flex flex-col justify-between">
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-sm text-slate-400 font-medium">{kpi.label}</span>
+              <div className={`p-2 rounded-xl ${kpi.bg}`}>
+                <kpi.icon className={`w-4 h-4 ${kpi.color}`} />
+              </div>
             </div>
+            <div className="text-3xl font-black text-white">{kpi.value.toLocaleString()}</div>
           </div>
-          <div className="relative z-10">
-            <h3 className="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-1">C.A Global</h3>
-            <p className="text-3xl font-black text-white tracking-tight">{formatCurrency(stats.totalRevenue)}</p>
-          </div>
-        </div>
-
-        {/* Utilisateurs */}
-        <div className="bg-slate-800/40 border border-slate-700/50 rounded-3xl p-6 relative overflow-hidden group hover:border-blue-500/50 transition-colors">
-          <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity pointer-events-none">
-            <Users className="w-24 h-24 text-blue-500 -mt-8 -mr-8" />
-          </div>
-          <div className="flex justify-between items-start mb-4 relative z-10">
-            <div className="w-10 h-10 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
-              <Users className="w-5 h-5 text-blue-400" />
-            </div>
-          </div>
-          <div className="relative z-10">
-            <h3 className="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-1">Membres Actifs</h3>
-            <div className="flex items-baseline gap-2">
-              <p className="text-3xl font-black text-white tracking-tight">{stats.studentsCount + stats.instructorsCount}</p>
-            </div>
-            <div className="flex gap-3 mt-2">
-              <span className="text-[10px] font-bold text-slate-400"><span className="text-blue-400">{stats.studentsCount}</span> Étudiants</span>
-              <span className="text-[10px] font-bold text-slate-400"><span className="text-purple-400">{stats.instructorsCount}</span> Instructeurs</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Catalogue */}
-        <div className="bg-slate-800/40 border border-slate-700/50 rounded-3xl p-6 relative overflow-hidden group hover:border-purple-500/50 transition-colors">
-          <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity pointer-events-none">
-            <BookOpen className="w-24 h-24 text-purple-500 -mt-8 -mr-8" />
-          </div>
-          <div className="flex justify-between items-start mb-4 relative z-10">
-            <div className="w-10 h-10 rounded-2xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center">
-              <BookOpen className="w-5 h-5 text-purple-400" />
-            </div>
-          </div>
-          <div className="relative z-10">
-            <h3 className="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-1">Catalogue Formations</h3>
-            <p className="text-3xl font-black text-white tracking-tight">{stats.coursesCount} <span className="text-sm text-slate-500 font-bold tracking-normal uppercase">Cours</span></p>
-          </div>
-        </div>
-
-        {/* Completion */}
-        <div className="bg-slate-800/40 border border-slate-700/50 rounded-3xl p-6 relative overflow-hidden group hover:border-amber-500/50 transition-colors">
-          <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity pointer-events-none">
-            <Target className="w-24 h-24 text-amber-500 -mt-8 -mr-8" />
-          </div>
-          <div className="flex justify-between items-start mb-4 relative z-10">
-            <div className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
-              <Target className="w-5 h-5 text-amber-400" />
-            </div>
-          </div>
-          <div className="relative z-10">
-            <h3 className="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-1">Taux de Complétion</h3>
-            <p className="text-3xl font-black text-white tracking-tight">{Math.round(stats.avgCompletion || 0)}%</p>
-          </div>
-        </div>
+        ))}
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        
-        {/* Chart */}
-        <div className="xl:col-span-2 bg-slate-800/40 border border-slate-700/50 rounded-3xl p-6 flex flex-col">
-          <div className="mb-6 flex justify-between items-end">
-            <div>
-              <h2 className="text-sm font-black text-white uppercase tracking-widest mb-1">Croissance des Revenus</h2>
-              <p className="text-xs text-slate-400">Évolution du volume des paiements sur les 6 derniers mois</p>
-            </div>
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-              <ArrowUpRight className="w-4 h-4" />
-              <span className="text-xs font-bold tracking-widest">{chartData.length >= 2 && chartData[chartData.length - 2].revenue > 0 ? `+${Math.round(((chartData[chartData.length - 1].revenue - chartData[chartData.length - 2].revenue) / chartData[chartData.length - 2].revenue) * 100)}%` : '+0%'}</span>
-            </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Nouveaux utilisateurs */}
+        <div className="bg-slate-800/30 border border-slate-700/50 rounded-2xl p-6">
+          <div className="flex items-center gap-3 mb-6">
+            <UserPlus className="w-5 h-5 text-blue-400" />
+            <h2 className="text-lg font-bold text-white uppercase tracking-widest text-sm">Nouveaux utilisateurs</h2>
           </div>
-          
-          <div className="flex-1 w-full min-h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10B981" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#10B981" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-                <XAxis dataKey="name" stroke="#64748b" tick={{fill: '#64748b', fontSize: 12}} tickLine={false} axisLine={false} dy={10} />
-                <YAxis 
-                  stroke="#64748b" 
-                  tick={{fill: '#64748b', fontSize: 12}} 
-                  tickLine={false} 
-                  axisLine={false} 
-                  dx={-10}
-                  tickFormatter={(val) => `${val/1000}k`} 
-                />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', borderRadius: '1rem', color: '#fff' }}
-                  itemStyle={{ color: '#10B981', fontWeight: 'bold' }}
-                  labelStyle={{ color: '#94a3b8', fontSize: '12px', textTransform: 'uppercase', marginBottom: '4px' }}
-                  formatter={(value: any) => [formatCurrency(value), 'Revenus']}
-                />
-                <Area type="monotone" dataKey="revenue" stroke="#10B981" strokeWidth={3} fillOpacity={1} fill="url(#colorRevenue)" />
-              </AreaChart>
-            </ResponsiveContainer>
+          <div className="space-y-3">
+            {recentUsers.map(user => (
+              <div key={user.id} className="flex items-center justify-between p-3 bg-slate-800/50 rounded-xl border border-slate-700/50">
+                <div>
+                  <div className="text-sm font-bold text-white">{user.fullName || user.email}</div>
+                  <div className="text-xs text-slate-400">{user.email} • {user.role}</div>
+                </div>
+                <div className="text-[10px] text-slate-500 font-mono">
+                  {user.createdAt?.toDate ? user.createdAt.toDate().toLocaleDateString() : 'N/A'}
+                </div>
+              </div>
+            ))}
+            {recentUsers.length === 0 && <p className="text-slate-500 text-sm">Aucun utilisateur récent.</p>}
           </div>
         </div>
 
-        {/* Recent Transactions */}
-        <div className="bg-slate-800/40 border border-slate-700/50 rounded-3xl p-6 flex flex-col">
-          <div className="mb-6">
-            <h2 className="text-sm font-black text-white uppercase tracking-widest mb-1">Derniers Flux</h2>
-            <p className="text-xs text-slate-400">Transactions globales de la plateforme</p>
+        {/* Dernières formations */}
+        <div className="bg-slate-800/30 border border-slate-700/50 rounded-2xl p-6">
+          <div className="flex items-center gap-3 mb-6">
+            <Sparkles className="w-5 h-5 text-amber-400" />
+            <h2 className="text-lg font-bold text-white uppercase tracking-widest text-sm">Dernières formations créées</h2>
           </div>
-          
-          <div className="flex-1 overflow-x-auto">
-            {recentTransactions.length > 0 ? (
-              <div className="space-y-3">
-                {recentTransactions.map((tx) => (
-                  <div key={tx.id} className="flex items-center justify-between p-3 rounded-2xl bg-slate-900/50 border border-slate-700/30 hover:border-slate-600/50 transition">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center shrink-0 border border-slate-700">
-                        <span className="text-xs font-black text-slate-300 uppercase">
-                          {tx.studentName ? tx.studentName.charAt(0) : '?'}
-                        </span>
-                      </div>
-                      <div>
-                        <p className="text-sm font-bold text-white line-clamp-1">{tx.studentName || 'Utilisateur inconnu'}</p>
-                        <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold mt-0.5">{tx.paymentMethod || 'Carte'} • {tx.createdAt?.toDate ? new Date(tx.createdAt.toDate()).toLocaleDateString() : 'Récemment'}</p>
-                      </div>
-                    </div>
-                    <div className="flex flex-col items-end gap-1.5">
-                       <span className="text-sm font-black text-emerald-400">{formatCurrency(tx.amount || 0)}</span>
-                       {formatStatus(tx.status || tx.gatewayStatus || 'Pending')}
-                    </div>
-                  </div>
-                ))}
+          <div className="space-y-3">
+            {recentCourses.map(course => (
+              <div key={course.id} className="flex items-center justify-between p-3 bg-slate-800/50 rounded-xl border border-slate-700/50">
+                <div className="flex-1 min-w-0 pr-4">
+                  <div className="text-sm font-bold text-white truncate">{course.title}</div>
+                  <div className="text-xs text-slate-400">{course.status}</div>
+                </div>
+                <div className="text-[10px] text-slate-500 font-mono shrink-0">
+                  {course.createdAt?.toDate ? course.createdAt.toDate().toLocaleDateString() : 'N/A'}
+                </div>
               </div>
-            ) : (
-              <div className="h-full flex flex-col items-center justify-center text-center p-6 bg-slate-900/30 rounded-2xl border border-dashed border-slate-700/50">
-                <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-4">Aucune transaction</p>
-              </div>
-            )}
+            ))}
+            {recentCourses.length === 0 && <p className="text-slate-500 text-sm">Aucune formation récente.</p>}
           </div>
         </div>
 
+        {/* Dernières inscriptions */}
+        <div className="bg-slate-800/30 border border-slate-700/50 rounded-2xl p-6">
+          <div className="flex items-center gap-3 mb-6">
+            <Target className="w-5 h-5 text-emerald-400" />
+            <h2 className="text-lg font-bold text-white uppercase tracking-widest text-sm">Dernières inscriptions</h2>
+          </div>
+          <div className="space-y-3">
+            {recentEnrollments.map(enr => (
+              <div key={enr.id} className="flex items-center justify-between p-3 bg-slate-800/50 rounded-xl border border-slate-700/50">
+                <div className="flex-1 min-w-0 pr-4">
+                  <div className="text-sm font-bold text-white truncate">{enr.courseTitle || 'ID: ' + enr.courseId}</div>
+                  <div className="text-xs text-slate-400">Progression: {enr.progress || 0}%</div>
+                </div>
+                <div className="text-[10px] text-slate-500 font-mono shrink-0">
+                  {enr.enrolledAt?.toDate ? enr.enrolledAt.toDate().toLocaleDateString() : 'N/A'}
+                </div>
+              </div>
+            ))}
+            {recentEnrollments.length === 0 && <p className="text-slate-500 text-sm">Aucune inscription récente.</p>}
+          </div>
+        </div>
+
+        {/* Dernières connexions */}
+        <div className="bg-slate-800/30 border border-slate-700/50 rounded-2xl p-6">
+          <div className="flex items-center gap-3 mb-6">
+            <LogIn className="w-5 h-5 text-indigo-400" />
+            <h2 className="text-lg font-bold text-white uppercase tracking-widest text-sm">Dernières connexions</h2>
+          </div>
+          <div className="space-y-3">
+            {recentConnections.map(log => (
+              <div key={log.id} className="flex items-center justify-between p-3 bg-slate-800/50 rounded-xl border border-slate-700/50">
+                <div>
+                  <div className="text-sm font-bold text-white">{log.userEmail || log.userId}</div>
+                  <div className="text-xs text-slate-400">IP: {log.ipAddress || 'Inconnue'}</div>
+                </div>
+                <div className="text-[10px] text-slate-500 font-mono">
+                  {log.timestamp?.toDate ? log.timestamp.toDate().toLocaleString() : 'N/A'}
+                </div>
+              </div>
+            ))}
+            {recentConnections.length === 0 && <p className="text-slate-500 text-sm">Aucune connexion récente dans le journal d'activité.</p>}
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -212,7 +212,7 @@ export function PublicInstructorProfile({
 
   return (
     <div
-      className="bg-[#050505] text-white h-[100dvh] overflow-y-auto flex flex-col font-sans relative"
+      className="bg-[#050505] text-white h-full overflow-y-auto flex flex-col font-sans relative"
       onScroll={(e) => setScrollY(e.currentTarget.scrollTop)}
     >
       <style>{`

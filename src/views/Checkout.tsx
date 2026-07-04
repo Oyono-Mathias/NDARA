@@ -109,15 +109,40 @@ export function CheckoutView() {
     return "Veuillez valider le paiement sur votre téléphone";
   }, [activeMethod]);
 
+
   const handlePayment = async () => {
-    if (!course || !activeMethod) return;
+    if (!course) return;
+    
+    // Check if free
+    if (course.price === 0) {
+      setIsProcessing(true);
+      try {
+        const { setDoc, doc, collection } = await import("firebase/firestore");
+        await setDoc(doc(collection(db, 'enrollments')), {
+          studentId: currentUser.uid,
+          courseId: course.id,
+          enrolledAt: new Date(),
+          progress: 0,
+          instructorId: course.instructorId || 'admin'
+        });
+        setIsSuccess(true);
+      } catch (e: any) {
+        setErrorModal({ isOpen: true, title: 'Erreur', message: e.message || 'Impossible de vous inscrire à cette formation gratuite.' });
+      } finally {
+        setIsProcessing(false);
+      }
+      return;
+    }
+
+    if (!activeMethod) return;
+
 
     if (activeMethod.provider === 'wallet') {
         setIsProcessing(true);
         try {
             const response = await fetch('/api/wallet/purchase', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await auth.currentUser?.getIdToken()}` },
                 body: JSON.stringify({
                     studentId: currentUser.uid,
                     price: course.price || 0,
@@ -130,14 +155,7 @@ export function CheckoutView() {
             const data = await response.json();
             if (response.ok) {
                 // Enregistrer formellement l'enrollment côté client (ou le backend devrait le faire)
-                const { setDoc, doc, collection } = await import("firebase/firestore");
-                await setDoc(doc(collection(db, 'enrollments')), {
-                    studentId: currentUser.uid,
-                    courseId: course.id,
-                    enrolledAt: new Date(),
-                    progress: 0,
-                    instructorId: course.instructorId || 'admin'
-                });
+                // L'inscription est maintenant gérée automatiquement par le backend lors du paiement
                 setIsSuccess(true);
             } else {
                 setErrorModal({ isOpen: true, title: 'Erreur', message: data.error || "Erreur lors de l'achat" });
@@ -158,14 +176,7 @@ export function CheckoutView() {
         setIsProcessing(true);
         
         setTimeout(async () => {
-            const { setDoc, doc, collection } = await import("firebase/firestore");
-            await setDoc(doc(collection(db, 'enrollments')), {
-                studentId: currentUser.uid,
-                courseId: course.id,
-                enrolledAt: new Date(),
-                progress: 0,
-                instructorId: course.instructorId || 'admin'
-            });
+            // L'inscription est maintenant gérée automatiquement par le backend lors du paiement
 
             setIsAwaitingUssd(false);
             setIsProcessing(false);
@@ -173,14 +184,7 @@ export function CheckoutView() {
         }, 3000);
     } else if (selectedMethodId === 'virtual') {
         setIsProcessing(true);
-        const { setDoc, doc, collection } = await import("firebase/firestore");
-        await setDoc(doc(collection(db, 'enrollments')), {
-            studentId: currentUser.uid,
-            courseId: course.id,
-            enrolledAt: new Date(),
-            progress: 0,
-            instructorId: course.instructorId || 'admin'
-        });
+        // L'inscription est maintenant gérée automatiquement par le backend lors du paiement
         setIsProcessing(false);
         setIsSuccess(true);
     }

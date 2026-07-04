@@ -32,7 +32,7 @@ export const EmptyState: React.FC<{ title: string, message?: string, icon?: any 
   );
 }
 
-export const NdaraSkeleton: React.FC<{ type: 'table' | 'cards' | string }> = ({ type }) => {
+export const NdaraSkeleton: React.FC<{ type: 'table' | 'cards' | 'list' | string }> = ({ type }) => {
   if (type === 'table') {
     return (
       <div className="bg-slate-800/30 border border-slate-700/50 rounded-3xl overflow-hidden shadow-2xl">
@@ -43,6 +43,21 @@ export const NdaraSkeleton: React.FC<{ type: 'table' | 'cards' | string }> = ({ 
             <div className="h-6 w-48 bg-slate-800/50 rounded animate-pulse"></div>
             <div className="h-6 flex-1 bg-slate-800/50 rounded animate-pulse"></div>
             <div className="h-6 w-20 bg-slate-800/50 rounded animate-pulse"></div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  if (type === 'list') {
+    return (
+      <div className="space-y-4">
+        {[...Array(5)].map((_, i) => (
+          <div key={i} className="flex items-center gap-4 p-4 rounded-2xl bg-slate-800/30 border border-slate-700/50 animate-pulse">
+            <div className="w-12 h-12 rounded-full bg-slate-700/50"></div>
+            <div className="flex-1 space-y-2">
+              <div className="h-4 w-32 bg-slate-700/50 rounded"></div>
+              <div className="h-3 w-48 bg-slate-700/50 rounded"></div>
+            </div>
           </div>
         ))}
       </div>

@@ -217,7 +217,7 @@ export function CourseDetail() {
     const oldPrice = Math.floor(price * 1.5);
 
     return (
-        <div className="antialiased h-[100dvh] overflow-y-auto flex justify-center bg-black relative" onScroll={(e) => setScrollY(e.currentTarget.scrollTop)}>
+        <div className="antialiased h-full overflow-y-auto flex justify-center bg-black relative" onScroll={(e) => setScrollY(e.currentTarget.scrollTop)}>
             <div className="fixed top-0 left-0 w-full h-full pointer-events-none z-[9999] opacity-[0.04]" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=%270 0 200 200%27 xmlns=%27http://www.w3.org/2000/svg%27%3E%3Cfilter id=%27noiseFilter%27%3E%3CfeTurbulence type=%27fractalNoise%27 baseFrequency=%270.65%27 numOctaves=%273%27 stitchTiles=%27stitch%27/%3E%3C/filter%3E%3Crect width=%27100%25%27 height=%27100%25%27 filter=%27url(%23noiseFilter)%27/%3E%3C/svg%3E")' }}></div>
 
             <div className="w-full max-w-3xl bg-[#0f172a] min-h-full relative flex flex-col shadow-2xl">

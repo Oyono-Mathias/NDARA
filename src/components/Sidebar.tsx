@@ -14,7 +14,7 @@ export function Sidebar({ isOpen, onClose }: { isOpen: boolean, onClose: () => v
 
     const handleLogout = async () => {
         try {
-            await signOut(auth);
+            await import("../services/authService").then(m => m.authService.logout());
             navigate('/');
         } catch (e) {
             console.error("Logout error", e);
@@ -130,7 +130,7 @@ export function Sidebar({ isOpen, onClose }: { isOpen: boolean, onClose: () => v
                         <div className="space-y-2">
                             <p className="px-4 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2">VOTRE UNIVERS</p>
                             <NavItem icon={LayoutGrid} label="TABLEAU DE BORD" to="/student/dashboard" current={location.pathname} onClick={onClose} />
-                            <NavItem icon={Search} label="CATALOGUE" to="/student/search" current={location.pathname} onClick={onClose} />
+                            <NavItem icon={Search} label="CATALOGUE" to="/student/catalog" current={location.pathname} onClick={onClose} />
                             <NavItem icon={Wallet} label="PORTEFEUILLE" to="/student/wallet" current={location.pathname} onClick={onClose} />
                             <NavItem icon={TrendingUp} label="BOURSE" to="/student/bourse" badge="HOT" current={location.pathname} onClick={onClose} />
                             <NavItem icon={BookOpen} label="MES COURS" to="/student/courses" current={location.pathname} onClick={onClose} />
@@ -191,7 +191,7 @@ export function Sidebar({ isOpen, onClose }: { isOpen: boolean, onClose: () => v
             )}
 
             {/* Desktop Persistent Sidebar */}
-            <div className="hidden md:flex w-[320px] h-[100dvh] bg-[#111827] border-r border-white/5 flex-col flex-shrink-0 relative">
+            <div className="hidden md:flex w-[320px] h-full bg-[#111827] border-r border-white/5 flex-col flex-shrink-0 relative">
                 {sidebarContent}
                 {/* Footer fixed */}
                 <div className="absolute bottom-0 left-0 right-0 p-6 bg-slate-900 border-t border-white/5">

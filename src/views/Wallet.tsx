@@ -16,7 +16,7 @@ import {
 } from "firebase/firestore";
 import { 
   ChevronLeft, Search, Bell, Eye, EyeOff,
-  Send, Download, Plus, Clock, ShoppingCart, TrendingUp, RefreshCw, ChevronRight, X, AlertCircle, CheckCircle2, ShieldCheck, HelpCircle
+  Send, Download, Plus, Clock, ShoppingCart, TrendingUp, RefreshCw, ChevronRight, X, AlertCircle, CheckCircle2, ShieldCheck, HelpCircle, Loader2
 } from "lucide-react";
 import { WalletTransaction } from "../types/wallet";
 import { BottomSheet } from "../components/ui/BottomSheet";
@@ -69,6 +69,11 @@ export function WalletView() {
   // UI States
   const [showBalance, setShowBalance] = useState(true);
   const [filter, setFilter] = useState("all");
+
+  const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
   const [activeModal, setActiveModal] = useState<"none" | "send" | "receive" | "recharge" | "sandbox" | "detail">("none");
   const [selectedTx, setSelectedTx] = useState<WalletTransaction | null>(null);
   
@@ -86,6 +91,27 @@ export function WalletView() {
   const [sandboxCourseTitle, setSandboxCourseTitle] = useState("Python & IA Pro");
   const [sandboxHasReferrer, setSandboxHasReferrer] = useState(true);
   const [sandboxReferrerId, setSandboxReferrerId] = useState("amb_ndara_afrique");
+
+
+  const filteredTransactions = dbTransactions.filter(i => {
+    if (filter !== 'all') {
+      if (filter === 'deposit' && i.type !== 'deposit') return false;
+      if (filter === 'purchase' && i.type !== 'purchase') return false;
+      if (filter === 'transfer' && i.type !== 'transfer_send' && i.type !== 'transfer_receive' && i.type !== 'transfer') return false;
+      if (filter === 'affiliate' && i.type !== 'affiliate_payout' && i.type !== 'course_sale') return false;
+    }
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      if (!i.description?.toLowerCase().includes(term) && !i.type.toLowerCase().includes(term) && !i.amount.toString().includes(term)) {
+        return false;
+      }
+    }
+    return true;
+  });
+
+  const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);
+  const paginatedTransactions = filteredTransactions.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
 
   // Status banners
   const [uiLoading, setUiLoading] = useState(true);
@@ -343,10 +369,20 @@ export function WalletView() {
     }
   };
 
+  if (uiLoading) {
+    return (
+      <div className="h-[100dvh] w-full bg-[#0B0F19] flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-emerald-500 animate-spin" />
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-top-4 duration-700 relative pb-24 max-w-4xl mx-auto">
+    <div className="h-[100dvh] w-full bg-[#0B0F19] flex flex-col overflow-hidden text-white antialiased">
+      <div className="flex-1 overflow-y-auto hide-scrollbar space-y-6 animate-in fade-in slide-in-from-top-4 duration-700 relative pb-24 px-4 sm:px-6 pt-[env(safe-area-inset-top,16px)]">
+        <div className="max-w-4xl mx-auto space-y-6">
       {/* Header */}
-      <header className="flex items-center justify-between px-1 mb-2">
+      <header className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
           <button onClick={() => navigate(-1)} className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors">
             <ChevronLeft className="w-5 h-5 text-white" />
@@ -532,22 +568,23 @@ export function WalletView() {
 
         {/* Transaction List */}
         <div className="space-y-2.5">
-          {dbTransactions.filter(i => {
-            if (filter === 'all') return true;
-            if (filter === 'deposit') return i.type === 'deposit';
-            if (filter === 'purchase') return i.type === 'purchase';
-            if (filter === 'transfer') return i.type === 'transfer_send' || i.type === 'transfer_receive';
-            if (filter === 'affiliate') return i.type === 'affiliate_payout' || i.type === 'course_sale';
-            return true;
-          }).length > 0 ? (
-            dbTransactions.filter(i => {
-              if (filter === 'all') return true;
-              if (filter === 'deposit') return i.type === 'deposit';
-              if (filter === 'purchase') return i.type === 'purchase';
-              if (filter === 'transfer') return i.type === 'transfer_send' || i.type === 'transfer_receive';
-              if (filter === 'affiliate') return i.type === 'affiliate_payout' || i.type === 'course_sale';
-              return true;
-            }).map((item) => {
+          
+          <div className="mb-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input 
+                type="text"
+                placeholder="Rechercher une transaction..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 bg-slate-900 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition-colors"
+              />
+            </div>
+          </div>
+          {paginatedTransactions.length > 0 ? (
+            <>
+              {paginatedTransactions.map((item) => {
+
               const isPositive = item.amount > 0;
               const isPending = item.status === 'pending';
 
@@ -589,15 +626,43 @@ export function WalletView() {
                   </div>
                 </div>
               );
-            })
+            })}
+              {totalPages > 1 && (
+                <div className="flex justify-between items-center mt-6 p-4">
+                  <button 
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                    className="px-4 py-2 bg-slate-800 text-white rounded-lg disabled:opacity-50 hover:bg-slate-700 transition-colors"
+                  >
+                    Précédent
+                  </button>
+                  <span className="text-slate-400 text-sm font-medium">
+                    Page {currentPage} sur {totalPages}
+                  </span>
+                  <button 
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                    className="px-4 py-2 bg-slate-800 text-white rounded-lg disabled:opacity-50 hover:bg-slate-700 transition-colors"
+                  >
+                    Suivant
+                  </button>
+                </div>
+              )}
+            </>
           ) : (
-            <div className="p-12 text-center border border-dashed border-white/5 rounded-[2rem] opacity-[0.45]">
-              <Clock className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-              <p className="text-[11px] font-black uppercase text-slate-400 tracking-widest leading-relaxed">Aucune transaction enregistrée</p>
+
+            <div className="p-12 text-center border border-dashed border-white/5 rounded-[2rem] bg-white/[0.02]">
+              <div className="w-16 h-16 rounded-full bg-slate-800/50 flex items-center justify-center mx-auto mb-4 border border-white/5">
+                <Clock className="w-8 h-8 text-slate-500" />
+              </div>
+              <p className="text-sm font-bold text-slate-300 mb-2">Aucune transaction pour le moment.</p>
+              <p className="text-[11px] text-slate-500 leading-relaxed font-medium">Rechargez votre compte pour commencer vos formations.</p>
             </div>
           )}
         </div>
       </section>
+      </div>
+      </div>
 
       {/* Modals layout */}
       <BottomSheet

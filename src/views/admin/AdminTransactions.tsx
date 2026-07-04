@@ -15,17 +15,20 @@ import {
   Loader2
 } from 'lucide-react';
 import clsx from 'clsx';
-import { collection, query, orderBy, onSnapshot, doc, runTransaction, updateDoc } from 'firebase/firestore';
+import { collection, collectionGroup, query, orderBy, onSnapshot, doc, runTransaction, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { EmptyState, NdaraSkeleton } from './AdminSupport';
 
 export function AdminTransactions() {
-  const [activeTab, setActiveTab] = useState<'payments' | 'payouts' | 'ledger'>('payments');
+  const [activeTab, setActiveTab] = useState<'payments' | 'payouts' | 'ledger' | 'wallets'>('payments');
   const [searchTerm, setSearchTerm] = useState('');
   
   const [payments, setPayments] = useState<any[]>([]);
   const [payouts, setPayouts] = useState<any[]>([]);
   const [ledger, setLedger] = useState<any[]>([]);
+
+  const [wallets, setWallets] = useState<any[]>([]);
+
   const [isLoading, setIsLoading] = useState(true);
 
   // Pour éviter le spam de clics
@@ -34,21 +37,29 @@ export function AdminTransactions() {
   useEffect(() => {
     setIsLoading(true);
 
-    const qPayments = query(collection(db, 'payments'), orderBy('createdAt', 'desc'));
+    const qPayments = query(collection(db, 'payments'), orderBy('timestamp', 'desc'));
     const unsubPayments = onSnapshot(qPayments, (snap) => {
       const data: any[] = [];
       snap.forEach(doc => data.push({ id: doc.id, ...doc.data() }));
       setPayments(data);
     }, (err) => console.error("Erreur sync payments:", err));
 
-    const qPayouts = query(collection(db, 'payouts'), orderBy('createdAt', 'desc'));
+    const qPayouts = query(collection(db, 'payout_requests'), orderBy('timestamp', 'desc'));
     const unsubPayouts = onSnapshot(qPayouts, (snap) => {
       const data: any[] = [];
       snap.forEach(doc => data.push({ id: doc.id, ...doc.data() }));
       setPayouts(data);
     }, (err) => console.error("Erreur sync payouts:", err));
 
-    const qLedger = query(collection(db, 'transactions'), orderBy('createdAt', 'desc'));
+    const qLedger = query(collectionGroup(db, 'transactions'), orderBy('timestamp', 'desc'));
+    
+    const qWallets = query(collection(db, 'users'), orderBy('createdAt', 'desc'));
+    const unsubWallets = onSnapshot(qWallets, (snap) => {
+      const data: any[] = [];
+      snap.forEach(doc => data.push({ id: doc.id, ...doc.data() }));
+      setWallets(data);
+    }, (err) => console.error("Erreur sync wallets:", err));
+
     const unsubLedger = onSnapshot(qLedger, (snap) => {
       const data: any[] = [];
       snap.forEach(doc => data.push({ id: doc.id, ...doc.data() }));
@@ -61,6 +72,7 @@ export function AdminTransactions() {
       unsubPayments();
       unsubPayouts();
       unsubLedger();
+      unsubWallets();
       clearTimeout(timer);
     };
   }, []);
@@ -135,73 +147,82 @@ export function AdminTransactions() {
   };
 
   // 2. Validation de Retrait (Payout Formateur)
+  
+  
+  
+  const handleCorrectTransaction = async (txId: string) => {
+    const newAmount = window.prompt("Entrez le nouveau montant (laissez vide pour annuler):");
+    if (!newAmount || isNaN(Number(newAmount))) return;
+    
+    try {
+      await updateDoc(doc(db, 'transactions', txId), { amount: Number(newAmount), updatedAt: new Date() });
+      alert("Transaction corrigée avec succès !");
+    } catch (e: any) {
+      alert("Erreur lors de la correction: " + e.message);
+    }
+  };
+
+  const toggleWalletStatus = async (userId: string, currentStatus: string) => {
+    const newStatus = currentStatus === 'locked' ? 'active' : 'locked';
+    if (!window.confirm(`Voulez-vous vraiment ${newStatus === 'locked' ? 'geler' : 'réactiver'} ce portefeuille ?`)) return;
+    try {
+      await updateDoc(doc(db, 'users', userId), { walletStatus: newStatus });
+      alert(`Portefeuille ${newStatus === 'locked' ? 'gelé' : 'réactivé'} avec succès.`);
+    } catch (e: any) {
+      alert("Erreur: " + e.message);
+    }
+  };
+
   const handleValidatePayout = async (payout: any) => {
     if (!window.confirm(`Approuver ce retrait de ${payout.amount} XAF et déduire les fonds ?`)) return;
     setIsProcessing(payout.id);
     try {
-      await runTransaction(db, async (t) => {
-        const payoutRef = doc(db, 'payouts', payout.id);
-        const instructorId = payout.instructorId || payout.userId;
-        const userRef = doc(db, 'users', instructorId);
-        const txRef = doc(collection(db, 'transactions'));
-        
-        const pDoc = await t.get(payoutRef);
-        if (!pDoc.exists() || pDoc.data().status !== 'pending') {
-          throw new Error("Demande de retrait introuvable ou déjà traitée.");
-        }
-        
-        const uDoc = await t.get(userRef);
-        if (!uDoc.exists()) {
-          throw new Error("Formateur introuvable.");
-        }
-        
-        const pData = pDoc.data();
-        const amount = pData.amount || 0;
-        const currentBalance = uDoc.data().balance || 0;
-        
-        if (currentBalance < amount) {
-           throw new Error("Fonds insuffisants dans le portefeuille du formateur.");
-        }
-
-        // Marquer le retrait comme payé
-        t.update(payoutRef, { status: 'paid', updatedAt: new Date() });
-        
-        // Déduire du portefeuille
-        t.update(userRef, { balance: currentBalance - amount });
-
-        // Trace comptable immuable
-        t.set(txRef, {
-          type: 'INSTRUCTOR_PAYOUT_APPROVED',
-          payoutId: payout.id,
-          userId: instructorId,
-          amount: -amount, // Flux sortant
-          currency: pData.currency || 'XAF',
-          status: 'completed',
-          createdAt: new Date()
-        });
+      const auth = await import('../../firebase').then(m => m.auth);
+      const token = await auth.currentUser?.getIdToken();
+      const res = await fetch('/api/wallet/approve-payout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ requestId: payout.id, status: 'completed' })
       });
-    } catch(err: any) {
-      console.error("Erreur validation retrait:", err);
-      alert("Erreur d'arbitrage: " + err.message);
+      if (!res.ok) throw new Error(await res.text());
+      alert('Retrait approuvé avec succès !');
+    } catch (e: any) {
+      console.error(e);
+      alert('Erreur: ' + e.message);
     } finally {
       setIsProcessing(null);
     }
   };
 
+
+  
   const handleRejectPayout = async (payoutId: string) => {
-    if (!window.confirm("Rejeter cette demande de retrait ? Le solde du formateur restera intact.")) return;
+    if (!window.confirm('Rejeter ce retrait ? Les fonds seront recrédités.')) return;
     setIsProcessing(payoutId);
     try {
-      await updateDoc(doc(db, 'payouts', payoutId), { 
-        status: 'rejected', 
-        updatedAt: new Date() 
+      const auth = await import('../../firebase').then(m => m.auth);
+      const token = await auth.currentUser?.getIdToken();
+      const res = await fetch('/api/wallet/approve-payout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ requestId: payoutId, status: 'rejected' })
       });
-    } catch (err) {
-      console.error(err);
+      if (!res.ok) throw new Error(await res.text());
+      alert('Retrait rejeté et remboursé !');
+    } catch (e: any) {
+      console.error(e);
+      alert('Erreur: ' + e.message);
     } finally {
       setIsProcessing(null);
     }
   };
+
 
   const handleValidateDeposit = async (tx: any) => {
     if (!window.confirm(`Valider l'entrée de ${tx.amount} XAF au portefeuille de l'utilisateur ?`)) return;
@@ -609,6 +630,40 @@ export function AdminTransactions() {
         )}
 
         {/* --- ONGLET REGISTRE COMPTABLE --- */}
+
+        {activeTab === 'wallets' && (
+          <div className="space-y-4">
+            {wallets.length === 0 ? <EmptyState icon={ShieldCheck} title="Aucun portefeuille" /> : wallets.map(wallet => (
+              <div key={wallet.id} className="flex flex-col md:flex-row items-start md:items-center justify-between p-4 bg-slate-800/20 border border-slate-700/50 rounded-2xl gap-4 hover:bg-slate-800/40 transition-colors">
+                <div className="flex items-center gap-4">
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${wallet.walletStatus === 'locked' ? 'bg-red-500/10 text-red-500' : 'bg-emerald-500/10 text-emerald-400'}`}>
+                    <Banknote className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-white font-bold">{wallet.fullName || wallet.email}</h3>
+                    <p className="text-sm text-slate-400">UID: {wallet.id}</p>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Statut: <span className={wallet.walletStatus === 'locked' ? 'text-red-400 font-bold' : 'text-emerald-400 font-bold'}>{wallet.walletStatus === 'locked' ? 'GELÉ' : 'ACTIF'}</span>
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-col items-end gap-2">
+                  <div className="text-xl font-bold text-white">{(wallet.balance || 0).toLocaleString()} <span className="text-sm text-emerald-500 font-normal">XAF</span></div>
+                  <div className="text-sm text-slate-400">Bloqué: {(wallet.pendingBalance || 0).toLocaleString()} XAF</div>
+                  <button 
+                    onClick={() => toggleWalletStatus(wallet.id, wallet.walletStatus || 'active')}
+                    className={`mt-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors ${
+                      wallet.walletStatus === 'locked' ? 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20' : 'bg-red-500/10 text-red-400 hover:bg-red-500/20'
+                    }`}
+                  >
+                    {wallet.walletStatus === 'locked' ? 'Réactiver le portefeuille' : 'Geler le portefeuille'}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
         {activeTab === 'ledger' && (
            <div className="animate-in fade-in">
             {filteredLedger.length > 0 ? (

@@ -14,10 +14,9 @@ export function Navigation({ onMenuClick }: { onMenuClick?: () => void }) {
   if (isHiddenRoute) return null;
 
   return (
-    <nav className={clsx("fixed bottom-0 w-full glass safe-bottom z-40 transition-transform duration-300 ease-in-out", visible ? "translate-y-0" : "translate-y-full")}>
-      <div className="flex justify-around items-center h-20 px-2 pb-2">
-        <NavLink to="/student/dashboard" icon={LayoutGrid} label="ACCUEIL" current={location.pathname} />
-        <NavLink to="/student/search" icon={Search} label="CATALOGUE" current={location.pathname} />
+    <nav className="w-full flex justify-around items-center h-16 px-2">
+      <NavLink to="/student/dashboard" icon={LayoutGrid} label="ACCUEIL" current={location.pathname} />
+        <NavLink to="/student/catalog" icon={Search} label="CATALOGUE" current={location.pathname} />
         <NavLink to="/student/courses" icon={BookOpen} label="COURS" current={location.pathname} />
         <NavLink to="/student/profile" icon={User} label="PROFIL" current={location.pathname} />
         
@@ -27,7 +26,6 @@ export function Navigation({ onMenuClick }: { onMenuClick?: () => void }) {
             <span className="text-[10px] font-bold tracking-wide">MENU</span>
           </TouchArea>
         </button>
-      </div>
     </nav>
   );
 }

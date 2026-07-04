@@ -1,8 +1,11 @@
+import { CourseDetailView } from "./views/catalog/CourseDetailView";
+import { CatalogView } from "./views/catalog/CatalogView";
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { useEffect } from "react";
 import {
   BrowserRouter,
   Routes,
@@ -12,14 +15,27 @@ import {
   Navigate,
 } from "react-router-dom";
 import { LandingPage } from "./views/public/LandingPage";
-import { AuthView } from "./views/Auth";
+
+import { AuthLayout } from "./layouts/AuthLayout";
+import { LoginView } from "./views/auth/LoginView";
+import { RegisterView } from "./views/auth/RegisterView";
+import { ForgotPasswordView } from "./views/auth/ForgotPasswordView";
+import { VerifyEmailView } from "./views/auth/VerifyEmailView";
+import { AuthGuard } from "./guards/AuthGuard";
+import { GuestGuard } from "./guards/GuestGuard";
+import { RoleGuard } from "./guards/RoleGuard";
+
 import { Dashboard } from "./views/Dashboard";
 import { SearchAndCatalog } from "./views/Search";
 import { WalletView } from "./views/Wallet";
 import { BourseView } from "./views/Bourse";
 import { EbookDetail } from "./views/EbookDetail";
 import { BourseLicenseDetail } from "./views/BourseLicenseDetail";
-import { ProfileView } from "./views/Profile";
+
+import { ProfileHubView } from "./views/profile/ProfileHubView";
+import { EditProfileView } from "./views/profile/EditProfileView";
+import { AccountSettingsView } from "./views/profile/AccountSettingsView";
+
 import { CoursesView } from "./views/Courses";
 import { CoursePlayer } from "./views/CoursePlayer";
 import { MathiasTutor } from "./views/MathiasTutor";
@@ -66,7 +82,7 @@ import { AdminLayout } from "./views/admin/AdminLayout";
 import { AdminDashboard } from "./views/admin/AdminDashboard";
 import { AdminMembers } from "./views/admin/AdminMembers";
 import { AdminSquads } from "./views/admin/AdminSquads";
-import { AdminCourses } from "./views/admin/AdminCourses";
+import { AdminCatalogView } from "./views/admin/catalogue/AdminCatalogView";
 import { AdminTransactions } from "./views/admin/AdminTransactions";
 import { AdminModeration } from "./views/admin/AdminModeration";
 import { AdminInterface } from "./views/admin/AdminInterface";
@@ -101,6 +117,16 @@ function GenericPlaceholder({ title }: { title: string }) {
 }
 
 export default function App() {
+  useEffect(() => {
+    const setVh = () => {
+      let vh = window.innerHeight * 0.01;
+      document.documentElement.style.setProperty('--vh', `${vh}px`);
+    };
+    setVh();
+    window.addEventListener('resize', setVh);
+    return () => window.removeEventListener('resize', setVh);
+  }, []);
+
   return (
     <BrowserRouter>
       <OfflineIndicator />
@@ -108,12 +134,23 @@ export default function App() {
         {/* === PUBLIC ROUTES === */}
         <Route element={<PublicLayout />}>
           <Route path="/" element={<LandingPage />} />
-          <Route path="/auth" element={<AuthView />} />
-          <Route path="/login" element={<Navigate to="/auth" replace />} />
-          <Route
-            path="/register"
-            element={<Navigate to="/auth?tab=register" replace />}
-          />
+          
+        {/* === AUTH ROUTES === */}
+        <Route element={<GuestGuard><AuthLayout /></GuestGuard>}>
+          <Route path="/auth/login" element={<LoginView />} />
+          <Route path="/auth/register" element={<RegisterView />} />
+          <Route path="/auth/forgot-password" element={<ForgotPasswordView />} />
+        </Route>
+        
+        {/* Verify Email requires user to be logged in but not necessarily verified */}
+        <Route element={<AuthLayout />}>
+           <Route path="/auth/verify-email" element={<VerifyEmailView />} />
+        </Route>
+        
+        <Route path="/auth" element={<Navigate to="/auth/login" replace />} />
+        <Route path="/login" element={<Navigate to="/auth/login" replace />} />
+        <Route path="/register" element={<Navigate to="/auth/register" replace />} />
+
           <Route path="/legal" element={<LegalView />} />
           <Route path="/leaderboard" element={<LeaderboardView />} />
           <Route path="/invite/:slug" element={<ReferralCaptureView />} />
@@ -134,16 +171,20 @@ export default function App() {
         <Route path="/student/courses/:slug" element={<CoursePlayer />} />
 
         {/* === STUDENT ROUTES === */}
-        <Route path="/student" element={<StudentLayout />}>
+        <Route path="/student" element={<AuthGuard><StudentLayout /></AuthGuard>}>
           <Route index element={<Dashboard />} />
           <Route path="dashboard" element={<Dashboard />} />
-          <Route path="search" element={<SearchAndCatalog />} />
-          <Route path="catalog/:slug" element={<CourseDetail />} />
+          <Route path="catalog" element={<CatalogView />} />
+          <Route path="catalog/:slug" element={<CourseDetailView />} />
           <Route path="courses" element={<CoursesView />} />
           <Route path="wallet" element={<WalletView />} />
           <Route path="bourse" element={<BourseView />} />
           <Route path="bourse/:id" element={<BourseLicenseDetail />} />
-          <Route path="profile" element={<ProfileView />} />
+          
+          <Route path="profile" element={<ProfileHubView />} />
+          <Route path="profile/edit" element={<EditProfileView />} />
+          <Route path="profile/settings" element={<AccountSettingsView />} />
+
           <Route path="downloads" element={<OfflineDownloads />} />
           <Route
             path="course-redirect/:slug"
@@ -193,7 +234,7 @@ export default function App() {
           <Route path="squads" element={<AdminSquads />} />
           <Route path="markets" element={<AdminMarketControl />} />
           <Route path="marketcontrol" element={<AdminMarketControl />} />
-          <Route path="catalog" element={<AdminCourses />} />
+          <Route path="catalog/*" element={<AdminCatalogView />} />
           <Route path="moderation" element={<AdminModeration />} />
           <Route path="push" element={<AdminMarketing />} />
           <Route path="marketing" element={<AdminMarketing />} />

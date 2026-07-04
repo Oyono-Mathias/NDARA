@@ -1,160 +1,151 @@
-"use client";
-
-import React, { useState, useEffect, useRef } from 'react';
-import { Loader2 } from 'lucide-react';
-import Hls from 'hls.js';
+import React, { useRef, useEffect, useState } from 'react';
+import { Play, Pause, Maximize, Volume2, VolumeX } from 'lucide-react';
 
 interface VideoPlayerProps {
-  src: string;
-  provider?: 'bunny' | 'cloudflare'; // 'cloudflare' for CF Stream, 'bunny' (or undefined) for Bunny Stream
-  className?: string;
+  url: string;
+  startTime?: number;
+  onProgress?: (time: number) => void;
   onEnded?: () => void;
-  // Bunny Stream Pull Zone (e.g. vz-xxx.b-cdn.net ou custom domain)
-  cdnHostname?: string;
-  poster?: string;
+  className?: string;
 }
 
-export const VideoPlayer: React.FC<VideoPlayerProps> = ({ 
-  src, 
-  provider = 'bunny', // Par défaut `bunny` pour des raisons de compatibilité ascendante
-  className, 
-  onEnded,
-  cdnHostname = import.meta.env.VITE_BUNNY_STREAM_CDN_HOSTNAME || "vz-a8b9c7d6.b-cdn.net",
-  poster
-}) => {
-  const [loading, setLoading] = useState(true);
+export function VideoPlayer({ url, startTime = 0, onProgress, onEnded, className = "" }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const hlsRef = useRef<Hls | null>(null);
-
-  if (!src) {
-    return (
-      <div className={`flex flex-col items-center justify-center bg-black border border-red-500/20 text-red-500 rounded-2xl ${className || "w-full h-full"}`}>
-        <div className="text-4xl mb-4">🔒</div>
-        <p className="font-bold text-sm tracking-widest">VIDÉO INVALIDE</p>
-        <p className="text-xs text-red-400/60 mt-2">Source introuvable</p>
-      </div>
-    );
-  }
-
-  // Extraction du videoId
-  let videoId = src;
-  if (src.includes('/')) {
-    try {
-      const parts = src.split('/').filter(Boolean);
-      videoId = parts[parts.length - 1];
-    } catch (e) {
-      console.error("Impossible de parser l'ID de la vidéo:", e);
-    }
-  }
-
-  // Cloudflare Stream listener
-  useEffect(() => {
-    if (provider !== 'cloudflare' && !src.includes('cloudflarestream.com') && !src.includes('/iframe')) return;
-    
-    const handleMessage = (event: MessageEvent) => {
-      try {
-        const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
-        if (data.event === 'ended') {
-          console.log("Cloudflare Stream video ended via postMessage");
-          onEnded?.();
-        }
-      } catch (e) {
-        // ignore
-      }
-    };
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, [src, provider, onEnded]);
-
-  // ==== CLOUDFLARE STREAM RENDER ====
-  // Si le provider est explicitly cloudflare, on render l'iframe optimisée 
-  if (provider === 'cloudflare' || src.includes('cloudflarestream.com') || src.includes('/iframe')) {
-    return (
-      <div className={`relative bg-[#0B0F19] rounded-2xl overflow-hidden ${className || "w-full h-full"}`}>
-         <iframe
-          src={src} // L'URL d'iframe directe est envoyée du backend
-          className="w-full h-full border-none absolute inset-0"
-          allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
-          allowFullScreen
-          onLoad={() => setLoading(false)}
-        ></iframe>
-        {loading && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center z-10 border border-[#1E293B] bg-[#0B0F19] pointer-events-none">
-            <Loader2 className="w-10 h-10 text-emerald-500 animate-spin mb-4" />
-            <p className="text-xs text-emerald-500 font-mono tracking-widest uppercase">
-              Chargement Cloudflare Stream...
-            </p>
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  // ==== BUNNY STREAM RENDER (Default HLS) ====
+  const containerRef = useRef<HTMLDivElement>(null);
   
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [isMuted, setIsMuted] = useState(false);
+  const [duration, setDuration] = useState(0);
+  const [showControls, setShowControls] = useState(true);
+
+  let controlsTimeout: any;
+
   useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-
-    // URL du flux HLS Bunny Stream
-    const hlsUrl = `https://${cdnHostname}/${videoId}/playlist.m3u8`;
-
-    if (Hls.isSupported()) {
-      const hls = new Hls({
-        // Configuration pour la gestion du cache et offline à l'avenir
-        maxMaxBufferLength: 60,
-      });
-
-      hlsRef.current = hls;
-      hls.loadSource(hlsUrl);
-      hls.attachMedia(video);
-
-      hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        setLoading(false);
-      });
-
-      hls.on(Hls.Events.ERROR, (event, data) => {
-        if (data.fatal) {
-          console.error("HLS fatal error:", data);
-          // Gérer la tentative de reprise
-        }
-      });
-      
-      return () => {
-        hls.destroy();
-      };
-    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      // Pour Safari (HLS natif)
-      video.src = hlsUrl;
-      video.addEventListener('loadedmetadata', () => {
-        setLoading(false);
-      });
+    if (videoRef.current) {
+      videoRef.current.currentTime = startTime;
+      videoRef.current.play().catch(e => console.log("Auto-play prevented", e));
     }
-  }, [videoId, cdnHostname]);
+  }, [url, startTime]);
+
+  const handleTimeUpdate = () => {
+    if (videoRef.current) {
+      const current = videoRef.current.currentTime;
+      setProgress((current / videoRef.current.duration) * 100);
+      if (onProgress) onProgress(current);
+    }
+  };
+
+  const handleLoadedMetadata = () => {
+    if (videoRef.current) {
+      setDuration(videoRef.current.duration);
+    }
+  };
+
+  const togglePlay = () => {
+    if (videoRef.current) {
+      if (isPlaying) {
+        videoRef.current.pause();
+      } else {
+        videoRef.current.play();
+      }
+      setIsPlaying(!isPlaying);
+    }
+  };
+
+  const toggleMute = () => {
+    if (videoRef.current) {
+      videoRef.current.muted = !isMuted;
+      setIsMuted(!isMuted);
+    }
+  };
+
+  const toggleFullScreen = () => {
+    if (containerRef.current) {
+      if (!document.fullscreenElement) {
+        containerRef.current.requestFullscreen().catch(err => {
+          console.error(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
+        });
+      } else {
+        document.exitFullscreen();
+      }
+    }
+  };
+
+  const handleMouseMove = () => {
+    setShowControls(true);
+    clearTimeout(controlsTimeout);
+    controlsTimeout = setTimeout(() => {
+      if (isPlaying) setShowControls(false);
+    }, 2500);
+  };
+
+  const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (videoRef.current && duration > 0) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const pos = (e.clientX - rect.left) / rect.width;
+      videoRef.current.currentTime = pos * duration;
+    }
+  };
 
   return (
-    <div className={`relative bg-[#0B0F19] rounded-2xl overflow-hidden ${className || "w-full h-full"}`}>
-      {/* État de chargement CDN en Émeraude */}
-      {loading && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center z-10 border border-[#1E293B] bg-[#0B0F19]">
-          <Loader2 className="w-10 h-10 text-[#10B981] animate-spin mb-4" />
-          <p className="text-xs text-[#10B981] font-mono tracking-widest uppercase">
-            Initialisation du lecteur Natif HLS...
-          </p>
-        </div>
-      )}
-
-      {/* Rendu vidéo natif */}
+    <div 
+      ref={containerRef} 
+      className={`relative group bg-black overflow-hidden flex items-center justify-center ${className}`}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={() => isPlaying && setShowControls(false)}
+    >
       <video
         ref={videoRef}
-        controls
+        src={url}
+        className="w-full h-full max-h-full object-contain"
+        onTimeUpdate={handleTimeUpdate}
+        onLoadedMetadata={handleLoadedMetadata}
+        onPlay={() => setIsPlaying(true)}
+        onPause={() => setIsPlaying(false)}
+        onEnded={() => {
+          setIsPlaying(false);
+          if (onEnded) onEnded();
+        }}
+        onClick={togglePlay}
         playsInline
-        poster={poster}
-        onEnded={onEnded}
-        onLoadedData={() => setLoading(false)}
-        className={`absolute top-0 left-0 w-full h-full object-contain transition-opacity duration-500 ${loading ? 'opacity-0' : 'opacity-100'}`}
-        controlsList="nodownload" // Interdire le téléchargement natif du navigateur
       />
+
+      <div className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-4 transition-opacity duration-300 flex flex-col gap-2 ${showControls ? 'opacity-100' : 'opacity-0'}`}>
+        
+        {/* Progress Bar */}
+        <div className="w-full h-1.5 bg-white/20 rounded-full cursor-pointer overflow-hidden group/bar" onClick={handleSeek}>
+          <div 
+            className="h-full bg-emerald-500 transition-all duration-100 group-hover/bar:bg-emerald-400"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+
+        {/* Controls */}
+        <div className="flex items-center justify-between mt-2">
+          <div className="flex items-center gap-4">
+            <button onClick={togglePlay} className="text-white hover:text-emerald-400 transition-colors">
+              {isPlaying ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6" />}
+            </button>
+            <button onClick={toggleMute} className="text-white hover:text-emerald-400 transition-colors">
+              {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+            </button>
+            <span className="text-white text-xs font-mono">
+              {formatTime(videoRef.current?.currentTime || 0)} / {formatTime(duration)}
+            </span>
+          </div>
+
+          <button onClick={toggleFullScreen} className="text-white hover:text-emerald-400 transition-colors">
+            <Maximize className="w-5 h-5" />
+          </button>
+        </div>
+      </div>
     </div>
   );
-};
+}
+
+function formatTime(seconds: number) {
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}

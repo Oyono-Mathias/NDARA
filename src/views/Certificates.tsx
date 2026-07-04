@@ -1,199 +1,110 @@
-import { useState, useMemo, useEffect } from 'react';
-import { getFirestore, collection, query, where, onSnapshot, getDocs, documentId } from 'firebase/firestore';
-import { db, auth } from '../firebase';
-import { Award, Trophy, Share2, Eye, ArrowRight, Clock, ShieldCheck, Download } from 'lucide-react';
-import { CertificateModal } from '../components/modals/certificate-modal';
-import { TopAppBar } from '../components/ui/TopAppBar';
-import { Skeleton } from '../components/ui/Skeleton';
+import React, { useState, useEffect } from 'react';
+import { CertificatesService, CoursesService } from '../services/db';
+import { Certificate, Course } from '../types/models';
+import { where, orderBy } from 'firebase/firestore';
+import { useAuth } from '../contexts/AuthContext';
+import { Award, Loader2, Download, ExternalLink, ShieldCheck } from 'lucide-react';
 import { Link } from 'react-router-dom';
-
-interface Course {
-    id: string;
-    title: string;
-    instructorId?: string;
-}
-
-interface Enrollment {
-    id: string;
-    courseId: string;
-    studentId: string;
-    progress?: number;
-    lastAccessedAt?: any;
-}
-
-interface EnrichedCertificate extends Enrollment {
-    course?: Partial<Course>;
-    instructorName?: string;
-}
+import { CertificateModal } from '../components/modals/certificate-modal';
 
 export function CertificatesView() {
-    const [currentUser, setCurrentUser] = useState<any>(null);
-    const [enrichedData, setEnrichedData] = useState<EnrichedCertificate[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-    const [selectedCert, setSelectedCert] = useState<EnrichedCertificate | null>(null);
-    const [isModalOpen, setIsModalOpen] = useState(false);
+  const { firebaseUser } = useAuth();
+  const [certificates, setCertificates] = useState<(Certificate & { course?: Course })[]>([]);
+  const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        const unsubAuth = auth.onAuthStateChanged((user) => {
-            if (user) {
-                setCurrentUser(user);
-                
-                const enrollmentsRef = collection(db, 'enrollments');
-                const q = query(enrollmentsRef, where('studentId', '==', user.uid), where('progress', '==', 100));
-                
-                const unsubEnroll = onSnapshot(q, async (snap) => {
-                    if (snap.empty) {
-                        setEnrichedData([]);
-                        setIsLoading(false);
-                        return;
-                    }
+  const [selectedCert, setSelectedCert] = useState<(Certificate & { course?: Course }) | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
-                    const enrollmentsData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Enrollment[];
-                    const courseIds = [...new Set(enrollmentsData.map(e => e.courseId))];
-                    
-                    const coursesMap = new Map();
-                    if (courseIds.length > 0) {
-                        // Max 30 conditions in 'in' clause roughly, usually fine for a few certificates
-                        const chunkedIds = courseIds.slice(0, 30);
-                        const coursesQuery = query(collection(db, 'courses'), where(documentId(), 'in', chunkedIds), where('status', '==', 'Published'));
-                        const coursesSnap = await getDocs(coursesQuery);
-                        coursesSnap.forEach(d => coursesMap.set(d.id, { id: d.id, ...d.data() }));
-                    }
 
-                    const newEnrichedData = enrollmentsData.map(e => ({
-                        ...e,
-                        course: coursesMap.get(e.courseId) || undefined,
-                        instructorName: "Oyono Mathias" // Default instructor
-                    })).sort((a, b) => {
-                        const dateA = a.lastAccessedAt?.toDate?.() || new Date(0);
-                        const dateB = b.lastAccessedAt?.toDate?.() || new Date(0);
-                        return dateB.getTime() - dateA.getTime();
-                    });
-
-                    setEnrichedData(newEnrichedData);
-                    setIsLoading(false);
-                });
-
-                return () => unsubEnroll();
-
-            } else {
-                setCurrentUser(null);
-                setEnrichedData([]);
-                setIsLoading(false);
-            }
-        });
-
-        return () => unsubAuth();
-    }, []);
-
-    const handleViewCertificate = (cert: EnrichedCertificate) => {
-        setSelectedCert(cert);
-        setIsModalOpen(true);
+  useEffect(() => {
+    if (!firebaseUser) return;
+    
+    const fetchCertificates = async () => {
+      const certs = await CertificatesService.getAll([where('studentId', '==', firebaseUser.uid), orderBy('issuedAt', 'desc')]);
+      
+      const enrichedCerts = await Promise.all(
+        certs.map(async (cert) => {
+          const course = await CoursesService.getById(cert.courseId);
+          return { ...cert, course: course || undefined };
+        })
+      );
+      
+      setCertificates(enrichedCerts);
+      setLoading(false);
     };
 
-    const formatter = new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
+    fetchCertificates();
+  }, [firebaseUser]);
 
-    return (
-        <div className="flex flex-col gap-8 pb-24 bg-slate-950 min-h-screen">
-            <TopAppBar title="Mes Certificats" showBack={true} transparent />
-            {selectedCert && (
-                <CertificateModal
-                    isOpen={isModalOpen}
-                    onClose={() => setIsModalOpen(false)}
-                    courseName={selectedCert.course?.title || ''}
-                    studentName={currentUser?.displayName || 'Étudiant'}
-                    instructorName={selectedCert.instructorName || 'Oyono Mathias'}
-                    completionDate={selectedCert.lastAccessedAt?.toDate?.() || new Date()}
-                    certificateId={selectedCert.id}
-                    courseId={selectedCert.courseId}
-                    userId={selectedCert.studentId}
-                />
-            )}
+  if (loading) {
+    return <div className="min-h-screen bg-[#0B0F19] flex justify-center items-center"><Loader2 className="w-8 h-8 animate-spin text-emerald-500" /></div>;
+  }
 
-            <div className="space-y-4 w-full px-4">
-                {isLoading ? (
-                    <div className="grid gap-4">
-                        {[...Array(2)].map((_, i) => <Skeleton key={i} className="h-64 w-full rounded-[2.5rem]" />)}
-                    </div>
-                ) : enrichedData.length > 0 ? (
-                    <div className="grid gap-6 animate-in fade-in duration-700">
-                        {enrichedData.map(cert => (
-                            <div key={cert.id} className="bg-slate-900 border border-slate-800 overflow-hidden shadow-2xl group active:scale-[0.98] transition-all rounded-[2.5rem]">
-                                <div className="p-6 space-y-4">
-                                    <div className="flex justify-between items-start">
-                                        <div className="p-3 bg-amber-500/10 rounded-2xl">
-                                            <Award className="h-8 w-8 text-amber-500" />
-                                        </div>
-                                        <span className="bg-slate-800 text-slate-500 py-1 px-3 rounded-full font-bold text-[8px] uppercase tracking-tighter">
-                                            ID: {cert.id.substring(0, 12)}
-                                        </span>
-                                    </div>
-                                    
-                                    <div className="space-y-1">
-                                        <h3 className="text-xl font-bold text-white line-clamp-2 leading-tight group-hover:text-amber-500 transition-colors">
-                                            {cert.course?.title || 'Formation Ndara'}
-                                        </h3>
-                                        <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
-                                            <Clock className="h-3 w-3" />
-                                            <span>
-                                                Obtenu le {cert.lastAccessedAt && typeof cert.lastAccessedAt.toDate === 'function' 
-                                                    ? formatter.format(cert.lastAccessedAt.toDate()) 
-                                                    : 'récemment'}
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <div className="p-4 bg-slate-900/50 flex gap-2 border-t border-white/5">
-                                    <button 
-                                        className="flex-1 flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black uppercase text-[10px] tracking-widest h-14 rounded-[1.5rem] transition-colors"
-                                        onClick={() => handleViewCertificate(cert)}
-                                    >
-                                        <Eye className="h-4 w-4" />
-                                        Voir le diplôme
-                                    </button>
-                                    <button 
-                                        className="h-14 w-14 rounded-[1.5rem] border border-slate-800 bg-slate-900 text-slate-400 hover:text-white flex items-center justify-center transition-colors"
-                                        onClick={() => {
-                                            const url = `${window.location.origin}/verify/${cert.id}`;
-                                            window.open(`https://wa.me/?text=Je suis très fier de vous partager mon nouveau certificat Ndara Afrique ! 🚀🎓\n\nVérifiez mon diplôme ici : ${url}`, '_blank');
-                                        }}
-                                    >
-                                        <Share2 className="h-5 w-5" />
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                ) : (
-                    <div className="flex flex-col items-center justify-center py-20 px-8 text-center bg-slate-900/20 rounded-[3rem] border-2 border-dashed border-slate-800/50">
-                        <div className="p-6 bg-slate-800/50 rounded-full mb-6">
-                            <Award className="h-16 w-16 text-slate-700" />
-                        </div>
-                        <h3 className="text-xl font-black text-white leading-tight uppercase">Votre mur est vide.</h3>
-                        <p className="text-slate-500 text-sm mt-3 leading-relaxed max-w-[220px] mx-auto font-medium">
-                            Terminez vos formations à <span className="text-white font-bold">100%</span> pour débloquer vos certificats officiels.
-                        </p>
-                        <Link to="/student/courses" className="mt-8 flex items-center justify-center bg-primary hover:bg-primary/90 text-primary-foreground rounded-2xl h-14 px-8 font-black uppercase text-[10px] tracking-widest shadow-xl shadow-primary/20">
-                            Reprendre l'apprentissage
-                            <ArrowRight className="ml-2 h-4 w-4" />
-                        </Link>
-                    </div>
-                )}
-            </div>
+  return (
+    <div className="pb-24">
+      <div className="bg-gradient-to-b from-emerald-500/10 to-transparent p-6 rounded-3xl space-y-2 mb-8">
+        <h1 className="text-2xl font-black uppercase tracking-widest text-white">Mes Certificats</h1>
+        <p className="text-slate-400 text-sm">Vos accomplissements et diplômes</p>
+      </div>
 
-            <div className="py-8">
-                <div className="p-6 bg-slate-900/30 border border-slate-800 rounded-[2.5rem] flex items-start gap-4">
-                    <ShieldCheck className="h-6 w-6 text-emerald-500 shrink-0" />
-                    <div>
-                        <p className="text-xs font-black text-white uppercase tracking-widest">Sécurité Ndara</p>
-                        <p className="text-[10px] text-slate-500 mt-1 leading-relaxed font-medium italic">
-                            Chaque certificat possède un code de vérification unique permettant aux entreprises de confirmer vos acquis en temps réel.
-                        </p>
-                    </div>
-                </div>
-            </div>
+      {selectedCert && (
+        <CertificateModal
+            isOpen={isModalOpen}
+            onClose={() => setIsModalOpen(false)}
+            courseName={selectedCert.course?.title || ''}
+            studentName={firebaseUser?.displayName || 'Étudiant'}
+            instructorName="Ndara Academy"
+            completionDate={new Date(selectedCert.issuedAt)}
+            certificateId={selectedCert.certificateNumber}
+            courseId={selectedCert.courseId}
+            userId={selectedCert.studentId}
+        />
+      )}
+
+      {certificates.length === 0 ? (
+        <div className="bg-white/5 border border-white/10 rounded-3xl p-12 text-center">
+          <Award className="w-16 h-16 text-slate-500 mx-auto mb-4 opacity-50" />
+          <h3 className="text-xl font-bold text-white mb-2">Aucun certificat</h3>
+          <p className="text-slate-400 mb-6">Terminez une formation à 100% pour obtenir votre premier certificat.</p>
+          <Link to="/student/catalog" className="px-6 py-3 bg-emerald-500 text-slate-950 font-bold uppercase tracking-widest text-xs rounded-xl">
+            Voir le catalogue
+          </Link>
         </div>
-    );
-}
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {certificates.map(cert => (
+            <div key={cert.id} className="bg-white/5 border border-white/10 rounded-3xl p-6 relative overflow-hidden group">
+              <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity">
+                <Award className="w-32 h-32 text-emerald-500" />
+              </div>
+              
+              <div className="relative z-10">
+                <div className="flex items-center gap-2 text-emerald-500 font-bold text-xs uppercase tracking-widest mb-4">
+                  <ShieldCheck className="w-4 h-4" /> Certificat Officiel
+                </div>
+                
+                <h3 className="text-xl font-bold text-white mb-2 leading-tight">
+                  {cert.course?.title || 'Formation Inconnue'}
+                </h3>
+                
+                <div className="text-sm text-slate-400 mb-8 space-y-1">
+                  <p>Délivré le : {new Date(cert.issuedAt).toLocaleDateString('fr-FR')}</p>
+                  <p className="font-mono text-xs">N° {cert.certificateNumber}</p>
+                </div>
 
+                <div className="flex items-center gap-3">
+                  <button onClick={() => { setSelectedCert(cert); setIsModalOpen(true); }} className="flex-1 px-4 py-3 bg-emerald-500 text-slate-950 font-bold uppercase tracking-widest text-xs rounded-xl flex items-center justify-center gap-2 hover:bg-emerald-400 transition-colors">
+                    <Download className="w-4 h-4" /> Télécharger
+                  </button>
+                  <Link to={`/verify/${cert.certificateNumber}`} className="px-4 py-3 bg-white/10 text-white hover:bg-white/20 rounded-xl transition-colors">
+                    <ExternalLink className="w-4 h-4" />
+                  </Link>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

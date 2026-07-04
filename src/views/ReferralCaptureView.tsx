@@ -71,7 +71,7 @@ export function ReferralCaptureView() {
                 </div>
 
                 <button 
-                  onClick={() => navigate('/student/search')} 
+                  onClick={() => navigate('/student/catalog')} 
                   className="w-full h-16 flex items-center justify-center rounded-2xl bg-primary text-black font-black uppercase text-xs tracking-widest shadow-[0_4px_20px_rgba(16,185,129,0.3)] active:scale-95 transition-all group hover:bg-emerald-400"
                 >
                     Explorer le catalogue
