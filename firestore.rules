@@ -27,7 +27,6 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow read: if isAuthenticated();
-      // users can only update specific fields on their own profile, or admins can write
       allow write: if isAdmin() || (isOwner(userId) && request.resource.data.keys().hasOnly(resource.data.keys().concat(['displayName', 'photoURL', 'bio'])));
     }
     
@@ -47,7 +46,9 @@ service cloud.firestore {
     }
     
     match /enrollments/{enrollmentId} {
-      allow read: if isAuthenticated() && (resource.data.studentId == request.auth.uid || isAdmin());
+      allow read: if isAuthenticated() && resource.data.studentId == request.auth.uid;
+      allow read: if isAuthenticated() && resource.data.instructorId == request.auth.uid;
+      allow read: if isAdmin();
       allow write: if isAdmin();
     }
     
@@ -144,7 +145,7 @@ service cloud.firestore {
       allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid && isValidString(request.resource.data.title, 5, 100);
       allow update, delete: if isAdmin();
     }
-        
+    
     match /audit_logs/{logId} {
       allow read: if isAdmin();
       allow create: if isAuthenticated() && (isAdmin() || request.resource.data.action in ['LOGIN', 'LOGOUT']);
@@ -161,6 +162,11 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
     
+    match /system_settings/{settingId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     match /statistics/{statId} {
       allow read: if isAdmin();
       allow write: if false; // Only written by server
@@ -169,6 +175,38 @@ service cloud.firestore {
     match /reports/{reportId} {
       allow read: if isAdmin();
       allow write: if false; // Only written by server
+    }
+
+    match /user_history/{historyId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow read: if isAdmin();
+      allow write: if isAuthenticated() && (
+        resource == null || 
+        resource.data.userId == request.auth.uid || 
+        request.resource.data.userId == request.auth.uid || 
+        isAdmin()
+      );
+    }
+
+    match /assignments_submissions/{subId} {
+      allow read: if isAuthenticated() && resource.data.studentId == request.auth.uid;
+      allow read: if isAuthenticated() && resource.data.instructorId == request.auth.uid;
+      allow read: if isAdmin();
+      allow write: if isAuthenticated() && (
+        resource == null ||
+        resource.data.studentId == request.auth.uid ||
+        resource.data.instructorId == request.auth.uid ||
+        request.resource.data.studentId == request.auth.uid ||
+        isAdmin()
+      );
+    }
+
+    match /payments/{paymentId} {
+      allow read: if isAuthenticated() && resource.data.studentId == request.auth.uid;
+      allow read: if isAuthenticated() && resource.data.instructorId == request.auth.uid;
+      allow read: if isAuthenticated() && resource.data.ambassadorId == request.auth.uid;
+      allow read: if isAdmin();
+      allow write: if isAdmin();
     }
   }
 }

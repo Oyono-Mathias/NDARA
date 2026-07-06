@@ -22,7 +22,7 @@ export function RoleGuard({ children, allowedRoles }: RoleGuardProps) {
 
   if (!appUser || !allowedRoles.includes(appUser.role)) {
     // Si pas les droits, redirige vers une page d'accès refusé ou l'accueil
-    return <Navigate to="/unauthorized" replace />;
+    return <Navigate to="/student/dashboard" replace />;
   }
 
   return <>{children}</>;

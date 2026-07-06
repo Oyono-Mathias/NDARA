@@ -1,0 +1,1 @@
+sed -i "s/const from = (location.state as any)?.from?.pathname || targetPath;/let from = (location.state as any)?.from?.pathname || targetPath;\n    if (from.startsWith('\/auth')) from = targetPath;/" src/guards/GuestGuard.tsx

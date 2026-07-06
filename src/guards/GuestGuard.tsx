@@ -23,7 +23,8 @@ export function GuestGuard({ children }: { children: ReactNode }) {
         ? '/instructor' 
         : '/student/dashboard';
         
-    const from = (location.state as any)?.from?.pathname || targetPath;
+    let from = (location.state as any)?.from?.pathname || targetPath;
+    if (from.startsWith('/auth')) from = targetPath;
     return <Navigate to={from} replace />;
   }
 

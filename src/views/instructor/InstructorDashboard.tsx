@@ -375,8 +375,8 @@ export function InstructorDashboard() {
             <ResponsiveContainer
               width="100%"
               height="100%"
-              minHeight={200}
-              minWidth={200}
+              
+              
             >
               <AreaChart data={analytics.chartData}>
                 <defs>
