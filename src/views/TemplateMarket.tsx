@@ -5,10 +5,10 @@ import {
   Info, Loader2, CreditCard, CheckCircle2 
 } from "lucide-react";
 import { 
-  collection, query, where, onSnapshot, 
+  collection, getDocs, query, where, onSnapshot, 
   addDoc, runTransaction, doc, serverTimestamp, getFirestore 
 } from "firebase/firestore";
-import { db } from "../firebase";
+import { db, auth } from "../firebase";
 import { useRole } from "../context/RoleContext";
 import { BottomSheet } from "../components/ui/BottomSheet";
 import { TouchArea } from "../components/ui/TouchArea";
@@ -74,7 +74,7 @@ export function TemplateMarket() {
     try {
         const response = await fetch('/api/wallet/purchase', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await auth.currentUser?.getIdToken()}` },
             body: JSON.stringify({
                 studentId: currentUser.uid,
                 price: selectedTemplate.price || 0,
@@ -220,7 +220,7 @@ export function TemplateMarket() {
                  as="button"
                  onClick={() => {
                     setIsBuyModalOpen(false);
-                    alert("Téléchargement du template démarré.");
+                    handleDownloadTemplate(selectedTemplate.id);
                  }}
                  className="w-full p-4 rounded-xl bg-emerald-500/20 text-emerald-400 font-bold text-[15px] flex items-center justify-center gap-2"
                >

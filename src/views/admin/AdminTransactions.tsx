@@ -12,7 +12,7 @@ import {
   CheckCircle2,
   XCircle,
   FileText,
-  Loader2
+  Loader2, RefreshCw
 } from 'lucide-react';
 import clsx from 'clsx';
 import { collection, collectionGroup, query, orderBy, onSnapshot, doc, runTransaction, updateDoc } from 'firebase/firestore';
@@ -33,6 +33,29 @@ export function AdminTransactions() {
 
   // Pour éviter le spam de clics
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
+
+  
+  const handleRefundPayment = async (txRef: string) => {
+    if (!window.confirm("Êtes-vous sûr de vouloir rembourser cette transaction ?")) return;
+    setProcessing(true);
+    try {
+      const response = await fetch('/api/payment/refund', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await auth.currentUser?.getIdToken()}` },
+        body: JSON.stringify({ txRef, reason: 'Demande utilisateur' })
+      });
+      const data = await response.json();
+      if (response.ok && data.success) {
+         setPayments(prev => prev.map(p => p.id === txRef ? { ...p, status: 'refunded' } : p));
+      } else {
+         alert(data.error || 'Erreur lors du remboursement');
+      }
+    } catch (e: any) {
+      alert(e.message || "Erreur réseau");
+    } finally {
+      setProcessing(false);
+    }
+  };
 
   useEffect(() => {
     setIsLoading(true);
@@ -531,9 +554,20 @@ export function AdminTransactions() {
                                    {processing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <XCircle className="w-3.5 h-3.5" />} Rejeter
                                  </button>
                                </div>
-                             ) : (
-                               <span className="text-[10px] font-bold text-slate-500">{formatDate(p.createdAt)}</span>
-                             )}
+                                                          ) : isSuccess ? (
+                               <div className="flex flex-col items-end gap-2">
+                                 <span className="text-[10px] font-bold text-slate-500">{formatDate(p.createdAt)}</span>
+                                 <button
+                                   onClick={() => handleRefundPayment(p.id)}
+                                   disabled={processing}
+                                   className="flex items-center gap-1.5 h-6 px-2 rounded-lg bg-orange-500/10 text-orange-500 border border-orange-500/20 font-black uppercase tracking-widest text-[9px] hover:bg-orange-500 hover:text-white transition-all disabled:opacity-50"
+                                 >
+                                   <RefreshCw className="w-3 h-3" /> Rembourser
+                                 </button>
+                               </div>
+                             ) : p.status === 'refunded' ? (
+                                <span className="inline-flex text-[9px] font-black uppercase px-2 py-1 rounded bg-orange-500/10 text-orange-500 border border-orange-500/20">Remboursé</span>
+                             ) : ( <span className="text-[10px] font-bold text-slate-500">{formatDate(p.createdAt)}</span> )}
                           </td>
                         </tr>
                       )})}

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ChevronLeft, Share2, Heart, Star, BookOpen, Globe, CreditCard, Lock, FileText, Smartphone, Tablet, Loader2, Download } from "lucide-react";
 import { doc, onSnapshot, collection, query, where, getDocs, deleteDoc, setDoc, serverTimestamp } from "firebase/firestore";
-import { db } from "../firebase";
+import { db, auth } from "../firebase";
 import { useRole } from "../context/RoleContext";
 import { BottomSheet } from "../components/ui/BottomSheet";
 
@@ -20,6 +20,7 @@ export function EbookDetail() {
   const [showBuyModal, setShowBuyModal] = useState(false);
   const [showSampleModal, setShowSampleModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [licenseKey, setLicenseKey] = useState<string | null>(null);
   const [selectedFormat, setSelectedFormat] = useState("pdf");
   const [isProcessing, setIsProcessing] = useState(false);
   
@@ -98,7 +99,7 @@ export function EbookDetail() {
     try {
         const response = await fetch('/api/wallet/purchase', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await auth.currentUser?.getIdToken()}` },
             body: JSON.stringify({
                 studentId: currentUser.uid,
                 price: ebook.price || 0,
@@ -120,9 +121,25 @@ export function EbookDetail() {
                 createdAt: new Date()
             });
 
+            
             setHasPurchased(true);
             setShowBuyModal(false);
+            
+            // Auto generate license
+            try {
+                const licRes = await fetch('/api/digital/licenses/generate', {
+                   method: 'POST',
+                   headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await auth.currentUser?.getIdToken()}` },
+                   body: JSON.stringify({ purchaseId: purchaseRef.id, productId: ebook.id, type: 'ebook' })
+                });
+                const licData = await licRes.json();
+                if (licData.success) {
+                    setLicenseKey(licData.license.licenseKey);
+                }
+            } catch (e) { console.error("License generation error", e); }
+            
             setShowSuccessModal(true);
+
         } else {
             alert(data.error || "Erreur lors de l'achat");
         }

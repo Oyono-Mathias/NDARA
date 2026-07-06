@@ -17,13 +17,18 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
+    function isValidString(text, min, max) {
+      return text is string && text.size() >= min && text.size() <= max;
+    }
+    
     match /{document=**} {
       allow read, write: if false;
     }
 
     match /users/{userId} {
       allow read: if isAuthenticated();
-      allow write: if isOwner(userId) || isAdmin();
+      // users can only update specific fields on their own profile, or admins can write
+      allow write: if isAdmin() || (isOwner(userId) && request.resource.data.keys().hasOnly(resource.data.keys().concat(['displayName', 'photoURL', 'bio'])));
     }
     
     match /courses/{courseId} {
@@ -96,7 +101,7 @@ service cloud.firestore {
     
     match /messages/{messageId} {
       allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidString(request.resource.data.content, 1, 5000);
       allow update, delete: if isAuthenticated() && resource.data.senderId == request.auth.uid;
     }
     
@@ -136,11 +141,10 @@ service cloud.firestore {
     
     match /supportTickets/{ticketId} {
       allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid && isValidString(request.resource.data.title, 5, 100);
       allow update, delete: if isAdmin();
     }
-    
-    
+        
     match /audit_logs/{logId} {
       allow read: if isAdmin();
       allow create: if isAuthenticated() && (isAdmin() || request.resource.data.action in ['LOGIN', 'LOGOUT']);
@@ -155,6 +159,16 @@ service cloud.firestore {
     match /settings/{settingId} {
       allow read: if resource.data.isPublic == true || isAdmin();
       allow write: if isAdmin();
+    }
+    
+    match /statistics/{statId} {
+      allow read: if isAdmin();
+      allow write: if false; // Only written by server
+    }
+    
+    match /reports/{reportId} {
+      allow read: if isAdmin();
+      allow write: if false; // Only written by server
     }
   }
 }

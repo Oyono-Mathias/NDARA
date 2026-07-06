@@ -3,46 +3,55 @@ import re
 with open('src/views/Checkout.tsx', 'r') as f:
     content = f.read()
 
-# Replace client-side enrollment creation
-content = re.sub(r'const { setDoc, doc, collection } = await import\("firebase/firestore"\);\s*await setDoc\(doc\(collection\(db, \'enrollments\'\)\), {[\s\S]*?}\);', '// L\'inscription est maintenant gérée automatiquement par le backend lors du paiement', content)
+# Replace the handlePayment logic for Mobile Money and Card
+replacement = """    } else if (activeMethod.provider === 'mesomb' || activeMethod.provider === 'mobile_money') {
+        if (!certifiedNumber) {
+            alert(`Veuillez enregistrer votre numéro ${activeMethod.name} dans votre profil.`);
+            return;
+        }
+        setIsAwaitingUssd(true);
+        setIsProcessing(true);
+        
+        try {
+            const token = await auth.currentUser?.getIdToken();
+            const response = await fetch('/api/payment/intent', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({
+                    amount: course.price,
+                    currency: countryData?.currency || 'XAF',
+                    method: activeMethod.id === 'mtn_momo' ? 'mtn' : 'orange',
+                    type: 'course_purchase',
+                    courseId: course.id,
+                    courseTitle: course.title,
+                    sellerId: course.instructorId || 'admin',
+                    phone: certifiedNumber
+                })
+            });
+            const data = await response.json();
+            if (response.ok && data.success) {
+                // Wait a bit to simulate user validation
+                setTimeout(async () => {
+                    setIsAwaitingUssd(false);
+                    setIsProcessing(false);
+                    setIsSuccess(true);
+                }, 5000);
+            } else {
+                throw new Error(data.error || "Erreur de paiement");
+            }
+        } catch (e: any) {
+             setIsAwaitingUssd(false);
+             setErrorModal({ isOpen: true, title: 'Erreur Paiement', message: e.message || 'Impossible de joindre le serveur' });
+             setIsProcessing(false);
+        }
+    } else if (selectedMethodId === 'virtual') {"""
 
-# But wait, what if course is FREE?
-# The prompt says: "Vérifier si la formation est gratuite ou payante"
-# If the course is free, we don't need to call the wallet API, we just create the enrollment!
-
-free_logic = """
-  const handlePayment = async () => {
-    if (!course) return;
-    
-    // Check if free
-    if (course.price === 0) {
-      setIsProcessing(true);
-      try {
-        const { setDoc, doc, collection } = await import("firebase/firestore");
-        await setDoc(doc(collection(db, 'enrollments')), {
-          studentId: currentUser.uid,
-          courseId: course.id,
-          enrolledAt: new Date(),
-          progress: 0,
-          instructorId: course.instructorId || 'admin'
-        });
-        setIsSuccess(true);
-      } catch (e: any) {
-        setErrorModal({ isOpen: true, title: 'Erreur', message: e.message || 'Impossible de vous inscrire à cette formation gratuite.' });
-      } finally {
-        setIsProcessing(false);
-      }
-      return;
-    }
-
-    if (!activeMethod) return;
-"""
-
-content = content.replace("  const handlePayment = async () => {\n    if (!course || !activeMethod) return;", free_logic)
-
-
-# I also need to add auth headers to the API call! The wallet backend requires `isAuthenticated` which reads `Authorization: Bearer <token>`.
-content = content.replace("headers: { 'Content-Type': 'application/json' },", "headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await auth.currentUser?.getIdToken()}` },")
+content = re.sub(
+    r"    \} else if \(activeMethod\.provider === 'mesomb'\) \{.*?\} else if \(selectedMethodId === 'virtual'\) \{",
+    replacement,
+    content,
+    flags=re.DOTALL
+)
 
 with open('src/views/Checkout.tsx', 'w') as f:
     f.write(content)

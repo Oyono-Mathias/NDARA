@@ -341,6 +341,16 @@ export async function purchaseCourseWithEscrow(
       transaction.set(referrerTxRef, referrerTx);
     }
     
+
+    // 8. Create Enrollment
+    const enrollmentRef = doc(collection(serverDb, 'enrollments'));
+    transaction.set(enrollmentRef, {
+      studentId: studentId,
+      courseId: courseId,
+      enrolledAt: creationTime.toISOString(),
+      progress: 0,
+      instructorId: sellerId
+    });
     return { 
       success: true, 
       finalStudentBalance, 

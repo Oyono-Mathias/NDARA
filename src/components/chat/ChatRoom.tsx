@@ -4,6 +4,7 @@ import { db } from '../../firebase';
 import { collection, query, where, onSnapshot, orderBy, addDoc, setDoc, doc, serverTimestamp, getDocs, getDoc, writeBatch } from 'firebase/firestore';
 import { useRole } from '../../context/RoleContext';
 import { useSocket } from '../../hooks/useSocket';
+import { Phone, Video, Search, PhoneCall, Monitor, Paperclip, X, Smile, Loader2, Bell, Bot, Sparkles, Lightbulb, MessageSquare, Camera, Mic, Plus, Send } from 'lucide-react';
 
 export function ChatRoom({ chatId, newChatUser }: { chatId: string | null, newChatUser?: string | null }) {
     const { currentUser } = useRole();
@@ -18,6 +19,96 @@ export function ChatRoom({ chatId, newChatUser }: { chatId: string | null, newCh
     const typingTimeoutRef = useRef<any>(null);
     const [activeChatId, setActiveChatId] = useState<string | null>(chatId);
     
+        const [isSearching, setIsSearching] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [inCall, setInCall] = useState<{type: 'audio' | 'video' | 'screen' | null, incoming: boolean, active: boolean}>({ type: null, incoming: false, active: false });
+    const [uploading, setUploading] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState(0);
+    const [pushEnabled, setPushEnabled] = useState(false);
+
+    // Call handlers
+    const initiateCall = (type: 'audio' | 'video' | 'screen') => {
+        if (!activeChatId) return;
+        setInCall({ type, incoming: false, active: true });
+        socket?.emit("call-request", { roomId: activeChatId, type, senderId: currentUser?.uid });
+    };
+
+    const endCall = () => {
+        if (!activeChatId) return;
+        setInCall({ type: null, incoming: false, active: false });
+        socket?.emit("call-ended", { roomId: activeChatId });
+    };
+
+    const enablePush = async () => {
+        if ('Notification' in window) {
+            const perm = await Notification.requestPermission();
+            if (perm === 'granted') {
+                setPushEnabled(true);
+                alert("Notifications Push activées !");
+            }
+        }
+    };
+
+    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setUploading(true);
+        setUploadProgress(0);
+        
+        // Simulate large file multipart upload
+        const interval = setInterval(() => {
+            setUploadProgress(prev => {
+                if (prev >= 100) {
+                    clearInterval(interval);
+                    setUploading(false);
+                    // Add message
+                    handleSendFile(file.name, file.size);
+                    return 100;
+                }
+                return prev + 10;
+            });
+        }, 300);
+    };
+
+    const handleSendFile = async (filename: string, size: number) => {
+        if (!currentUser?.uid || !activeChatId) return;
+        const msgData = {
+            chatId: activeChatId,
+            senderId: currentUser.uid,
+            text: `[Fichier: ${filename}] (${(size / 1024 / 1024).toFixed(2)} MB)`,
+            createdAt: serverTimestamp(),
+            status: 'sent'
+        };
+        await addDoc(collection(db, 'messages'), msgData);
+    };
+
+    const addReaction = async (msgId: string, emoji: string) => {
+        const msgRef = doc(db, 'messages', msgId);
+        const msgDoc = await getDoc(msgRef);
+        if (msgDoc.exists()) {
+            const reactions = msgDoc.data().reactions || {};
+            reactions[emoji] = (reactions[emoji] || 0) + 1;
+            await setDoc(msgRef, { reactions }, { merge: true });
+        }
+    };
+
+    useEffect(() => {
+        if (socket) {
+            socket.on("call-request", (data) => {
+                if (data.senderId !== currentUser?.uid) {
+                    setInCall({ type: data.type, incoming: true, active: false });
+                }
+            });
+            socket.on("call-ended", () => {
+                setInCall({ type: null, incoming: false, active: false });
+            });
+        }
+        return () => {
+            socket?.off("call-request");
+            socket?.off("call-ended");
+        };
+    }, [socket, currentUser]);
+
     const [partnerName, setPartnerName] = useState<string>('Chargement...');
     const [partnerAvatar, setPartnerAvatar] = useState<string | null>(null);
 
@@ -263,38 +354,129 @@ export function ChatRoom({ chatId, newChatUser }: { chatId: string | null, newCh
                     </div>
                 </div>
                 <div className="flex items-center gap-0.5 sm:gap-1">
-                    <button className="p-2 sm:p-2.5 rounded-full hover:bg-[#2a3942] transition-colors text-gray-400 hover:text-emerald-400">
-                        <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                    {!pushEnabled && (
+                        <button onClick={enablePush} title="Activer les notifications push" className="p-2 rounded-full hover:bg-[#2a3942] text-gray-400 hover:text-amber-400">
+                            <Bell className="w-5 h-5" />
+                        </button>
+                    )}
+                    <button onClick={() => setIsSearching(!isSearching)} className="p-2 rounded-full hover:bg-[#2a3942] text-gray-400 hover:text-emerald-400">
+                        <Search className="w-5 h-5" />
                     </button>
-                    <button className="p-2 sm:p-2.5 rounded-full hover:bg-[#2a3942] transition-colors text-gray-400 hover:text-emerald-400">
-                        <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
+                    <button onClick={() => initiateCall('screen')} title="Partager l'écran" className="p-2 rounded-full hover:bg-[#2a3942] text-gray-400 hover:text-blue-400">
+                        <Monitor className="w-5 h-5" />
                     </button>
-                    <button className="p-2 sm:p-2.5 rounded-full hover:bg-[#2a3942] transition-colors text-gray-400 hover:text-emerald-400">
-                        <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"/></svg>
+                    <button onClick={() => initiateCall('video')} className="p-2 rounded-full hover:bg-[#2a3942] text-gray-400 hover:text-emerald-400">
+                        <Video className="w-5 h-5" />
+                    </button>
+                    <button onClick={() => initiateCall('audio')} className="p-2 rounded-full hover:bg-[#2a3942] text-gray-400 hover:text-emerald-400">
+                        <Phone className="w-5 h-5" />
                     </button>
                 </div>
             </div>
 
+
+            {isSearching && (
+                <div className="bg-[#1f2c34] p-3 border-b border-[#334155]">
+                    <input 
+                        type="text" 
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Rechercher dans la conversation..."
+                        className="w-full bg-[#2a3942] rounded-lg px-4 py-2 text-sm text-white focus:outline-none"
+                    />
+                </div>
+            )}
+
+            {inCall.type && (
+                <div className="absolute inset-x-0 top-16 z-50 p-4 bg-gray-900/95 backdrop-blur-md text-white border-b border-gray-800 shadow-2xl flex flex-col items-center justify-center animate-in slide-in-from-top-4">
+                    <div className="w-16 h-16 rounded-full bg-slate-800 flex items-center justify-center mb-4">
+                        {inCall.type === 'audio' ? <PhoneCall className="w-8 h-8 text-emerald-500 animate-pulse" /> : 
+                         inCall.type === 'screen' ? <Monitor className="w-8 h-8 text-blue-500 animate-pulse" /> :
+                         <Video className="w-8 h-8 text-emerald-500 animate-pulse" />}
+                    </div>
+                    <h3 className="text-lg font-bold mb-1">
+                        {inCall.incoming && !inCall.active ? `Appel ${inCall.type} entrant de ${partnerName}` : 
+                         !inCall.active ? `Appel ${inCall.type} en cours...` : 
+                         `Appel ${inCall.type} actif avec ${partnerName}`}
+                    </h3>
+                    <div className="flex gap-4 mt-6">
+                        {inCall.incoming && !inCall.active && (
+                            <button onClick={() => setInCall(prev => ({ ...prev, active: true }))} className="px-6 py-2 bg-emerald-500 rounded-full font-bold">Accepter</button>
+                        )}
+                        <button onClick={endCall} className="px-6 py-2 bg-red-500 rounded-full font-bold">{inCall.active || !inCall.incoming ? 'Raccrocher' : 'Refuser'}</button>
+                    </div>
+                </div>
+            )}
+
             {/* Chat Area */}
-            <div className="flex-1 overflow-y-auto px-4 py-2 space-y-3 chat-bg hide-scrollbar">
+            <div className="flex-1 overflow-y-auto px-4 py-4 chat-bg hide-scrollbar flex flex-col">
                 
+                {messages.length === 0 && !isTyping && !searchQuery ? (
+                    <div className="m-auto flex flex-col items-center justify-center py-10 animate-in fade-in zoom-in duration-500 w-full max-w-sm">
+                        <div className="w-20 h-20 bg-gradient-to-br from-emerald-500/10 to-blue-500/10 rounded-full flex items-center justify-center mb-6 shadow-xl border border-white/5">
+                            <Bot className="w-10 h-10 text-emerald-400" />
+                        </div>
+                        <h2 className="text-2xl font-bold text-white mb-2 text-center">Assistant IA</h2>
+                        <p className="text-[15px] text-gray-400 text-center mb-8 max-w-[280px]">
+                            Posez une question sur votre cours ou demandez une explication.
+                        </p>
+                        
+                        <div className="w-full flex flex-col gap-3">
+                            <button onClick={() => handleTyping("Résume ce chapitre s'il te plaît.")} className="flex items-center gap-4 bg-[#1f2c34] hover:bg-[#2a3942] border border-[#334155] p-4 rounded-2xl transition-all active:scale-[0.98]">
+                                <div className="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center shrink-0">
+                                    <Sparkles className="w-5 h-5 text-amber-400" />
+                                </div>
+                                <span className="text-[15px] font-medium text-gray-200 text-left">Résume ce chapitre</span>
+                            </button>
+                            <button onClick={() => handleTyping("Génère un exercice pratique sur ce sujet.")} className="flex items-center gap-4 bg-[#1f2c34] hover:bg-[#2a3942] border border-[#334155] p-4 rounded-2xl transition-all active:scale-[0.98]">
+                                <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center shrink-0">
+                                    <Lightbulb className="w-5 h-5 text-emerald-400" />
+                                </div>
+                                <span className="text-[15px] font-medium text-gray-200 text-left">Génère un exercice</span>
+                            </button>
+                            <button onClick={() => handleTyping("Peux-tu m'expliquer ce concept plus simplement ?")} className="flex items-center gap-4 bg-[#1f2c34] hover:bg-[#2a3942] border border-[#334155] p-4 rounded-2xl transition-all active:scale-[0.98]">
+                                <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center shrink-0">
+                                    <MessageSquare className="w-5 h-5 text-blue-400" />
+                                </div>
+                                <span className="text-[15px] font-medium text-gray-200 text-left">Explique ce concept</span>
+                            </button>
+                        </div>
+                    </div>
+                ) : (
+                <div className="flex flex-col space-y-4">
                 {/* Messages */}
-                {messages.map((msg, index) => {
+                {messages.filter(m => !searchQuery || m.text.toLowerCase().includes(searchQuery.toLowerCase())).map((msg, index) => {
                     const isMine = msg.senderId === currentUser?.uid;
                     const time = msg.createdAt ? new Date(msg.createdAt.toDate?.() || msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
                     
                     return (
                         <div key={msg.id} className={`flex ${isMine ? 'justify-end' : 'justify-start'} animate-message-in`}>
-                            <div className="flex gap-2 max-w-[85%] sm:max-w-[70%]">
+                            <div className="flex gap-2 max-w-[80%] sm:max-w-[70%]">
                                 {!isMine && (
-                                    <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-[10px] font-bold flex-shrink-0 mt-1 overflow-hidden">
+                                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-[11px] font-bold flex-shrink-0 mt-auto overflow-hidden">
                                         {partnerAvatar ? <img src={partnerAvatar} alt="avatar" className="w-full h-full object-cover" /> : partnerName.substring(0, 2).toUpperCase()}
                                     </div>
                                 )}
                                 <div className="relative group">
-                                    <div className={`${isMine ? 'message-sent' : 'message-received'} rounded-2xl ${isMine ? 'rounded-tr-md' : 'rounded-tl-md'} px-3 py-2`}>
-                                        <p className="text-sm text-gray-200 leading-relaxed whitespace-pre-line">{formatText(msg.text)}</p>
+                                    <div className={`${isMine ? 'message-sent' : 'message-received'} rounded-[20px] ${isMine ? 'rounded-br-sm' : 'rounded-bl-sm'} px-4 py-2.5`}>
+
+                                        <p className="text-[15px] text-gray-200 leading-relaxed whitespace-pre-line">{formatText(msg.text)}</p>
+                                        
+                                        {/* Reactions display */}
+                                        {msg.reactions && Object.keys(msg.reactions).length > 0 && (
+                                            <div className="flex gap-1 mt-1 -mb-1">
+                                                {Object.entries(msg.reactions).map(([emoji, count]) => (
+                                                    <span key={emoji} className="bg-black/20 text-[10px] px-1.5 py-0.5 rounded-full">{emoji} {count as number}</span>
+                                                ))}
+                                            </div>
+                                        )}
+
                                         <div className="flex items-center justify-end gap-1 mt-1">
+                                            {/* Quick reaction button */}
+                                            <button onClick={() => addReaction(msg.id, '❤️')} className="text-gray-500 hover:text-pink-500 mr-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <Smile className="w-3 h-3" />
+                                            </button>
+
                                             <span className="text-[10px] text-gray-500">{time}</span>
                                             {isMine && (
                                                 <span className={`text-[10px] ${msg.status === 'read' ? 'text-blue-400' : 'text-gray-500'}`}>✓✓</span>
@@ -310,12 +492,12 @@ export function ChatRoom({ chatId, newChatUser }: { chatId: string | null, newCh
                 {/* Typing Indicator */}
                 {isTyping && (
                     <div className="flex justify-start animate-message-in">
-                        <div className="flex gap-2 max-w-[85%] sm:max-w-[70%]">
-                            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-[10px] font-bold flex-shrink-0 mt-1 overflow-hidden">
+                        <div className="flex gap-2 max-w-[80%] sm:max-w-[70%]">
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-[11px] font-bold flex-shrink-0 mt-auto overflow-hidden">
                                 {partnerAvatar ? <img src={partnerAvatar} alt="avatar" className="w-full h-full object-cover" /> : partnerName.substring(0, 2).toUpperCase()}
                             </div>
-                            <div className="message-received rounded-2xl rounded-tl-md px-3 py-2 flex items-center">
-                                <div className="flex items-center gap-1.5 h-5">
+                            <div className="message-received rounded-[20px] rounded-bl-sm px-4 py-3 flex items-center">
+                                <div className="flex items-center gap-1 h-4">
                                     <div className="w-1.5 h-1.5 bg-gray-400 rounded-full typing-dot-1"></div>
                                     <div className="w-1.5 h-1.5 bg-gray-400 rounded-full typing-dot-2"></div>
                                     <div className="w-1.5 h-1.5 bg-gray-400 rounded-full typing-dot-3"></div>
@@ -324,54 +506,68 @@ export function ChatRoom({ chatId, newChatUser }: { chatId: string | null, newCh
                         </div>
                     </div>
                 )}
+                </div>
+                )}
                 
-                <div ref={messagesEndRef} className="h-2 shrink-0" />
+                <div ref={messagesEndRef} className="h-4 shrink-0" />
             </div>
 
             {/* Input Area */}
-            <div className="w-full shrink-0 bg-[#1f2c34] pb-[env(safe-area-inset-bottom)] pt-2 px-3 sm:px-4 border-t border-[#334155]">
-                {/* Quick Actions */}
-                <div className="flex items-center gap-2 mb-2 overflow-x-auto pb-1 hide-scrollbar">
-                    <button className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 bg-[#2a3942] rounded-full text-[11px] font-medium text-gray-300 hover:text-white transition-colors">
-                        🎤 Vocal
+            <div className="w-full shrink-0 bg-[#1f2c34] pb-[max(12px,env(safe-area-inset-bottom))] pt-2 px-4 border-t border-[#334155]">
+                {/* Action Bar */}
+                <div className="flex items-center gap-3 mb-3 overflow-x-auto hide-scrollbar">
+                    <button className="w-11 h-11 shrink-0 flex items-center justify-center text-gray-400 bg-[#2a3942] rounded-full hover:text-emerald-400 transition-colors">
+                        <Mic className="w-5 h-5" />
                     </button>
-                    <button className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 bg-[#2a3942] rounded-full text-[11px] font-medium text-gray-300 hover:text-white transition-colors">
-                        💸 Transférer
+                    <label className="w-11 h-11 shrink-0 flex items-center justify-center text-gray-400 bg-[#2a3942] rounded-full hover:text-emerald-400 transition-colors cursor-pointer">
+                        <Paperclip className="w-5 h-5" />
+                        <input type="file" className="hidden" onChange={handleFileUpload} />
+                    </label>
+                    <button className="w-11 h-11 shrink-0 flex items-center justify-center text-gray-400 bg-[#2a3942] rounded-full hover:text-emerald-400 transition-colors">
+                        <Camera className="w-5 h-5" />
                     </button>
-                    <button className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 bg-[#2a3942] rounded-full text-[11px] font-medium text-gray-300 hover:text-white transition-colors">
-                        📎 Fichier
+                    <button className="w-11 h-11 shrink-0 flex items-center justify-center text-gray-400 bg-[#2a3942] rounded-full hover:text-emerald-400 transition-colors">
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                     </button>
-                    <button className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 bg-[#2a3942] rounded-full text-[11px] font-medium text-gray-300 hover:text-white transition-colors">
-                        📸 Photo
+                    <button className="w-11 h-11 shrink-0 flex items-center justify-center text-gray-400 bg-[#2a3942] rounded-full hover:text-emerald-400 transition-colors">
+                        <Plus className="w-5 h-5" />
                     </button>
                 </div>
                 
-                <div className="flex items-end gap-2 mb-2">
-                    <div className="flex-1 relative">
-                        <textarea 
-                            ref={textareaRef}
-                            rows={1} 
-                            value={newMessage}
-                            onChange={(e) => handleTyping(e.target.value)}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter' && !e.shiftKey) {
-                                    e.preventDefault();
-                                    handleSend();
-                                }
-                            }}
-                            placeholder="Écrivez un message..." 
-                            className="w-full bg-[#2a3942] rounded-3xl px-4 py-2.5 pr-10 text-[15px] text-white placeholder-gray-400 max-h-28 resize-none focus:outline-none transition-colors overflow-y-auto"
-                        />
-                        <button className="absolute right-3 bottom-2 p-1 text-gray-400 hover:text-white transition-colors">
-                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                        </button>
+
+                {uploading && (
+                    <div className="w-full h-1 bg-gray-800 mb-2 rounded-full overflow-hidden">
+                        <div className="h-full bg-emerald-500 transition-all duration-300" style={{ width: `${uploadProgress}%` }}></div>
                     </div>
+                )}
+                
+                {/* Input Wrapper */}
+                <div className="flex items-end gap-2 bg-[#2a3942] p-1.5 rounded-[24px] mb-1">
+                    <button className="w-10 h-10 shrink-0 flex items-center justify-center text-gray-400 hover:text-emerald-400 rounded-full transition-colors">
+                        <Smile className="w-6 h-6" />
+                    </button>
+                    
+                    <textarea 
+                        ref={textareaRef}
+                        rows={1} 
+                        value={newMessage}
+                        onChange={(e) => handleTyping(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault();
+                                handleSend();
+                            }
+                        }}
+                        placeholder="Message..." 
+                        className="flex-1 bg-transparent py-2.5 min-h-[44px] max-h-28 text-[15px] text-white placeholder-gray-400 resize-none focus:outline-none overflow-y-auto hide-scrollbar"
+                    />
+
                     <button 
                         onClick={handleSend} 
                         disabled={!newMessage.trim()} 
-                        className={`p-3 rounded-full transition-all active:scale-95 flex items-center justify-center ${newMessage.trim() ? 'bg-emerald-500 text-white' : 'bg-[#2a3942] text-gray-500 disabled:opacity-50 disabled:cursor-not-allowed'}`}
+                        className={`w-10 h-10 shrink-0 flex items-center justify-center rounded-full transition-all active:scale-95 ${newMessage.trim() ? 'bg-emerald-500 text-white shadow-lg' : 'bg-transparent text-gray-500 disabled:opacity-50 disabled:cursor-not-allowed'}`}
                     >
-                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+                        {newMessage.trim() ? <Send className="w-4 h-4 ml-0.5" /> : <Mic className="w-5 h-5" />}
                     </button>
                 </div>
             </div>

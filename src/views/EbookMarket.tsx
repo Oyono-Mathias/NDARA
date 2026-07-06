@@ -8,7 +8,7 @@ import {
   collection, query, where, onSnapshot, 
   addDoc, runTransaction, doc, serverTimestamp 
 } from "firebase/firestore";
-import { db } from "../firebase";
+import { db, auth } from "../firebase";
 import { useRole } from "../context/RoleContext";
 import { BottomSheet } from "../components/ui/BottomSheet";
 import { TouchArea } from "../components/ui/TouchArea";
@@ -74,7 +74,7 @@ export function EbookMarket() {
     try {
         const response = await fetch('/api/wallet/purchase', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await auth.currentUser?.getIdToken()}` },
             body: JSON.stringify({
                 studentId: currentUser.uid,
                 price: selectedEbook.price || 0,

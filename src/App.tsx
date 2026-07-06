@@ -1,5 +1,4 @@
-import { CourseDetailView } from "./views/catalog/CourseDetailView";
-import { CatalogView } from "./views/catalog/CatalogView";
+import React, { Suspense } from 'react';
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -14,86 +13,89 @@ import {
   Link,
   Navigate,
 } from "react-router-dom";
-import { LandingPage } from "./views/public/LandingPage";
 
 import { AuthLayout } from "./layouts/AuthLayout";
-import { LoginView } from "./views/auth/LoginView";
-import { RegisterView } from "./views/auth/RegisterView";
-import { ForgotPasswordView } from "./views/auth/ForgotPasswordView";
-import { VerifyEmailView } from "./views/auth/VerifyEmailView";
 import { AuthGuard } from "./guards/AuthGuard";
 import { GuestGuard } from "./guards/GuestGuard";
 import { RoleGuard } from "./guards/RoleGuard";
 
-import { Dashboard } from "./views/Dashboard";
-import { SearchAndCatalog } from "./views/Search";
-import { WalletView } from "./views/Wallet";
-import { BourseView } from "./views/Bourse";
-import { EbookDetail } from "./views/EbookDetail";
-import { BourseLicenseDetail } from "./views/BourseLicenseDetail";
 
-import { ProfileHubView } from "./views/profile/ProfileHubView";
-import { EditProfileView } from "./views/profile/EditProfileView";
-import { AccountSettingsView } from "./views/profile/AccountSettingsView";
 
-import { CoursesView } from "./views/Courses";
-import { CoursePlayer } from "./views/CoursePlayer";
-import { MathiasTutor } from "./views/MathiasTutor";
-import { CartView } from "./views/Cart";
-import { CertificatesView } from "./views/Certificates";
-import { AssignmentsView } from "./views/Assignments";
-import { AssignmentDetail } from "./views/AssignmentDetail";
-import { QuizView } from "./views/Quiz";
-import { ResultsView } from "./views/Results";
-import { PaymentsView } from "./views/Payments";
-import { CheckoutView } from "./views/Checkout";
-import { AmbassadorView } from "./views/Ambassador";
-import { DirectoryView } from "./views/Directory";
-import { MessagesView } from "./views/Messages";
-import { AccountView } from "./views/Account";
-import { SupportView } from "./views/Support";
-import { NotificationsView } from "./views/Notifications";
-import { InstructorLayout } from "./views/instructor/InstructorLayout";
-import { InstructorPublicProfile } from "./views/InstructorPublicProfile";
-import { StudentCourseRedirect } from "./views/StudentCourseRedirect";
-import { WishlistView } from "./views/WishlistView";
-import { VerificationView } from "./views/VerificationView";
-import { ReferralCaptureView } from "./views/ReferralCaptureView";
-import { ProfileRedirect } from "./views/ProfileRedirect";
-import { LegalView } from "./views/LegalView";
-import { LeaderboardView } from "./views/LeaderboardView";
-import { InviteRedirectView } from "./views/InviteRedirectView";
-import { StudentSquads } from "./views/StudentSquads";
-import { StudentSquadDetails } from "./views/StudentSquadDetails";
-import { UniversalPlayground } from "./views/UniversalPlayground";
-import { TemplateMarket } from "./views/TemplateMarket";
-import { EbookMarket } from "./views/EbookMarket";
-import OfflineDownloads from "./views/OfflineDownloads";
 
-import { CourseDetail } from "./views/CourseDetail";
 import { OfflineIndicator } from "./components/ui/OfflineIndicator";
 
 // Layouts
 import { PublicLayout } from "./layouts/PublicLayout";
 import { StudentLayout } from "./layouts/StudentLayout";
-import { AdminLayout } from "./views/admin/AdminLayout";
+const CourseDetailView = React.lazy(() => import('./views/catalog/CourseDetailView').then(module => ({ default: module.CourseDetailView })));
+const CatalogView = React.lazy(() => import('./views/catalog/CatalogView').then(module => ({ default: module.CatalogView })));
+const LandingPage = React.lazy(() => import('./views/public/LandingPage').then(module => ({ default: module.LandingPage })));
+const LoginView = React.lazy(() => import('./views/auth/LoginView').then(module => ({ default: module.LoginView })));
+const RegisterView = React.lazy(() => import('./views/auth/RegisterView').then(module => ({ default: module.RegisterView })));
+const ForgotPasswordView = React.lazy(() => import('./views/auth/ForgotPasswordView').then(module => ({ default: module.ForgotPasswordView })));
+const VerifyEmailView = React.lazy(() => import('./views/auth/VerifyEmailView').then(module => ({ default: module.VerifyEmailView })));
+const Dashboard = React.lazy(() => import('./views/Dashboard').then(module => ({ default: module.Dashboard })));
+const SearchAndCatalog = React.lazy(() => import('./views/Search').then(module => ({ default: module.SearchAndCatalog })));
+const WalletView = React.lazy(() => import('./views/Wallet').then(module => ({ default: module.WalletView })));
+const BourseView = React.lazy(() => import('./views/Bourse').then(module => ({ default: module.BourseView })));
+const EbookDetail = React.lazy(() => import('./views/EbookDetail').then(module => ({ default: module.EbookDetail })));
+const BourseLicenseDetail = React.lazy(() => import('./views/BourseLicenseDetail').then(module => ({ default: module.BourseLicenseDetail })));
+const ProfileHubView = React.lazy(() => import('./views/profile/ProfileHubView').then(module => ({ default: module.ProfileHubView })));
+const EditProfileView = React.lazy(() => import('./views/profile/EditProfileView').then(module => ({ default: module.EditProfileView })));
+const AccountSettingsView = React.lazy(() => import('./views/profile/AccountSettingsView').then(module => ({ default: module.AccountSettingsView })));
+const CoursesView = React.lazy(() => import('./views/Courses').then(module => ({ default: module.CoursesView })));
+const CoursePlayer = React.lazy(() => import('./views/CoursePlayer').then(module => ({ default: module.CoursePlayer })));
+const MathiasTutor = React.lazy(() => import('./views/MathiasTutor').then(module => ({ default: module.MathiasTutor })));
+const CartView = React.lazy(() => import('./views/Cart').then(module => ({ default: module.CartView })));
+const CertificatesView = React.lazy(() => import('./views/Certificates').then(module => ({ default: module.CertificatesView })));
+const AssignmentsView = React.lazy(() => import('./views/Assignments').then(module => ({ default: module.AssignmentsView })));
+const AssignmentDetail = React.lazy(() => import('./views/AssignmentDetail').then(module => ({ default: module.AssignmentDetail })));
+const QuizView = React.lazy(() => import('./views/Quiz').then(module => ({ default: module.QuizView })));
+const ResultsView = React.lazy(() => import('./views/Results').then(module => ({ default: module.ResultsView })));
+const PaymentsView = React.lazy(() => import('./views/Payments').then(module => ({ default: module.PaymentsView })));
+const CheckoutView = React.lazy(() => import('./views/Checkout').then(module => ({ default: module.CheckoutView })));
+const AmbassadorView = React.lazy(() => import('./views/Ambassador').then(module => ({ default: module.AmbassadorView })));
+const DirectoryView = React.lazy(() => import('./views/Directory').then(module => ({ default: module.DirectoryView })));
+const MessagesView = React.lazy(() => import('./views/Messages').then(module => ({ default: module.MessagesView })));
+const AccountView = React.lazy(() => import('./views/Account').then(module => ({ default: module.AccountView })));
+const SupportView = React.lazy(() => import('./views/Support').then(module => ({ default: module.SupportView })));
+const NotificationsView = React.lazy(() => import('./views/Notifications').then(module => ({ default: module.NotificationsView })));
+const InstructorLayout = React.lazy(() => import('./views/instructor/InstructorLayout').then(module => ({ default: module.InstructorLayout })));
+const InstructorPublicProfile = React.lazy(() => import('./views/InstructorPublicProfile').then(module => ({ default: module.InstructorPublicProfile })));
+const StudentCourseRedirect = React.lazy(() => import('./views/StudentCourseRedirect').then(module => ({ default: module.StudentCourseRedirect })));
+const WishlistView = React.lazy(() => import('./views/WishlistView').then(module => ({ default: module.WishlistView })));
+const VerificationView = React.lazy(() => import('./views/VerificationView').then(module => ({ default: module.VerificationView })));
+const ReferralCaptureView = React.lazy(() => import('./views/ReferralCaptureView').then(module => ({ default: module.ReferralCaptureView })));
+const ProfileRedirect = React.lazy(() => import('./views/ProfileRedirect').then(module => ({ default: module.ProfileRedirect })));
+const LegalView = React.lazy(() => import('./views/LegalView').then(module => ({ default: module.LegalView })));
+const LeaderboardView = React.lazy(() => import('./views/LeaderboardView').then(module => ({ default: module.LeaderboardView })));
+const InviteRedirectView = React.lazy(() => import('./views/InviteRedirectView').then(module => ({ default: module.InviteRedirectView })));
+const StudentSquads = React.lazy(() => import('./views/StudentSquads').then(module => ({ default: module.StudentSquads })));
+const StudentSquadDetails = React.lazy(() => import('./views/StudentSquadDetails').then(module => ({ default: module.StudentSquadDetails })));
+const UniversalPlayground = React.lazy(() => import('./views/UniversalPlayground').then(module => ({ default: module.UniversalPlayground })));
+const TemplateMarket = React.lazy(() => import('./views/TemplateMarket').then(module => ({ default: module.TemplateMarket })));
+const EbookMarket = React.lazy(() => import('./views/EbookMarket').then(module => ({ default: module.EbookMarket })));
+const OfflineDownloads = React.lazy(() => import('./views/OfflineDownloads'));
+const CourseDetail = React.lazy(() => import('./views/CourseDetail').then(module => ({ default: module.CourseDetail })));
+const AdminLayout = React.lazy(() => import('./views/admin/AdminLayout').then(module => ({ default: module.AdminLayout })));
+const AdminDashboard = React.lazy(() => import('./views/admin/AdminDashboard').then(module => ({ default: module.AdminDashboard })));
+const AdminMembers = React.lazy(() => import('./views/admin/AdminMembers').then(module => ({ default: module.AdminMembers })));
+const AdminSquads = React.lazy(() => import('./views/admin/AdminSquads').then(module => ({ default: module.AdminSquads })));
+const AdminCatalogView = React.lazy(() => import('./views/admin/catalogue/AdminCatalogView').then(module => ({ default: module.AdminCatalogView })));
+const AdminTransactions = React.lazy(() => import('./views/admin/AdminTransactions').then(module => ({ default: module.AdminTransactions })));
+const AdminModeration = React.lazy(() => import('./views/admin/AdminModeration').then(module => ({ default: module.AdminModeration })));
+const AdminInterface = React.lazy(() => import('./views/admin/AdminInterface').then(module => ({ default: module.AdminInterface })));
+const AdminMarketing = React.lazy(() => import('./views/admin/AdminMarketing').then(module => ({ default: module.AdminMarketing })));
+const AdminMonitoring = React.lazy(() => import('./views/admin/AdminMonitoring').then(module => ({ default: module.AdminMonitoring })));
+const AdminSecurity = React.lazy(() => import('./views/admin/AdminSecurity').then(module => ({ default: module.AdminSecurity })));
+const AdminSupport = React.lazy(() => import('./views/admin/AdminSupport').then(module => ({ default: module.AdminSupport })));
+const AdminSettings = React.lazy(() => import('./views/admin/AdminSettings').then(module => ({ default: module.AdminSettings })));
+const AdminAiConfig = React.lazy(() => import('./views/admin/AdminAiConfig').then(module => ({ default: module.AdminAiConfig })));
+const AdminMarketControl = React.lazy(() => import('./views/admin/AdminMarketControl').then(module => ({ default: module.AdminMarketControl })));
+const AdminInstructors = React.lazy(() => import('./views/admin/AdminInstructors').then(module => ({ default: module.AdminInstructors })));
+
 
 // Admin Views
-import { AdminDashboard } from "./views/admin/AdminDashboard";
-import { AdminMembers } from "./views/admin/AdminMembers";
-import { AdminSquads } from "./views/admin/AdminSquads";
-import { AdminCatalogView } from "./views/admin/catalogue/AdminCatalogView";
-import { AdminTransactions } from "./views/admin/AdminTransactions";
-import { AdminModeration } from "./views/admin/AdminModeration";
-import { AdminInterface } from "./views/admin/AdminInterface";
-import { AdminMarketing } from "./views/admin/AdminMarketing";
-import { AdminMonitoring } from "./views/admin/AdminMonitoring";
-import { AdminSecurity } from "./views/admin/AdminSecurity";
-import { AdminSupport } from "./views/admin/AdminSupport";
-import { AdminSettings } from "./views/admin/AdminSettings";
-import { AdminAiConfig } from "./views/admin/AdminAiConfig";
-import { AdminMarketControl } from "./views/admin/AdminMarketControl";
-import { AdminInstructors } from "./views/admin/AdminInstructors";
 
 function GenericPlaceholder({ title }: { title: string }) {
   const navigate = useNavigate();
@@ -130,6 +132,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <OfflineIndicator />
+      <Suspense fallback={<div className="h-screen flex items-center justify-center"><div className="animate-spin w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full"></div></div>}>
       <Routes>
         {/* === PUBLIC ROUTES === */}
         <Route element={<PublicLayout />}>
@@ -256,6 +259,7 @@ export default function App() {
           <Route path="*" element={<Navigate to="/admin" replace />} />
         </Route>
       </Routes>
+      </Suspense>
     </BrowserRouter>
   );
 }

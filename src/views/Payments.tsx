@@ -51,7 +51,7 @@ export function PaymentsView() {
         if (user) {
             setCurrentUser(user);
             
-            const qPayments = query(collection(db, 'payments'), where('userId', '==', user.uid));
+                        const qPayments = query(collection(db, 'users', user.uid, 'transactions'));
             const unsubPayments = onSnapshot(qPayments, (snap) => {
                 setRawPayments(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Payment[]);
                 setPaymentsLoading(false);
@@ -82,8 +82,8 @@ export function PaymentsView() {
   const payments = useMemo(() => {
     if (!rawPayments) return [];
     return [...rawPayments].sort((a, b) => {
-        const dateA = a.date?.toDate?.() || new Date(a.date || 0);
-        const dateB = b.date?.toDate?.() || new Date(b.date || 0);
+        const dateA = a.date?.toDate?.() || new Date(a.timestamp || a.date || 0);
+        const dateB = b.date?.toDate?.() || new Date(b.timestamp || b.date || 0);
         return dateB.getTime() - dateA.getTime();
     });
   }, [rawPayments]);
@@ -142,8 +142,8 @@ export function PaymentsView() {
 
           {activeTab === 'purchases' && (
              <div className="m-0 space-y-4">
-                {isLoading ? <ListSkeleton /> : payments.filter(p => p.type === 'course_purchase').length > 0 ? (
-                    payments.filter(p => p.type === 'course_purchase').map(p => <div key={p.id}><PaymentItem payment={p} /></div>)
+                {isLoading ? <ListSkeleton /> : payments.filter(p => (p.type === 'course_purchase' || p.type === 'purchase')).length > 0 ? (
+                    payments.filter(p => (p.type === 'course_purchase' || p.type === 'purchase')).map(p => <div key={p.id}><PaymentItem payment={p} /></div>)
                 ) : <EmptyState icon={ShoppingBag} text="Aucune formation achetée" />}
              </div>
           )}
@@ -162,7 +162,7 @@ export function PaymentsView() {
 }
 
 function PaymentItem({ payment }: { payment: Payment }) {
-  const date = payment.date?.toDate?.() || new Date(payment.date || 0);
+  const date = payment.date?.toDate?.() || new Date(payment.timestamp || payment.date || 0);
   
   const statusConfig = (({
     completed: { label: 'Réussi', class: 'bg-emerald-500/10 text-emerald-400', icon: CheckCircle2 },

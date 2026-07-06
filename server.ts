@@ -1,4 +1,8 @@
 import express from "express";
+import { startCronJobs } from "./src/jobs/cronTasks";
+
+import { adminDb } from "./src/lib/firebaseAdmin";
+
 import path from "path";
 import { createServer as createViteServer } from "vite";
 import { createServer as createHttpServer } from "http";
@@ -12,11 +16,41 @@ dotenv.config(); // Load .env
 dotenv.config({ path: '.env.example' }); // Fallback to .env.example if missing in .env
 
 import uploadRoutes from "./src/routes/uploadRoutes.js";
+import paymentRoutes from "./src/routes/paymentRoutes.js";
+import digitalProductsRoutes from "./src/routes/digitalProductsRoutes.js";
 import { isAuthenticated, requireRole, requireOwnershipOrAdmin } from "./src/middlewares/authMiddleware.js";
 import { requireTurnstile } from "./src/middlewares/turnstileMiddleware.js";
 
 async function startServer() {
   const app = express();
+
+// Monitoring middleware
+app.use((req, res, next) => {
+    const start = Date.now();
+    res.on('finish', () => {
+        const duration = Date.now() - start;
+        const logMsg = `${req.method} ${req.originalUrl} - ${res.statusCode} [${duration}ms]`;
+        if (duration > 1000) {
+            console.warn(`[SLOW_REQUEST] ${logMsg}`);
+            try {
+                adminDb.collection('audit_logs').add({
+                    action: 'SLOW_REQUEST',
+                    method: req.method,
+                    path: req.originalUrl,
+                    duration,
+                    statusCode: res.statusCode,
+                    timestamp: new Date()
+                });
+            } catch(e) {}
+        } else if (res.statusCode >= 400) {
+            console.error(`[ERROR_REQUEST] ${logMsg}`);
+        } else {
+            console.log(`[REQUEST] ${logMsg}`);
+        }
+    });
+    next();
+});
+
   
   // Trust proxy for rate limiting behind reverse proxies
   app.set("trust proxy", 1);
@@ -82,15 +116,39 @@ async function startServer() {
     });
 
     socket.on("typing", (data) => {
-      const { roomId, userId } = data;
-      // Broadcast to everyone else in the room
-      socket.to(roomId).emit("typing", { userId });
+      socket.to(data.roomId).emit("typing", { userId: data.userId });
     });
 
     socket.on("send-message", (data) => {
-      // Re-broadcast to the room
-      const { roomId, message } = data;
-      io.to(roomId).emit("new-message", message);
+      socket.to(data.roomId).emit("receive-message", data.message);
+    });
+
+    // WebRTC Signaling
+    socket.on("call-request", (data) => {
+      socket.to(data.roomId).emit("call-request", data);
+    });
+    socket.on("call-answer", (data) => {
+      socket.to(data.roomId).emit("call-answer", data);
+    });
+    socket.on("call-rejected", (data) => {
+      socket.to(data.roomId).emit("call-rejected", data);
+    });
+    socket.on("call-ended", (data) => {
+      socket.to(data.roomId).emit("call-ended", data);
+    });
+    socket.on("webrtc-offer", (data) => {
+      socket.to(data.roomId).emit("webrtc-offer", data);
+    });
+    socket.on("webrtc-answer", (data) => {
+      socket.to(data.roomId).emit("webrtc-answer", data);
+    });
+    socket.on("webrtc-ice-candidate", (data) => {
+      socket.to(data.roomId).emit("webrtc-ice-candidate", data);
+    });
+
+    // Message Reactions
+    socket.on("message-reaction", (data) => {
+      socket.to(data.roomId).emit("message-reaction", data);
     });
 
     socket.on("disconnect", () => {
@@ -106,6 +164,8 @@ async function startServer() {
   // Import new upload routes
   console.log("uploadRoutes type:", typeof uploadRoutes, uploadRoutes);
   app.use("/api/storage", uploadRoutes);
+  app.use("/api/payment", paymentRoutes);
+  app.use("/api/digital", digitalProductsRoutes);
 
   // API routes
   app.get("/api/health", (req, res) => {
@@ -380,6 +440,17 @@ Tu ne dois pas donner la réponse brute immédiatement, mais guider les étudian
   });
 
   // Secure Payout/Withdrawal request
+  app.post("/api/wallet/release-escrows", isAuthenticated, async (req: any, res: any) => {
+    try {
+      const { releaseExpiredEscrows } = await import("./src/lib/walletProcessor.js");
+      const result = await releaseExpiredEscrows(req.user.uid);
+      res.json(result);
+    } catch (err: any) {
+      console.error("release-escrows error:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   app.post("/api/wallet/request-payout", isAuthenticated, requireTurnstile, requireOwnershipOrAdmin("userId"), async (req: any, res: any) => {
     try {
       const { userId, amount, provider, phone, method } = req.body;
@@ -787,3 +858,4 @@ Tu ne dois pas donner la réponse brute immédiatement, mais guider les étudian
 }
 
 startServer();
+startCronJobs();

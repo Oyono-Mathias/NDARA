@@ -28,7 +28,7 @@ import {
   Check,
   AlertCircle,
 } from "lucide-react";
-import { db } from "../../firebase";
+import { db, auth } from "../../firebase";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { TopAppBar } from "../../components/ui/TopAppBar";
 import { TouchArea } from "../../components/ui/TouchArea";
@@ -59,6 +59,22 @@ export function InstructorWealth() {
     if (!instructor?.uid) return;
     const instructorId = instructor.uid;
 
+    // Auto-release expired escrows for instructor
+    const releaseEscrows = async () => {
+        try {
+            const token = await auth.currentUser?.getIdToken();
+            if (token) {
+                await fetch('/api/wallet/release-escrows', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+            }
+        } catch (e) {
+            console.error("Escrow release error", e);
+        }
+    };
+    releaseEscrows();
+
     // Listen to the instructor's profile in real time to fetch current balance & affiliate balance
     const unsubUser = onSnapshot(doc(db, "users", instructorId), (snap) => {
       if (snap.exists()) {
@@ -66,14 +82,16 @@ export function InstructorWealth() {
       }
     });
 
-    const unsubPayments = onSnapshot(
+        const unsubPayments = onSnapshot(
       query(
-        collection(db, "payments"),
-        where("instructorId", "==", instructorId),
-        where("status", "==", "Completed"),
+        collection(db, "users", instructorId, "transactions"),
+        orderBy("timestamp", "desc")
       ),
       (snap) => {
-        setPayments(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        const txs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        // Filter those that are sales (course_sale or deposit from sales)
+        const sales = txs.filter((t: any) => t.amount > 0 && (t.type === 'course_sale' || t.type === 'deposit'));
+        setPayments(sales);
         setLoadingStates((prev) => ({ ...prev, payments: false }));
       },
     );
@@ -199,7 +217,43 @@ export function InstructorWealth() {
 
       <main className="flex-1 overflow-y-auto pb-32 px-4 mt-6 space-y-8 animate-in fade-in duration-700">
         <div className="space-y-4">
+          <h2 className="font-black text-white text-[10px] uppercase tracking-[0.3em] px-1 mt-8">
+              Statistiques de Ventes
+          </h2>
+          <div className="grid grid-cols-2 gap-4">
+              <div className="bg-slate-900 border border-white/5 p-4 rounded-3xl">
+                  <p className="text-slate-500 text-[9px] font-black uppercase tracking-widest mb-1">Total Ventes</p>
+                  <p className="text-xl font-black text-white">{payments.length}</p>
+              </div>
+              <div className="bg-slate-900 border border-white/5 p-4 rounded-3xl">
+                  <p className="text-slate-500 text-[9px] font-black uppercase tracking-widest mb-1">Revenus Numériques</p>
+                  <p className="text-xl font-black text-[#10b981]">{stats.totalSalesEarned.toLocaleString('fr-FR')} F</p>
+              </div>
+          </div>
+          <div className="bg-slate-900 border border-white/5 rounded-3xl overflow-hidden mt-4">
+              <div className="p-4 border-b border-white/5">
+                 <h3 className="text-white text-xs font-black uppercase tracking-widest">Dernières ventes</h3>
+              </div>
+              <div className="divide-y divide-white/5">
+                 {payments.length > 0 ? payments.slice(0, 10).map(tx => (
+                     <div key={tx.id} className="p-4 flex items-center justify-between">
+                         <div>
+                             <p className="text-sm font-bold text-white truncate">{tx.description || tx.type}</p>
+                             <p className="text-[10px] font-medium text-slate-500">{new Date(tx.timestamp || tx.createdAt).toLocaleDateString('fr-FR')} - ID: {tx.userId?.substring(0,6)}</p>
+                         </div>
+                         <div className="text-emerald-400 font-black text-sm">+{tx.amount.toLocaleString('fr-FR')} F</div>
+                     </div>
+                 )) : (
+                     <div className="p-8 text-center text-slate-500 text-xs font-bold uppercase tracking-widest">Aucune vente enregistrée</div>
+                 )}
+              </div>
+          </div>
+        </div>
+
+        {/* Existing Historique Retraits */}
+        <div className="space-y-4 mt-8">
           <div className="flex items-center justify-between px-1">
+
             <h2 className="font-black text-white text-[10px] uppercase tracking-[0.3em]">
               Mon Portefeuille
             </h2>
