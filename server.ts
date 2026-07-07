@@ -726,8 +726,8 @@ Tu ne dois pas donner la réponse brute immédiatement, mais guider les étudian
   app.post("/api/video/create", isAuthenticated, requireRole(['instructor', 'admin']), async (req: any, res: any) => {
     try {
       const { title } = req.body;
-      let apiKey = process.env.BUNNY_STREAM_API_KEY || "1a935f43-a130-4313-8d3f602e638d-57d5-4e69";
-      let libraryId = process.env.BUNNY_STREAM_LIBRARY_ID || "684366";
+      let apiKey = process.env.BUNNY_STREAM_API_KEY || "b89fbb62-a0ab-43d4-9ad766000a89-9651-4a36";
+      let libraryId = process.env.BUNNY_STREAM_LIBRARY_ID || "698776";
 
       try {
         const { adminDb } = await import("./src/lib/firebaseAdmin.js");
@@ -794,9 +794,9 @@ Tu ne dois pas donner la réponse brute immédiatement, mais guider les étudian
         return res.status(400).json({ error: "videoId est requis." });
       }
 
-      const securityKey = process.env.BUNNY_STREAM_SECURITY_KEY;
-      const libraryId = process.env.BUNNY_STREAM_LIBRARY_ID;
-      const cdnHostname = process.env.BUNNY_STREAM_CDN_HOSTNAME || "iframe.mediadelivery.net";
+      const securityKey = process.env.BUNNY_STREAM_SECURITY_KEY || "6e4f82a1-72cf-4d99-a850-db8f9c0f0686";
+      const libraryId = process.env.BUNNY_STREAM_LIBRARY_ID || "698776";
+      const cdnHostname = process.env.BUNNY_STREAM_CDN_HOSTNAME || "vz-758d93f4-d56.b-cdn.net";
 
       if (!securityKey || !libraryId) {
         return res.status(500).json({ error: "Configuration Bunny Stream manquante sur le serveur." });

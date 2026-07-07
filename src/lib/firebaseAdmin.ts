@@ -26,4 +26,5 @@ if (!admin.apps.length) {
 const app = admin.app();
 export const adminDb = databaseId ? getFirestore(app, databaseId) : getFirestore(app);
 export const adminStorage = admin.storage();
+
 export { admin };

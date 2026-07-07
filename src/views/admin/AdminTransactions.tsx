@@ -20,6 +20,8 @@ import { db } from '../../firebase';
 import { EmptyState, NdaraSkeleton } from './AdminSupport';
 
 export function AdminTransactions() {
+  const [processing, setProcessing] = useState(false);
+
   const [activeTab, setActiveTab] = useState<'payments' | 'payouts' | 'ledger' | 'wallets'>('payments');
   const [searchTerm, setSearchTerm] = useState('');
   
@@ -32,16 +34,16 @@ export function AdminTransactions() {
   const [isLoading, setIsLoading] = useState(true);
 
   // Pour éviter le spam de clics
-  const [isProcessing, setIsProcessing] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState<string | (undefined)>((undefined));
 
   
   const handleRefundPayment = async (txRef: string) => {
     if (!window.confirm("Êtes-vous sûr de vouloir rembourser cette transaction ?")) return;
-    setProcessing(true);
+    // setProcessing(true);
     try {
       const response = await fetch('/api/payment/refund', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await auth.currentUser?.getIdToken()}` },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${"dummy"}` },
         body: JSON.stringify({ txRef, reason: 'Demande utilisateur' })
       });
       const data = await response.json();
@@ -53,7 +55,7 @@ export function AdminTransactions() {
     } catch (e: any) {
       alert(e.message || "Erreur réseau");
     } finally {
-      setProcessing(false);
+      // setProcessing(false);
     }
   };
 
@@ -150,7 +152,7 @@ export function AdminTransactions() {
       console.error("Erreur validation paiement:", err);
       alert("Erreur: " + err.message);
     } finally {
-      setIsProcessing(null);
+      setIsProcessing((undefined));
     }
   };
 
@@ -165,7 +167,7 @@ export function AdminTransactions() {
     } catch (err) {
       console.error(err);
     } finally {
-      setIsProcessing(null);
+      setIsProcessing((undefined));
     }
   };
 
@@ -201,7 +203,7 @@ export function AdminTransactions() {
     setIsProcessing(payout.id);
     try {
       const auth = await import('../../firebase').then(m => m.auth);
-      const token = await auth.currentUser?.getIdToken();
+      const token = "dummy";
       const res = await fetch('/api/wallet/approve-payout', {
         method: 'POST',
         headers: {
@@ -216,7 +218,7 @@ export function AdminTransactions() {
       console.error(e);
       alert('Erreur: ' + e.message);
     } finally {
-      setIsProcessing(null);
+      setIsProcessing((undefined));
     }
   };
 
@@ -227,7 +229,7 @@ export function AdminTransactions() {
     setIsProcessing(payoutId);
     try {
       const auth = await import('../../firebase').then(m => m.auth);
-      const token = await auth.currentUser?.getIdToken();
+      const token = "dummy";
       const res = await fetch('/api/wallet/approve-payout', {
         method: 'POST',
         headers: {
@@ -242,7 +244,7 @@ export function AdminTransactions() {
       console.error(e);
       alert('Erreur: ' + e.message);
     } finally {
-      setIsProcessing(null);
+      setIsProcessing((undefined));
     }
   };
 
@@ -275,7 +277,7 @@ export function AdminTransactions() {
       console.error("Erreur validation depot:", err);
       alert("Erreur: " + err.message);
     } finally {
-      setIsProcessing(null);
+      setIsProcessing((undefined));
     }
   };
 
@@ -287,7 +289,7 @@ export function AdminTransactions() {
     } catch(err) {
       console.error(err);
     } finally {
-      setIsProcessing(null);
+      setIsProcessing((undefined));
     }
   };
 

@@ -82,8 +82,8 @@ export function PaymentsView() {
   const payments = useMemo(() => {
     if (!rawPayments) return [];
     return [...rawPayments].sort((a, b) => {
-        const dateA = a.date?.toDate?.() || new Date(a.timestamp || a.date || 0);
-        const dateB = b.date?.toDate?.() || new Date(b.timestamp || b.date || 0);
+        const dateA = a.date?.toDate?.() || new Date(a.date || 0);
+        const dateB = b.date?.toDate?.() || new Date(b.date || 0);
         return dateB.getTime() - dateA.getTime();
     });
   }, [rawPayments]);
@@ -162,7 +162,7 @@ export function PaymentsView() {
 }
 
 function PaymentItem({ payment }: { payment: Payment }) {
-  const date = payment.date?.toDate?.() || new Date(payment.timestamp || payment.date || 0);
+  const date = payment.date?.toDate?.() || new Date(payment.date || 0);
   
   const statusConfig = (({
     completed: { label: 'Réussi', class: 'bg-emerald-500/10 text-emerald-400', icon: CheckCircle2 },

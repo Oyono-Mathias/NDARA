@@ -22,8 +22,8 @@ export class StorageService {
 
   constructor() {
     // Bunny Storage Config
-    const bunnyZoneName = process.env.BUNNY_STORAGE_ZONE_NAME;
-    const bunnyPassword = process.env.BUNNY_STORAGE_PASSWORD;
+    const bunnyZoneName = process.env.BUNNY_STORAGE_ZONE_NAME || "nndara-files";
+    const bunnyPassword = process.env.BUNNY_STORAGE_PASSWORD || "b89fbb62-a0ab-43d4-9ad766000a89-9651-4a36";
     const bunnyEndpoint = process.env.BUNNY_STORAGE_ENDPOINT || "https://storage.bunnycdn.com"; // Default to Frankfurt
 
     // R2 Config
@@ -34,7 +34,7 @@ export class StorageService {
 
     if (bunnyZoneName && bunnyPassword) {
       this.bucketName = bunnyZoneName; // Bunny S3 uses zone name as bucket name
-      this.publicDomain = process.env.BUNNY_PULL_ZONE_DOMAIN || "ndara.b-cdn.net";
+      this.publicDomain = process.env.BUNNY_PULL_ZONE_DOMAIN || "vz-758d93f4-d56.b-cdn.net";
       
       this.s3Client = new S3Client({
         region: "fsn", // Bunny requires a region name, fsn is Frankfurt (main)

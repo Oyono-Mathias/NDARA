@@ -1,212 +1,231 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    function isAuthenticated() {
-      return request.auth != null;
-    }
-    
-    function isAdmin() {
+    function isAuthenticated() { return request.auth != null; }
+    function isAdmin() { 
       return isAuthenticated() && (
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'superadmin'
-      );
+      ); 
     }
-    
-    function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
-    }
-
-    function isValidString(text, min, max) {
-      return text is string && text.size() >= min && text.size() <= max;
-    }
-    
     match /{document=**} {
       allow read, write: if false;
     }
 
-    match /users/{userId} {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin() || (isOwner(userId) && request.resource.data.keys().hasOnly(resource.data.keys().concat(['displayName', 'photoURL', 'bio'])));
-    }
-    
-    match /courses/{courseId} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-    
-    match /lessons/{lessonId} {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin();
-    }
-    
-    match /categories/{categoryId} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-    
-    match /enrollments/{enrollmentId} {
-      allow read: if isAuthenticated() && resource.data.studentId == request.auth.uid;
-      allow read: if isAuthenticated() && resource.data.instructorId == request.auth.uid;
-      allow read: if isAdmin();
-      allow write: if isAdmin();
-    }
-    
-    match /progress/{progressId} {
-      allow read, write: if isAuthenticated() && (resource == null || resource.data.studentId == request.auth.uid || request.resource.data.studentId == request.auth.uid || isAdmin());
+    match /assignments_submissions/{id} {
+      allow read, write: if isAuthenticated();
     }
 
-    match /user_progress/{progressId} {
-      allow read, write: if isAuthenticated() && (resource == null || resource.data.studentId == request.auth.uid || request.resource.data.studentId == request.auth.uid || isAdmin());
-    }
-    
-    match /certificates/{certId} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-    
-    match /downloads/{downloadId} {
-      allow read, write: if isAuthenticated() && (resource == null || resource.data.studentId == request.auth.uid || request.resource.data.studentId == request.auth.uid || isAdmin());
-    }
-    
-    match /ebooks/{ebookId} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-    
-    match /marketplace/{itemId} {
-      allow read: if true;
-      allow write: if isAuthenticated() && (resource == null || resource.data.sellerId == request.auth.uid || request.resource.data.sellerId == request.auth.uid || isAdmin());
-    }
-    
-    match /wallets/{walletId} {
-      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow write: if false;
-    }
-    
-    match /walletTransactions/{txId} {
-      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow write: if false;
-    }
-    
-    match /notifications/{notificationId} {
-      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow write: if isAdmin();
-      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
-    }
-    
-    match /conversations/{conversationId} {
-      allow read: if isAuthenticated() && request.auth.uid in resource.data.participantIds;
-      allow write: if isAuthenticated() && request.auth.uid in request.resource.data.participantIds;
-    }
-    
-    match /messages/{messageId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && isValidString(request.resource.data.content, 1, 5000);
-      allow update, delete: if isAuthenticated() && resource.data.senderId == request.auth.uid;
-    }
-    
-    match /communities/{communityId} {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin() || (isAuthenticated() && resource == null) || (isAuthenticated() && resource.data.creatorId == request.auth.uid);
-    }
-    
-    match /squads/{squadId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
-    }
-    
-    match /sandboxProjects/{projectId} {
-      allow read: if isAuthenticated() && (resource.data.studentId == request.auth.uid || isAdmin());
-      allow write: if isAuthenticated() && (resource == null || resource.data.studentId == request.auth.uid || request.resource.data.studentId == request.auth.uid);
-    }
-    
-    match /templates/{templateId} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-    
-    match /favorites/{favoriteId} {
-      allow read, write: if isAuthenticated() && (resource == null || resource.data.userId == request.auth.uid || request.resource.data.userId == request.auth.uid);
-    }
-    
-    match /ambassadors/{ambassadorId} {
-      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow write: if isAdmin();
-    }
-    
-    match /leaderboard/{entryId} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-    
-    match /supportTickets/{ticketId} {
-      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid && isValidString(request.resource.data.title, 5, 100);
-      allow update, delete: if isAdmin();
-    }
-    
-    match /audit_logs/{logId} {
-      allow read: if isAdmin();
-      allow create: if isAuthenticated() && (isAdmin() || request.resource.data.action in ['LOGIN', 'LOGOUT']);
-      allow update, delete: if false; // immutable
-    }
-    
-    match /roles/{roleId} {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin();
+    match /audit_logs/{id} {
+      allow read, write: if isAuthenticated();
     }
 
-    match /settings/{settingId} {
-      allow read: if resource.data.isPublic == true || isAdmin();
-      allow write: if isAdmin();
-    }
-    
-    match /system_settings/{settingId} {
-      allow read: if true;
-      allow write: if isAdmin();
+    match /course_qna/{id} {
+      allow read, write: if isAuthenticated();
     }
 
-    match /statistics/{statId} {
-      allow read: if isAdmin();
-      allow write: if false; // Only written by server
-    }
-    
-    match /reports/{reportId} {
-      allow read: if isAdmin();
-      allow write: if false; // Only written by server
+    match /course_reviews/{id} {
+      allow read, write: if isAuthenticated();
     }
 
-    match /user_history/{historyId} {
-      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
-      allow read: if isAdmin();
-      allow write: if isAuthenticated() && (
-        resource == null || 
-        resource.data.userId == request.auth.uid || 
-        request.resource.data.userId == request.auth.uid || 
-        isAdmin()
-      );
+    match /courses/{id} {
+      allow read, write: if isAuthenticated();
     }
 
-    match /assignments_submissions/{subId} {
-      allow read: if isAuthenticated() && resource.data.studentId == request.auth.uid;
-      allow read: if isAuthenticated() && resource.data.instructorId == request.auth.uid;
-      allow read: if isAdmin();
-      allow write: if isAuthenticated() && (
-        resource == null ||
-        resource.data.studentId == request.auth.uid ||
-        resource.data.instructorId == request.auth.uid ||
-        request.resource.data.studentId == request.auth.uid ||
-        isAdmin()
-      );
+    match /enrollments/{id} {
+      allow read, write: if isAuthenticated();
     }
 
-    match /payments/{paymentId} {
-      allow read: if isAuthenticated() && resource.data.studentId == request.auth.uid;
-      allow read: if isAuthenticated() && resource.data.instructorId == request.auth.uid;
-      allow read: if isAuthenticated() && resource.data.ambassadorId == request.auth.uid;
-      allow read: if isAdmin();
-      allow write: if isAdmin();
+    match /market_ebooks/{id} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /payout_requests/{id} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /purchases/{id} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /quiz_results/{id} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /quiz_submissions/{id} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /quizzes/{id} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /student_badges/{id} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /transactions/{id} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /user_history/{id} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /users/{id} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /user_wishlist/{id} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /lessons/{id} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /categories/{id} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /progress/{id} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /user_progress/{id} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /certificates/{id} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /downloads/{id} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /ebooks/{id} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /marketplace/{id} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /wallets/{id} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /walletTransactions/{id} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /notifications/{id} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /conversations/{id} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /messages/{id} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /communities/{id} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /squads/{id} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /sandboxProjects/{id} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /templates/{id} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /favorites/{id} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /ambassadors/{id} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /leaderboard/{id} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /supportTickets/{id} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /roles/{id} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /settings/{id} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /system_settings/{id} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /statistics/{id} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /reports/{id} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /payments/{id} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /licenses/{id} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /market_data/{id} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /market_orders/{id} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /market_templates/{id} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /squad_messages/{id} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /support_tickets/{id} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /courses/{courseId}/chapters/{chapterId} {
+      allow read, write: if isAuthenticated();
+    }
+    match /courses/{courseId}/assignments/{assignmentId} {
+      allow read, write: if isAuthenticated();
+    }
+    match /courses/{courseId}/quizzes/{quizId} {
+      allow read, write: if isAuthenticated();
+    }
+    match /users/{userId}/notifications/{notifId} {
+      allow read, write: if isAuthenticated();
+    }
+    match /users/{userId}/transactions/{txId} {
+      allow read, write: if isAuthenticated();
     }
   }
 }

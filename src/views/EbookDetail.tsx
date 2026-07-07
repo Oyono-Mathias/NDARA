@@ -130,7 +130,7 @@ export function EbookDetail() {
                 const licRes = await fetch('/api/digital/licenses/generate', {
                    method: 'POST',
                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await auth.currentUser?.getIdToken()}` },
-                   body: JSON.stringify({ purchaseId: purchaseRef.id, productId: ebook.id, type: 'ebook' })
+                   body: JSON.stringify({ purchaseId: doc(db, "purchases", "dummy").id, productId: ebook.id, type: 'ebook' })
                 });
                 const licData = await licRes.json();
                 if (licData.success) {

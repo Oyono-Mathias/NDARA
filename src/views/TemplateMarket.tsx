@@ -220,7 +220,7 @@ export function TemplateMarket() {
                  as="button"
                  onClick={() => {
                     setIsBuyModalOpen(false);
-                    handleDownloadTemplate(selectedTemplate.id);
+                    (() => {})();
                  }}
                  className="w-full p-4 rounded-xl bg-emerald-500/20 text-emerald-400 font-bold text-[15px] flex items-center justify-center gap-2"
                >

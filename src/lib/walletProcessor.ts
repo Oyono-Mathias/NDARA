@@ -1,11 +1,11 @@
-import { doc, runTransaction, collection, addDoc, getDocs, query, where, Timestamp } from 'firebase/firestore';
-import { serverDb } from '../firebaseServer';
+import { FieldValue, Timestamp } from 'firebase-admin/firestore';
+import { adminDb as serverDb } from './firebaseAdmin';
 import { WalletTransaction, TransactionType, TransactionStatus } from '../types/wallet';
 
 async function logSecurityAlert(details: string, action: string) {
   try {
     console.error(`[CRITICAL SECURITY ALERT] ${details}`);
-    await addDoc(collection(serverDb, 'system_logs'), {
+    await serverDb.collection('system_logs').add({
       eventType: 'SECURITY_ALERT',
       details: details,
       action: action,
@@ -21,11 +21,11 @@ async function logSecurityAlert(details: string, action: string) {
  * Ensures wallet balance keys exist on a user's document.
  */
 export async function ensureWalletInitialized(userId: string) {
-  const userRef = doc(serverDb, 'users', userId);
+  const userRef = serverDb.collection('users').doc(userId);
   
-  await runTransaction(serverDb, async (transaction) => {
+  await serverDb.runTransaction(async (transaction) => {
     const userSnap = await transaction.get(userRef);
-    if (!userSnap.exists()) {
+    if (!userSnap.exists) {
       throw new Error(`Utilisateur ${userId} introuvable.`);
     }
     
@@ -50,21 +50,21 @@ export async function ensureWalletInitialized(userId: string) {
 export async function depositFunds(userId: string, amount: number, description = 'Rechargement de compte', externalTransactionId?: string) {
   if (amount <= 0) throw new Error('Le montant du rechargement doit être supérieur à 0.');
   
-  const userRef = doc(serverDb, 'users', userId);
+  const userRef = serverDb.collection('users').doc(userId);
   
-  return await runTransaction(serverDb, async (transaction) => {
-    const txRef = externalTransactionId ? doc(serverDb, 'users', userId, 'transactions', externalTransactionId) : doc(collection(serverDb, 'users', userId, 'transactions'));
+  return await serverDb.runTransaction(async (transaction) => {
+    const txRef = externalTransactionId ? serverDb.collection('users').doc(userId).collection('transactions').doc(externalTransactionId) : serverDb.collection('users').doc(userId).collection('transactions').doc();
     
     if (externalTransactionId) {
       const existingTxSnap = await transaction.get(txRef);
-      if (existingTxSnap.exists()) {
+      if (existingTxSnap.exists) {
          const userSnap = await transaction.get(userRef);
          return { success: true, nextBalance: userSnap.data()?.balance, transactionId: txRef.id, idempotent: true };
       }
     }
 
     const userSnap = await transaction.get(userRef);
-    if (!userSnap.exists()) {
+    if (!userSnap.exists) {
       throw new Error('Utilisateur non trouvé.');
     }
     
@@ -99,13 +99,13 @@ export async function depositFunds(userId: string, amount: number, description =
 export async function transferFunds(senderId: string, receiverUsernameOrId: string, amount: number, description = 'Transfert entre utilisateurs') {
   if (amount <= 0) throw new Error('Le montant du transfert doit être supérieur à 0.');
   
-  const senderRef = doc(serverDb, 'users', senderId);
-  const usersColl = collection(serverDb, 'users');
+  const senderRef = serverDb.collection('users').doc(senderId);
+  const usersColl = serverDb.collection('users');
   
-  return await runTransaction(serverDb, async (transaction) => {
+  return await serverDb.runTransaction(async (transaction) => {
     // 1. Get Sender
     const senderSnap = await transaction.get(senderRef);
-    if (!senderSnap.exists()) {
+    if (!senderSnap.exists) {
       throw new Error('Expéditeur non trouvé.');
     }
     
@@ -117,19 +117,19 @@ export async function transferFunds(senderId: string, receiverUsernameOrId: stri
     
     // 2. Resolve Receiver
     let receiverId = receiverUsernameOrId;
-    let receiverRef = doc(serverDb, 'users', receiverId);
+    let receiverRef = serverDb.collection('users').doc(receiverId);
     let receiverSnap = await transaction.get(receiverRef);
     
-    if (!receiverSnap.exists()) {
+    if (!receiverSnap.exists) {
       // Try resolving by username
-      const q = query(usersColl, where('username', '==', receiverUsernameOrId));
-      const qSnap = await getDocs(q);
+const q = serverDb.collection("enrollments").where("instructorId", "==", receiverId);
+      const qSnap = await q.get();
       if (qSnap.empty) {
         throw new Error(`Destinataire '${receiverUsernameOrId}' introuvable dans le réseau Ndara.`);
       }
       const receiverDoc = qSnap.docs[0];
       receiverId = receiverDoc.id;
-      receiverRef = doc(serverDb, 'users', receiverId);
+      receiverRef = serverDb.collection('users').doc(receiverId);
       receiverSnap = await transaction.get(receiverRef);
     }
     
@@ -151,8 +151,8 @@ export async function transferFunds(senderId: string, receiverUsernameOrId: stri
     transaction.update(receiverRef, { balance: receiverBalance + amount });
     
     // 4. Log transaction entries for both parties
-    const senderTxRef = doc(collection(serverDb, 'users', senderId, 'transactions'));
-    const receiverTxRef = doc(collection(serverDb, 'users', receiverId, 'transactions'));
+    const senderTxRef = serverDb.collection('users').doc(senderId).collection('transactions').doc();
+    const receiverTxRef = serverDb.collection('users').doc(receiverId).collection('transactions').doc();
     
     const senderTx: WalletTransaction = {
       id: senderTxRef.id,
@@ -196,16 +196,16 @@ export async function purchaseCourseWithEscrow(
 ) {
   if (price <= 0) throw new Error('Le prix du cours doit être un montant positif.');
   
-  const studentRef = doc(serverDb, 'users', studentId);
-  const sellerRef = doc(serverDb, 'users', sellerId);
+  const studentRef = serverDb.collection('users').doc(studentId);
+  const sellerRef = serverDb.collection('users').doc(sellerId);
   
-  return await runTransaction(serverDb, async (transaction) => {
+  return await serverDb.runTransaction(async (transaction) => {
     // 1. Get student profile & balance
-    const studentTxRef = purchaseId ? doc(serverDb, 'users', studentId, 'transactions', purchaseId) : doc(collection(serverDb, 'users', studentId, 'transactions'));
+    const studentTxRef = purchaseId ? serverDb.collection('users').doc(studentId).collection('transactions').doc(purchaseId) : serverDb.collection('users').doc(studentId).collection('transactions').doc();
     
     if (purchaseId) {
       const existingTx = await transaction.get(studentTxRef);
-      if (existingTx.exists()) {
+      if (existingTx.exists) {
          return { success: true, idempotent: true };
       }
     }
@@ -213,15 +213,15 @@ export async function purchaseCourseWithEscrow(
 
 
     // 0. Check if already enrolled
-    const enrollmentsQuery = query(collection(serverDb, 'enrollments'), where('studentId', '==', studentId), where('courseId', '==', courseId));
-    const enrollmentsSnapshot = await getDocs(enrollmentsQuery);
+    const enrollmentsQuery = serverDb.collection('enrollments').where('studentId', '==', studentId).where('courseId', '==', courseId);
+    const enrollmentsSnapshot = await enrollmentsQuery.get();
     if (!enrollmentsSnapshot.empty) {
       throw new Error('Vous êtes déjà inscrit à cette formation.');
     }
 
 
     const studentSnap = await transaction.get(studentRef);
-    if (!studentSnap.exists()) {
+    if (!studentSnap.exists) {
       throw new Error('Profil de l\'étudiant introuvable.');
     }
     
@@ -243,9 +243,9 @@ export async function purchaseCourseWithEscrow(
     let referrerSnap = null;
     
     if (referrerId && referrerId !== sellerId && referrerId !== studentId) {
-      referrerRef = doc(serverDb, 'users', referrerId);
+      referrerRef = serverDb.collection('users').doc(referrerId);
       referrerSnap = await transaction.get(referrerRef);
-      if (referrerSnap.exists()) {
+      if (referrerSnap.exists) {
         affiliateAmount = Math.round(price * 0.10);
         sellerAmount = price - affiliateAmount;
       }
@@ -253,7 +253,7 @@ export async function purchaseCourseWithEscrow(
     
     // 2. Get Seller profile
     const sellerSnap = await transaction.get(sellerRef);
-    if (!sellerSnap.exists()) {
+    if (!sellerSnap.exists) {
       throw new Error(`Profil formateur introuvable (${sellerId}).`);
     }
     const sellerData = sellerSnap.data();
@@ -309,7 +309,7 @@ export async function purchaseCourseWithEscrow(
     };
     transaction.set(studentTxRef, studentTx);
     
-    const sellerTxRef = purchaseId ? doc(serverDb, 'users', sellerId, 'transactions', `${purchaseId}_seller`) : doc(collection(serverDb, 'users', sellerId, 'transactions'));
+    const sellerTxRef = purchaseId ? serverDb.collection('users').doc(sellerId).collection('transactions').doc(`${purchaseId}_seller`) : serverDb.collection('users').doc(sellerId).collection('transactions').doc();
     const sellerTx: WalletTransaction = {
       id: sellerTxRef.id,
       userId: sellerId,
@@ -325,7 +325,7 @@ export async function purchaseCourseWithEscrow(
     transaction.set(sellerTxRef, sellerTx);
     
     if (referrerId && referrerRef && referrerSnap) {
-      const referrerTxRef = purchaseId ? doc(serverDb, 'users', referrerId, 'transactions', `${purchaseId}_affiliate`) : doc(collection(serverDb, 'users', referrerId, 'transactions'));
+      const referrerTxRef = purchaseId ? serverDb.collection('users').doc(referrerId).collection('transactions').doc(`${purchaseId}_affiliate`) : serverDb.collection('users').doc(referrerId).collection('transactions').doc();
       const referrerTx: WalletTransaction = {
         id: referrerTxRef.id,
         userId: referrerId,
@@ -343,7 +343,7 @@ export async function purchaseCourseWithEscrow(
     
 
     // 8. Create Enrollment
-    const enrollmentRef = doc(collection(serverDb, 'enrollments'));
+    const enrollmentRef = serverDb.collection('enrollments').doc();
     transaction.set(enrollmentRef, {
       studentId: studentId,
       courseId: courseId,
@@ -365,19 +365,16 @@ export async function purchaseCourseWithEscrow(
  * Scans and releases expired pending escrow funds into available balances atomically.
  */
 export async function releaseExpiredEscrows(userId: string) {
-  const transactionsColl = collection(serverDb, 'users', userId, 'transactions');
-  const userRef = doc(serverDb, 'users', userId);
+  const transactionsColl = serverDb.collection('users').doc(userId).collection('transactions');
+  const userRef = serverDb.collection('users').doc(userId);
   
   // Find pending escrow transactions which expired
   const nowStr = new Date().toISOString();
   
   // Fetch pending transactions
-  const q = query(
-    transactionsColl, 
-    where('status', '==', 'pending')
-  );
+  const q = transactionsColl.where("status", "==", "pending");
   
-  const snap = await getDocs(q);
+  const snap = await q.get();
   if (snap.empty) {
     return { releasedCount: 0, msg: "Aucun fonds sous séquestre n'est prêt pour libération." };
   }
@@ -390,20 +387,20 @@ export async function releaseExpiredEscrows(userId: string) {
     
     // Check if timeline expired
     if (tx.releaseAt && tx.releaseAt <= nowStr) {
-      await runTransaction(serverDb, async (transaction) => {
+      await serverDb.runTransaction(async (transaction) => {
         const userSnap = await transaction.get(userRef);
-        if (!userSnap.exists()) return;
+        if (!userSnap.exists) return;
         
-        const freshTxSnap = await transaction.get(txDoc.ref);
-        const freshTx = freshTxSnap.data() as WalletTransaction;
-        if (freshTx.status !== 'pending') return; // Avoid double spend / race
+        const transactionSnap = await transaction.get(txDoc.ref);
+const txData = transactionSnap.data() as any;
+        if (txData.status !== 'pending') return; // Avoid double spend / race
         
         const userData = userSnap.data();
-        const freshAmount = freshTx.amount;
+        const freshAmount = txData.amount;
         
         let updateObj: any = {};
         
-        if (freshTx.type === 'affiliate_payout') {
+        if (txData.type === 'affiliate_payout') {
           const currentPendingAffiliate = userData.pendingAffiliateBalance || 0;
           updateObj.pendingAffiliateBalance = Math.max(0, currentPendingAffiliate - freshAmount);
           // Add to affiliateBalance
@@ -421,7 +418,7 @@ export async function releaseExpiredEscrows(userId: string) {
         // Update transaction status
         transaction.update(txDoc.ref, {
           status: 'completed',
-          description: `${freshTx.description} (Libération Séquestre validée après 14j)`
+          description: `${txData.description} (Libération Séquestre validée après 14j)`
         });
         
         releasedCount++;
@@ -448,22 +445,20 @@ export async function requestPayout(
 ) {
   if (amount < 5000) throw new Error('Le montant minimum de retrait est de 5 000 FCFA.');
   
-  const userRef = doc(serverDb, 'users', userId);
-  const payoutRequestsColl = collection(serverDb, 'payout_requests');
+  const userRef = serverDb.collection('users').doc(userId);
+  const payoutRequestsColl = serverDb.collection('payout_requests');
   
-  return await runTransaction(serverDb, async (transaction) => {
-    const payoutReqRef = payoutId ? doc(payoutRequestsColl, payoutId) : doc(payoutRequestsColl);
+  return await serverDb.runTransaction(async (transaction) => {
+    let payoutReqRef;
     if (payoutId) {
-      const existingReq = await transaction.get(payoutReqRef);
-      if (existingReq.exists()) {
-        const nextBalance = (await transaction.get(userRef)).data()?.balance;
-        return { success: true, payoutRequestId: existingReq.id, transactionId: existingReq.data().transactionId, nextBalance, idempotent: true };
-      }
+      payoutReqRef = serverDb.collection('payout_requests').doc(payoutId);
+      const existingReq = await transaction.get(payoutReqRef as FirebaseFirestore.DocumentReference);
+      if (!(existingReq as FirebaseFirestore.DocumentSnapshot).exists) throw new Error('Payout request not found');
+    } else {
+      payoutReqRef = serverDb.collection('payout_requests').doc();
     }
-
-    // 1. Get user document
     const userSnap = await transaction.get(userRef);
-    if (!userSnap.exists()) {
+    if (!userSnap.exists) {
       throw new Error('Utilisateur non trouvé.');
     }
     
@@ -505,7 +500,7 @@ export async function requestPayout(
     });
     
     // Create new transaction document in user's subcollection
-    const txRef = doc(collection(serverDb, 'users', userId, 'transactions'));
+    const txRef = serverDb.collection('users').doc(userId).collection('transactions').doc();
     const txObj: WalletTransaction = {
       id: txRef.id,
       userId,
@@ -547,12 +542,12 @@ export async function requestPayout(
  * Approves (completed) or rejects (failed/refunded) a pending payout request atomically.
  */
 export async function processApprovedPayout(requestId: string, status: 'completed' | 'rejected') {
-  const payoutReqRef = doc(serverDb, 'payout_requests', requestId);
+  const payoutReqRef = serverDb.collection('payout_requests').doc(requestId);
   
-  return await runTransaction(serverDb, async (transaction) => {
+  return await serverDb.runTransaction(async (transaction) => {
     // 1. Get payout request
     const payoutSnap = await transaction.get(payoutReqRef);
-    if (!payoutSnap.exists()) {
+    if (!payoutSnap.exists) {
       throw new Error('Demande de retrait introuvable.');
     }
     
@@ -562,10 +557,10 @@ export async function processApprovedPayout(requestId: string, status: 'complete
     }
     
     const { instructorId, amount, transactionId, provider } = payoutData;
-    const userRef = doc(serverDb, 'users', instructorId);
+    const userRef = serverDb.collection('users').doc(instructorId);
     
     // Resolve transaction ref inside user transactions subcollection
-    const userTxRef = doc(serverDb, 'users', instructorId, 'transactions', transactionId);
+    const userTxRef = serverDb.collection('users').doc(instructorId).collection('transactions').doc(transactionId);
     
     // 2. Fetch User and Transaction
     const userSnap = await transaction.get(userRef);
@@ -576,7 +571,7 @@ export async function processApprovedPayout(requestId: string, status: 'complete
       transaction.update(payoutReqRef, { status: 'completed' });
       
       // Update transaction log to completed
-      if (userTxSnap.exists()) {
+      if (userTxSnap.exists) {
         transaction.update(userTxRef, { 
           status: 'completed',
           description: `Retrait Mobile Money (${provider.toUpperCase()}) d'un montant de ${amount.toLocaleString()} FCFA complété avec succès.`
@@ -588,7 +583,7 @@ export async function processApprovedPayout(requestId: string, status: 'complete
       // Rejection: refund deducted funds back to their respective origin balances
       transaction.update(payoutReqRef, { status: 'rejected' });
       
-      if (userSnap.exists()) {
+      if (userSnap.exists) {
         const userData = userSnap.data();
         const deductedBalance = payoutData.deductedFromBalance || 0;
         const deductedAffiliate = payoutData.deductedFromAffiliate || 0;
@@ -599,7 +594,7 @@ export async function processApprovedPayout(requestId: string, status: 'complete
         });
       }
       
-      if (userTxSnap.exists()) {
+      if (userTxSnap.exists) {
         transaction.update(userTxRef, { 
           status: 'failed',
           description: `Retrait Mobile Money (${provider.toUpperCase()}) de ${amount.toLocaleString()} FCFA REFUSÉ & REMBOURSÉ.`
@@ -625,15 +620,15 @@ export async function purchaseBourseLicense(
 ) {
   if (price <= 0) throw new Error('Le prix de la licence doit être supérieur à zéro.');
   
-  const buyerRef = doc(serverDb, 'users', buyerId);
-  const sellerRef = doc(serverDb, 'users', sellerId);
+  const buyerRef = serverDb.collection('users').doc(buyerId);
+  const sellerRef = serverDb.collection('users').doc(sellerId);
   const platformFee = Math.round(price * 0.02); // 2% platform fee
   const totalDeduction = price + platformFee;
   
-  return await runTransaction(serverDb, async (transaction) => {
+  return await serverDb.runTransaction(async (transaction) => {
     // 1. Get buyer profile & balance
     const buyerSnap = await transaction.get(buyerRef);
-    if (!buyerSnap.exists()) {
+    if (!buyerSnap.exists) {
       throw new Error('Votre profil utilisateur est introuvable.');
     }
     
@@ -646,7 +641,7 @@ export async function purchaseBourseLicense(
     // 2. Fetch seller profile to get their current balance
     const sellerSnap = await transaction.get(sellerRef);
     let sellerBalance = 0;
-    if (sellerSnap.exists()) {
+    if (sellerSnap.exists) {
       sellerBalance = sellerSnap.data().balance || 0;
     }
     
@@ -662,7 +657,7 @@ export async function purchaseBourseLicense(
     });
     
     // 4. Update seller's balance
-    if (sellerSnap.exists()) {
+    if (sellerSnap.exists) {
       transaction.update(sellerRef, {
         balance: sellerBalance + price
       });
@@ -678,7 +673,7 @@ export async function purchaseBourseLicense(
     }
     
     // 5. Create Ledger transaction for the buyer
-    const buyerTxRef = doc(collection(serverDb, 'users', buyerId, 'transactions'));
+    const buyerTxRef = serverDb.collection('users').doc(buyerId).collection('transactions').doc();
     const buyerTx: WalletTransaction = {
       id: buyerTxRef.id,
       userId: buyerId,
@@ -692,7 +687,7 @@ export async function purchaseBourseLicense(
     transaction.set(buyerTxRef, buyerTx);
     
     // 6. Create Ledger transaction for the seller
-    const sellerTxRef = doc(collection(serverDb, 'users', sellerId, 'transactions'));
+    const sellerTxRef = serverDb.collection('users').doc(sellerId).collection('transactions').doc();
     const sellerTx: WalletTransaction = {
       id: sellerTxRef.id,
       userId: sellerId,
@@ -707,7 +702,7 @@ export async function purchaseBourseLicense(
     transaction.set(sellerTxRef, sellerTx);
     
     // 7. Write a license document to the 'licenses' collection to query owned licenses of a user
-    const licenseRef = doc(collection(serverDb, 'licenses'));
+    const licenseRef = serverDb.collection('licenses').doc();
     transaction.set(licenseRef, {
       id: licenseRef.id,
       courseId,
