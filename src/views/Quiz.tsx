@@ -1,3 +1,5 @@
+import { logger } from '../lib/logger';
+import { toast } from '../hooks/use-toast';
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useRole } from '../context/RoleContext';
@@ -24,7 +26,7 @@ function useToast() {
   return {
     toast: ({ title, description, variant }: any) => {
       console.log(`TOAST: ${title} - ${description}`);
-      alert(`${title}\n${description || ''}`);
+      toast({ title: 'Information', description: String(`${title}\n${description || ''}`) });
     }
   }
 }
@@ -90,11 +92,11 @@ export function QuizView() {
           setQuestions(questionsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Question)));
           setIsQuizLoading(false);
         }, (err) => {
-          console.error("Erreur chargement questions:", err);
+          logger.error("Erreur chargement questions:", err);
           setIsQuizLoading(false);
         });
       }, (e) => {
-        console.error("Erreur chargement quiz:", e);
+        logger.error("Erreur chargement quiz:", e);
         setIsQuizLoading(false);
       });
       
@@ -160,7 +162,7 @@ export function QuizView() {
                 submittedAt: serverTimestamp(),
             });
         } catch (error) {
-            console.error("Error saving quiz attempt:", error);
+            logger.error("Error saving quiz attempt:", error);
         }
     }
     setIsSubmitting(false);

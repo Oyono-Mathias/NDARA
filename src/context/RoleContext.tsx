@@ -1,4 +1,4 @@
-import React, { createContext, useContext } from "react";
+import React, { createContext, useContext, useMemo } from "react";
 import { useAuth } from "../contexts/AuthContext";
 
 interface RoleContextType {
@@ -18,13 +18,18 @@ const RoleContext = createContext<RoleContextType>({
 export function RoleProvider({ children }: { children: React.ReactNode }) {
   const { firebaseUser, appUser, loading } = useAuth();
   
-  const currentUser = firebaseUser && appUser ? { ...firebaseUser, ...appUser, uid: firebaseUser.uid } : null;
+  const currentUser = useMemo(() => {
+    return firebaseUser && appUser ? { ...firebaseUser, ...appUser, uid: firebaseUser.uid } : null;
+  }, [firebaseUser, appUser]);
+
   const role = appUser?.role || null;
 
+  const value = useMemo(() => ({
+    currentUser, role, loading, isUserLoading: loading
+  }), [currentUser, role, loading]);
+
   return (
-    <RoleContext.Provider
-      value={{ currentUser, role, loading, isUserLoading: loading }}
-    >
+    <RoleContext.Provider value={value}>
       {children}
     </RoleContext.Provider>
   );

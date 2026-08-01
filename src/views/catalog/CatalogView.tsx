@@ -71,7 +71,7 @@ export function CatalogView() {
       {/* Courses Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredCourses.map(course => (
-          <Link key={course.id} to={`/student/catalog/${course.slug}`} className="group block">
+          <Link key={course.id} to={`/student/catalog/${course.slug || course.id}`} className="group block">
             <div className="bg-white/[0.02] border border-white/5 rounded-3xl overflow-hidden hover:border-emerald-500/30 transition-all duration-300 hover:shadow-[0_0_30px_rgba(16,185,129,0.1)]">
               {/* Thumbnail */}
               <div className="aspect-video bg-slate-900 relative overflow-hidden">

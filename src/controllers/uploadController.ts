@@ -1,3 +1,4 @@
+import { logger } from '../lib/logger';
 import { Response, Request } from "express";
 import { AuthRequest } from "../middlewares/authMiddleware.js";
 import { storageService, AllowedFolder } from "../lib/StorageService.js";
@@ -55,7 +56,7 @@ async function processUpload({ req, res, folder, isPrivate = false }: ProcessUpl
     });
 
   } catch (error: any) {
-    console.error(`[Upload Error] ${folder}:`, error.message);
+    logger.error(`[Upload Error] ${folder}:`, error.message);
     return res.status(500).json({ error: "Internal Server Error during upload." });
   }
 }
@@ -106,7 +107,7 @@ export const handleFileDeletion = async (req: AuthRequest, res: Response) => {
 
     return res.status(200).json({ success: true, message: "File deleted successfully." });
   } catch (error: any) {
-    console.error(`[Delete Error]:`, error.message);
+    logger.error(`[Delete Error]:`, error.message);
     return res.status(500).json({ error: "Failed to delete file from storage." });
   }
 };

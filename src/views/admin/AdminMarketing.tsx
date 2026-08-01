@@ -1,3 +1,5 @@
+import { logger } from '../../lib/logger';
+import { toast } from '../../hooks/use-toast';
 import React, { useState, useEffect } from 'react';
 import { 
   BellRing, 
@@ -75,10 +77,10 @@ export function AdminMarketing() {
       setPushTitle('');
       setPushMessage('');
       setPushTarget('all');
-      alert("Notification programmée et envoyée avec succès.");
+      toast({ title: 'Information', description: String("Notification programmée et envoyée avec succès.") });
     } catch (error) {
-      console.error("Erreur lors de l'envoi de la notification:", error);
-      alert("Erreur lors de l'envoi de la notification.");
+      logger.error("Erreur lors de l'envoi de la notification:", error);
+      toast({ variant: 'destructive', title: 'Erreur', description: String("Erreur lors de l'envoi de la notification.") });
     } finally {
       setIsSending(false);
     }
@@ -98,7 +100,7 @@ export function AdminMarketing() {
          });
          setNewPromoCode({ code: '', discount: 10, limit: 100 });
       } catch (err) {
-         console.error("Error creating promo code", err);
+         logger.error("Error creating promo code", err);
       } finally {
          setIsCreatingPromo(false);
       }

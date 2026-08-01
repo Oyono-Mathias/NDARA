@@ -16,6 +16,8 @@ export interface User extends BaseModel {
   photoURL?: string;
   role: UserRole;
   walletBalance: number;
+  referredBy?: string;
+  referralCode?: string;
   dateOfBirth?: string;
   gender?: 'male' | 'female' | 'other' | 'prefer_not_to_say';
   country?: string;
@@ -103,18 +105,47 @@ export interface Resource extends BaseModel {
   fileSize: number;
 }
 
+export interface QuestionBankItem extends QuizQuestion {
+  instructorId: string;
+  category: string;
+  tags: string[];
+  createdAt: any;
+}
+
+export interface QuizQuestion {
+  id: string;
+  type: 'single' | 'multiple' | 'true_false' | 'short_answer' | 'long_answer' | 'order' | 'drag_drop' | 'match' | 'fill_blank';
+  text: string;
+  options: { id: string; text: string; isCorrect: boolean; matchId?: string; order?: number }[];
+  explanation?: string;
+  hint?: string;
+  timeLimit?: number;
+  points?: number;
+  difficulty?: 'easy' | 'medium' | 'hard';
+  media?: {
+    type: 'image' | 'video' | 'audio';
+    url: string;
+  };
+}
+
 export interface Quiz extends BaseModel {
-  lessonId: string;
   courseId: string;
+  courseTitle?: string;
+  instructorId: string;
+  lessonId?: string;
   title: string;
   description?: string;
-  passingScore: number;
-  questions: {
-    id: string;
-    text: string;
-    options: { id: string; text: string; isCorrect: boolean }[];
-    explanation?: string;
-  }[];
+  status: 'draft' | 'published';
+  questions: QuizQuestion[];
+  settings: {
+    durationMinutes?: number;
+    singleAttempt?: boolean;
+    passingScore?: number;
+    randomOrder?: boolean;
+    immediateFeedback?: boolean;
+    showAnswers?: boolean;
+    autoCertificate?: boolean;
+  };
 }
 
 export interface Exercise extends BaseModel {

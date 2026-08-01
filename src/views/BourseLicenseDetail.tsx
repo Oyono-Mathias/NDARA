@@ -1,3 +1,5 @@
+import { logger } from '../lib/logger';
+import { toast } from '../hooks/use-toast';
 import { useState, useEffect } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { ChevronLeft, Share2, Heart, Star, Users, Award, Briefcase, TrendingUp, CheckCircle, Wallet, Phone, CircleDollarSign, Loader2, RefreshCw } from "lucide-react";
@@ -51,17 +53,17 @@ export function BourseLicenseDetail() {
   
   const handlePurchase = async () => {
     if (!currentUser?.uid) {
-      alert("Veuillez vous connecter pour acheter cette licence.");
+      toast({ title: 'Information', description: String("Veuillez vous connecter pour acheter cette licence.") });
       return;
     }
     
     if (userBalance < totalCost) {
-      alert("Solde insuffisant dans votre portefeuille.");
+      toast({ title: 'Information', description: String("Solde insuffisant dans votre portefeuille.") });
       return;
     }
 
     if (!id) {
-       alert("Aucun cours sélectionné.");
+       toast({ title: 'Information', description: String("Aucun cours sélectionné.") });
        return;
     }
 
@@ -169,8 +171,8 @@ export function BourseLicenseDetail() {
       setShowConfirmModal(false);
       setShowSuccessModal(true);
     } catch (err: any) {
-      console.error(err);
-      alert(err.message || "Une erreur est survenue lors de la transaction.");
+      logger.error(err);
+      toast({ variant: 'destructive', title: 'Erreur', description: String(err.message || "Une erreur est survenue lors de la transaction.") });
     } finally {
       setIsProcessing(false);
     }

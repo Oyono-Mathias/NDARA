@@ -1,3 +1,4 @@
+import { logger } from '../../lib/logger';
 import React from "react";
 import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -60,7 +61,7 @@ export function EditProfileView() {
       await reloadUser();
     } catch (err: any) {
       setError('Erreur lors du téléchargement de l\'image.');
-      console.error(err);
+      logger.error(err);
     } finally {
       setIsUploading(false);
       setUploadProgress(0);
@@ -95,7 +96,7 @@ export function EditProfileView() {
       setTimeout(() => setSuccess(false), 3000);
     } catch (err: any) {
       setError('Erreur lors de la sauvegarde des modifications.');
-      console.error(err);
+      logger.error(err);
     } finally {
       setIsSaving(false);
     }

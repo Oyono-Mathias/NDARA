@@ -1,3 +1,4 @@
+import { logger } from '../lib/logger';
 import React, { useState, useEffect } from "react";
 import { 
   Search, Plus, Users, BookOpen, LogIn, LogOut, X, Loader2, Trophy
@@ -27,6 +28,7 @@ interface Squad {
   membersCount: number;
   membersList: string[];
   createdAt: any;
+  chatSpaceName?: string;
 }
 
 export function StudentSquads() {
@@ -61,7 +63,7 @@ export function StudentSquads() {
       setSquads(data);
       setIsLoading(false);
     }, (err) => {
-      console.error("Error fetching squads:", err);
+      logger.error("Error fetching squads:", err);
       setIsLoading(false);
     });
 
@@ -88,6 +90,36 @@ export function StudentSquads() {
     try {
       const courseDetails = courses.find(c => c.id === selectedCourse);
       
+      // 1. Create Google Chat Space
+      let chatSpaceName = "";
+      try {
+        const token = await currentUser.getIdToken();
+        const chatRes = await fetch('/api/chat/create-space', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ spaceName: newSquadName.trim() })
+        });
+        const chatData = await chatRes.json();
+        if (chatData.success && chatData.space) {
+          chatSpaceName = chatData.space.name; // the API space name (e.g. spaces/XXXXX)
+          
+          // 2. Add creator to the space
+          await fetch('/api/chat/add-member', {
+             method: 'POST',
+             headers: {
+               'Content-Type': 'application/json',
+               'Authorization': `Bearer ${token}`
+             },
+             body: JSON.stringify({ spaceName: chatSpaceName, email: currentUser.email })
+          });
+        }
+      } catch (err) {
+        logger.error("Error creating Google Chat space", err);
+      }
+
       await addDoc(collection(db, "squads"), {
         name: newSquadName.trim(),
         description: newSquadDesc.trim(),
@@ -96,6 +128,7 @@ export function StudentSquads() {
         creatorId: currentUser.uid,
         membersCount: 1,
         membersList: [currentUser.uid],
+        chatSpaceName: chatSpaceName,
         createdAt: serverTimestamp()
       });
 
@@ -108,7 +141,7 @@ export function StudentSquads() {
         setActionStatus(null);
       }, 2000);
     } catch (error: any) {
-      console.error("Create squad error:", error);
+      logger.error("Create squad error:", error);
       setActionStatus({ type: 'error', text: "Erreur lors de la création de la Squad." });
     } finally {
       setIsSubmitting(false);
@@ -150,6 +183,23 @@ export function StudentSquads() {
           });
         }
       });
+      
+      // If joined successfully and squad has a chatSpaceName, add user to space
+      if (!isMember && squad.chatSpaceName) {
+         try {
+           const token = await currentUser.getIdToken();
+           await fetch('/api/chat/add-member', {
+             method: 'POST',
+             headers: {
+               'Content-Type': 'application/json',
+               'Authorization': `Bearer ${token}`
+             },
+             body: JSON.stringify({ spaceName: squad.chatSpaceName, email: currentUser.email })
+           });
+         } catch(e) {
+           logger.error("Failed to add user to chat space", e);
+         }
+      }
 
       setActionStatus({ 
         type: 'success', 
@@ -157,7 +207,7 @@ export function StudentSquads() {
       });
       setTimeout(() => setActionStatus(null), 3000);
     } catch (err: any) {
-      console.error("Join/Leave error:", err);
+      logger.error("Join/Leave error:", err);
       setActionStatus({ type: 'error', text: err.message || "Erreur réseau." });
     } finally {
       setIsSubmitting(false);

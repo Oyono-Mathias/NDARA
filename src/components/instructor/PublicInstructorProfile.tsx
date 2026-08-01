@@ -1,3 +1,5 @@
+import { logger } from '../../lib/logger';
+import { toast } from '../../hooks/use-toast';
 import { useEffect, useState } from "react";
 import {
   collection,
@@ -88,7 +90,7 @@ export function PublicInstructorProfile({
           });
         }
       },
-      (error) => console.error("Error fetching user:", error),
+      (error) => logger.error("Error fetching user:", error),
     );
 
     const qCourses = query(
@@ -103,7 +105,7 @@ export function PublicInstructorProfile({
         handleLoad();
       },
       (error) => {
-        console.error("Error fetching courses:", error);
+        logger.error("Error fetching courses:", error);
         handleLoad();
       },
     );
@@ -132,7 +134,7 @@ export function PublicInstructorProfile({
           setFollowDocId(null);
         }
       },
-      (error) => console.error("Error fetching followers:", error),
+      (error) => logger.error("Error fetching followers:", error),
     );
 
     return () => {
@@ -148,7 +150,7 @@ export function PublicInstructorProfile({
 
   const handleFollow = async () => {
     if (!currentUser) {
-      alert("Vous devez être connecté pour suivre un formateur.");
+      toast({ title: 'Information', description: String("Vous devez être connecté pour suivre un formateur.") });
       navigate("/auth");
       return;
     }
@@ -174,7 +176,7 @@ export function PublicInstructorProfile({
         setFollowDocId(newDoc.id);
       }
     } catch (error) {
-      console.error("Error toggling follow:", error);
+      logger.error("Error toggling follow:", error);
       // Revert optimistic update on error
       setIsFollowing(previousState);
       setFollowDocId(previousDocId);
@@ -188,7 +190,7 @@ export function PublicInstructorProfile({
 
   const handleContact = () => {
     if (!currentUser) {
-      alert("Vous devez être connecté pour contacter un formateur.");
+      toast({ title: 'Information', description: String("Vous devez être connecté pour contacter un formateur.") });
       navigate("/auth");
       return;
     }

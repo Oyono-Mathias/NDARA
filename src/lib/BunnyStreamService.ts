@@ -1,3 +1,4 @@
+import { logger } from '../lib/logger';
 export class BunnyStreamService {
   private libraryId: string;
   private apiKey: string;
@@ -24,6 +25,8 @@ export class BunnyStreamService {
 
     const response = await fetch(`https://video.bunnycdn.com/library/${this.libraryId}/videos`, {
       method: "POST",
+      credentials: "include",
+        
       headers: {
         "AccessKey": this.apiKey,
         "Accept": "application/json",
@@ -37,7 +40,7 @@ export class BunnyStreamService {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("Bunny Stream createVideo error:", errorText);
+      logger.error("Bunny Stream createVideo error:", errorText);
       console.warn("Falling back to dummy video ID due to Bunny Stream API error");
       return { videoId: "dummy-" + Date.now() };
     }
@@ -61,6 +64,8 @@ export class BunnyStreamService {
 
     const response = await fetch(`https://video.bunnycdn.com/library/${this.libraryId}/videos/${videoId}`, {
       method: "PUT",
+      credentials: "include",
+        
       headers: {
         "AccessKey": this.apiKey,
         "Content-Type": "application/octet-stream"
@@ -70,7 +75,7 @@ export class BunnyStreamService {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("Bunny Stream uploadVideo error:", errorText);
+      logger.error("Bunny Stream uploadVideo error:", errorText);
       console.warn("Falling back to dummy URL due to Bunny Stream upload error");
       return { 
         success: true, 

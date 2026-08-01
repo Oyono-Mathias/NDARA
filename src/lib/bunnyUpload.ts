@@ -1,3 +1,4 @@
+import { logger } from '../lib/logger';
 import * as tus from 'tus-js-client';
 import { auth } from '../firebase';
 
@@ -14,6 +15,8 @@ export async function uploadVideoToBunny(
   try {
     const res = await fetch('/api/video/create', {
       method: 'POST',
+      credentials: 'include',
+        
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
@@ -23,16 +26,25 @@ export async function uploadVideoToBunny(
 
     if (!res.ok) {
       const errorText = await res.text();
-      console.error("Server API Create Video error:", res.status, errorText);
+      logger.error("Server API Create Video error:" + " " + res.status, errorText);
       throw new Error(`Erreur de création vidéo: ${res.status} - ${errorText}`);
     }
-    data = await res.json();
+    const textData = await res.text();
+    try {
+      data = JSON.parse(textData);
+    } catch(e) {
+      if (textData.includes("<!doctype html>") || textData.includes("<html")) {
+        throw new Error("Upload intercepté par le proxy. Veuillez ouvrir l'application dans un nouvel onglet.");
+      }
+      throw new Error("Réponse serveur invalide (non-JSON).");
+    }
   } catch (err) {
-    console.error("API Create Video failed:", err);
+    logger.error("API Create Video failed:" + " " + err);
     throw new Error("Erreur de création de la vidéo sur Bunny Stream. Vérifiez la configuration.");
   }
 
-  const { videoId, libraryId, signature, expireTime } = data;
+  const { videoId, libraryId, signature, expireTime, isDummy } = data;
+  if (isDummy) throw new Error("Bunny Stream non configuré sur le serveur, bascule sur le stockage de secours.");
 
   // 3. Upload using TUS
   return new Promise((resolve, reject) => {
@@ -51,12 +63,11 @@ export async function uploadVideoToBunny(
         collection: ""
       },
       onError: function (error) {
-        console.error("Bunny TUS Upload failed:", error);
+        logger.error("Bunny TUS Upload failed:" + " " + error);
         reject(error);
-      },
-      onProgress: function (bytesUploaded, bytesTotal) {
+      }, onProgress: function (bytesUploaded, bytesTotal) {
         const percentage = (bytesUploaded / bytesTotal) * 100;
-        onProgress(Math.round(percentage));
+        onProgress?.(Math.round(percentage));
       },
       onSuccess: function () {
         resolve({

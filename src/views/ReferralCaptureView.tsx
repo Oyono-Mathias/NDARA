@@ -1,3 +1,4 @@
+import { logger } from '../lib/logger';
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
@@ -24,7 +25,7 @@ export function ReferralCaptureView() {
                     setInstructor(snap.data());
                 }
             } catch(e) {
-                console.error(e);
+                logger.error(e);
             } finally {
                 setIsLoading(false);
             }

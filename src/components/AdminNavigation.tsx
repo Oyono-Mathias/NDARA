@@ -231,13 +231,27 @@ export function AdminNavigation({
         </div>
 
         {/* Footer Action */}
-        <div className="p-4 shrink-0">
+        <div className="p-4 shrink-0 flex flex-col gap-2">
           <Link
             to="/"
-            className="flex justify-center items-center gap-2 w-full p-4 rounded-xl bg-slate-800/40 border border-slate-700/50 text-slate-300 hover:text-white hover:bg-slate-800/60 transition-all text-[11px] font-bold uppercase tracking-widest"
+            className="flex justify-center items-center gap-2 w-full p-3 rounded-xl bg-slate-800/40 border border-slate-700/50 text-slate-300 hover:text-white hover:bg-slate-800/60 transition-all text-[11px] font-bold uppercase tracking-widest"
           >
-            <LogOut className="w-4 h-4" /> QUITTER L'ADMIN
+            QUITTER L'ADMIN
           </Link>
+          <button
+            onClick={async () => {
+              try {
+                const { authService } = await import("../services/authService");
+                await authService.logout();
+                window.location.href = "/";
+              } catch (e) {
+                console.error("Logout error", e);
+              }
+            }}
+            className="flex justify-center items-center gap-2 w-full p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 hover:bg-red-500/20 transition-all text-[11px] font-bold uppercase tracking-widest"
+          >
+            <LogOut className="w-4 h-4" /> DÉCONNEXION
+          </button>
         </div>
       </aside>
     </>

@@ -1,3 +1,4 @@
+import { logger } from '../lib/logger';
 import { useState, useEffect } from 'react';
 import { useRole } from '../context/RoleContext';
 import { db } from '../firebase';
@@ -60,7 +61,7 @@ export function WishlistView() {
             }
           }
       } catch (err) {
-          console.error("Fetch wishlist items error:", err);
+          logger.error("Fetch wishlist items error:", err);
       } finally {
           setIsLoading(false);
       }

@@ -1,3 +1,6 @@
+import { logger } from '../../lib/logger';
+import { useConfirm } from '../../components/ui/ConfirmDialog';
+import { toast } from '../../hooks/use-toast';
 import React, { useState, useEffect } from "react";
 import { UserCheck, CheckCircle2, XCircle, Loader2, Mail, DatabaseZap, ShieldCheck, Search, Users } from "lucide-react";
 import {
@@ -16,6 +19,8 @@ import clsx from "clsx";
 import { NdaraSkeleton, EmptyState } from "./AdminSupport";
 
 export function AdminInstructors() {
+  const confirm = useConfirm();
+
   const [instructors, setInstructors] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -37,7 +42,7 @@ export function AdminInstructors() {
         setIsLoading(false);
       },
       (error) => {
-        console.error("Error fetching instructors:", error);
+        logger.error("Error fetching instructors:", error);
         setIsLoading(false);
       },
     );
@@ -138,7 +143,7 @@ const ApplicationRow: React.FC<{ instructor: any }> = ({ instructor }) => {
       confirmMessage = `Révoquer les droits d'instructeur pour ${instructor.name || instructor.displayName || instructor.email} ?`;
     }
 
-    if (!window.confirm(confirmMessage)) return;
+    if (!(await confirm(confirmMessage))) return;
 
     setIsMutating(true);
     try {
@@ -155,8 +160,8 @@ const ApplicationRow: React.FC<{ instructor: any }> = ({ instructor }) => {
         });
       }
     } catch (error) {
-      console.error("Error updating instructor status:", error);
-      alert("Une erreur est survénue. Veuillez réessayer.");
+      logger.error("Error updating instructor status:", error);
+      toast({ variant: 'destructive', title: 'Erreur', description: String("Une erreur est survénue. Veuillez réessayer.") });
     } finally {
       setIsMutating(false);
     }

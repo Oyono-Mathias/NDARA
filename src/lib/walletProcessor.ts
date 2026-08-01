@@ -1,10 +1,11 @@
+import { logger } from '../lib/logger';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { adminDb as serverDb } from './firebaseAdmin';
 import { WalletTransaction, TransactionType, TransactionStatus } from '../types/wallet';
 
 async function logSecurityAlert(details: string, action: string) {
   try {
-    console.error(`[CRITICAL SECURITY ALERT] ${details}`);
+    logger.error(`[CRITICAL SECURITY ALERT] ${details}`);
     await serverDb.collection('system_logs').add({
       eventType: 'SECURITY_ALERT',
       details: details,
@@ -13,7 +14,7 @@ async function logSecurityAlert(details: string, action: string) {
       level: 'critical'
     });
   } catch(e) {
-    console.error('Failed to log security alert', e);
+    logger.error('Failed to log security alert', e);
   }
 }
 
@@ -184,23 +185,35 @@ const q = serverDb.collection("enrollments").where("instructorId", "==", receive
 }
 
 /**
- * Purchases a course with atomic 10% affiliate parrainage and 14-days escrow rules.
+ * Purchase a course
  */
 export async function purchaseCourseWithEscrow(
   studentId: string, 
-  price: number, 
+  clientPrice: number, 
   courseId: string, 
   courseTitle: string, 
   sellerId: string,
-  purchaseId?: string
+  purchaseId?: string,
+  couponCode?: string
 ) {
-  if (price <= 0) throw new Error('Le prix du cours doit être un montant positif.');
-  
+  let couponDiscount = 0;
+  if (couponCode) {
+    const couponSnap = await serverDb.collection('course_coupons').where('code', '==', couponCode).get();
+    if (!couponSnap.empty) {
+      const coupon = couponSnap.docs[0].data();
+      if (coupon.isActive !== false) {
+        if (!coupon.courses || coupon.courses.length === 0 || coupon.courses.includes(courseId)) {
+          couponDiscount = coupon.discount || 0;
+        }
+      }
+    }
+  }
+
   const studentRef = serverDb.collection('users').doc(studentId);
   const sellerRef = serverDb.collection('users').doc(sellerId);
+  const courseRef = serverDb.collection('courses').doc(courseId);
   
   return await serverDb.runTransaction(async (transaction) => {
-    // 1. Get student profile & balance
     const studentTxRef = purchaseId ? serverDb.collection('users').doc(studentId).collection('transactions').doc(purchaseId) : serverDb.collection('users').doc(studentId).collection('transactions').doc();
     
     if (purchaseId) {
@@ -210,15 +223,22 @@ export async function purchaseCourseWithEscrow(
       }
     }
 
-
-
-    // 0. Check if already enrolled
     const enrollmentsQuery = serverDb.collection('enrollments').where('studentId', '==', studentId).where('courseId', '==', courseId);
     const enrollmentsSnapshot = await enrollmentsQuery.get();
     if (!enrollmentsSnapshot.empty) {
       throw new Error('Vous êtes déjà inscrit à cette formation.');
     }
 
+    const courseSnap = await transaction.get(courseRef);
+    let actualPrice = clientPrice;
+    if (courseSnap.exists) {
+      actualPrice = courseSnap.data()?.price || 0;
+    }
+    
+    const calculatedPrice = actualPrice > 0 ? actualPrice - (actualPrice * (couponDiscount / 100)) : 0;
+    const finalPrice = Math.round(calculatedPrice);
+
+    if (finalPrice < 0) throw new Error('Le prix du cours ne peut pas être négatif.');
 
     const studentSnap = await transaction.get(studentRef);
     if (!studentSnap.exists) {
@@ -227,17 +247,15 @@ export async function purchaseCourseWithEscrow(
     
     const studentData = studentSnap.data();
     const studentBalance = studentData.balance || 0;
-    if (studentBalance < price) {
-      throw new Error(`Solde Ndara insuffisant. Le cours coûte ${price.toLocaleString()} F, et votre solde disponible est de ${studentBalance.toLocaleString()} F. Veuillez recharger votre portefeuille.`);
+    if (studentBalance < finalPrice) {
+      throw new Error(`Solde Ndara insuffisant. Le cours coûte ${finalPrice.toLocaleString()} F, et votre solde disponible est de ${studentBalance.toLocaleString()} F. Veuillez recharger votre portefeuille.`);
     }
     
-    // Check if there is an ambassador/referrer
     const referrerId = studentData.referredBy || null;
     
-    // Calculate shares:
-    // rule: 10% parrainage rule
     let affiliateAmount = 0;
-    let sellerAmount = price;
+    let platformAmount = Math.round(finalPrice * 0.30);
+    let sellerAmount = finalPrice - platformAmount;
     
     let referrerRef = null;
     let referrerSnap = null;
@@ -246,23 +264,21 @@ export async function purchaseCourseWithEscrow(
       referrerRef = serverDb.collection('users').doc(referrerId);
       referrerSnap = await transaction.get(referrerRef);
       if (referrerSnap.exists) {
-        affiliateAmount = Math.round(price * 0.10);
-        sellerAmount = price - affiliateAmount;
+        affiliateAmount = Math.round(finalPrice * 0.10);
+        platformAmount = platformAmount - affiliateAmount; 
       }
     }
     
-    // 2. Get Seller profile
     const sellerSnap = await transaction.get(sellerRef);
     if (!sellerSnap.exists) {
       throw new Error(`Profil formateur introuvable (${sellerId}).`);
     }
     const sellerData = sellerSnap.data();
     
-    // 3. Update Student Balance (deduct primary price)
-    const finalStudentBalance = studentBalance - price;
+    const finalStudentBalance = studentBalance - finalPrice;
     
     if (finalStudentBalance < 0) {
-      logSecurityAlert(`Solde étudiant négatif évité: UID=${studentId}, Prix=${price}, Solde=${studentBalance}`, 'COURSE_PURCHASE_BLOCKED');
+      logSecurityAlert(`Solde étudiant négatif évité: UID=${studentId}, Prix=${finalPrice}, Solde=${studentBalance}`, 'COURSE_PURCHASE_BLOCKED');
       throw new Error(`Solde Ndara insuffisant (Alerte Sécurité).`);
     }
 
@@ -270,18 +286,15 @@ export async function purchaseCourseWithEscrow(
       balance: finalStudentBalance
     });
     
-    // 4. Update Seller Pending Balance (course sales go to 14-day escrow pendingBalance)
     const finalSellerPending = (sellerData.pendingBalance || 0) + sellerAmount;
     transaction.update(sellerRef, {
       pendingBalance: finalSellerPending
     });
     
-    // 5. Update Referrer Pending Balance if applicable
     if (referrerRef && referrerSnap) {
       const referrerData = referrerSnap.data();
       const finalReferrerAffiliatePending = (referrerData.pendingAffiliateBalance || 0) + affiliateAmount;
       
-      // Update stats
       const affStats = referrerData.affiliateStats || { clicks: 0, registrations: 0, sales: 0, earnings: 0 };
       affStats.sales = (affStats.sales || 0) + 1;
       affStats.earnings = (affStats.earnings || 0) + affiliateAmount;
@@ -292,19 +305,17 @@ export async function purchaseCourseWithEscrow(
       });
     }
     
-    // 6. Define Escrow clearance window
     const creationTime = new Date();
-    const releaseTime = new Date(creationTime.getTime() + (14 * 24 * 60 * 60 * 1000)); // 14 days escrow hold
+    const releaseTime = new Date(creationTime.getTime() + (14 * 24 * 60 * 60 * 1000));
     
-    // 7. Write Ledger Transactions
     const studentTx: WalletTransaction = {
       id: studentTxRef.id,
       userId: studentId,
       type: 'purchase',
-      amount: -price,
+      amount: -finalPrice,
       status: 'completed',
       timestamp: creationTime.toISOString(),
-      description: `Achat du syllabus: ${courseTitle}`,
+      description: `Achat du syllabus: ${courseTitle}${couponDiscount > 0 ? ` (Coupon -${couponDiscount}%)` : ''}`,
       courseId
     };
     transaction.set(studentTxRef, studentTx);
@@ -317,7 +328,7 @@ export async function purchaseCourseWithEscrow(
       amount: sellerAmount,
       status: 'pending',
       timestamp: creationTime.toISOString(),
-      description: `Vente du syllabus parrainé: ${courseTitle}`,
+      description: `Vente du syllabus: ${courseTitle} (Frais plateforme déduits)`,
       relatedUserId: studentId,
       releaseAt: releaseTime.toISOString(),
       courseId
@@ -333,24 +344,36 @@ export async function purchaseCourseWithEscrow(
         amount: affiliateAmount,
         status: 'pending',
         timestamp: creationTime.toISOString(),
-        description: `Commission 10% parrainage étudiant (${studentData.fullName || 'Étudiant'}) - ${courseTitle}`,
+        description: `Commission 10% parrainage étudiant (${studentData.fullName || studentData.displayName || 'Étudiant'}) - ${courseTitle}`,
         relatedUserId: studentId,
         releaseAt: releaseTime.toISOString(),
         courseId
       };
       transaction.set(referrerTxRef, referrerTx);
     }
-    
 
-    // 8. Create Enrollment
+    const platformTxRef = purchaseId ? serverDb.collection('platform_revenue').doc(purchaseId) : serverDb.collection('platform_revenue').doc();
+    transaction.set(platformTxRef, {
+      amount: platformAmount,
+      courseId,
+      sellerId,
+      studentId,
+      timestamp: creationTime.toISOString(),
+      type: 'course_sale_fee'
+    });
+
     const enrollmentRef = serverDb.collection('enrollments').doc();
     transaction.set(enrollmentRef, {
       studentId: studentId,
       courseId: courseId,
       enrolledAt: creationTime.toISOString(),
       progress: 0,
-      instructorId: sellerId
+      instructorId: sellerId,
+      deletedAt: null,
+      createdAt: creationTime.getTime(),
+      updatedAt: creationTime.getTime()
     });
+
     return { 
       success: true, 
       finalStudentBalance, 
@@ -360,7 +383,6 @@ export async function purchaseCourseWithEscrow(
     };
   });
 }
-
 /**
  * Scans and releases expired pending escrow funds into available balances atomically.
  */

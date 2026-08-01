@@ -8,6 +8,7 @@ import {
   onAuthStateChanged,
   sendPasswordResetEmail,
   sendEmailVerification,
+  signInWithCustomToken,
   User as FirebaseUser,
   updateProfile
 } from 'firebase/auth';
@@ -33,7 +34,14 @@ class AuthService {
     }
   }
 
-    async login(email: string, password: string) {
+    
+  async loginWithToken(token: string) {
+    const cred = await signInWithCustomToken(auth, token);
+    this._logAudit('IMPERSONATION_LOGIN', cred.user);
+    return cred;
+  }
+
+  async login(email: string, password: string) {
     const cred = await signInWithEmailAndPassword(auth, email, password);
     this._logAudit('LOGIN', cred.user);
     return cred;
@@ -46,6 +54,8 @@ class AuthService {
     // Mettre à jour le profil Firebase
     await updateProfile(user, { displayName });
     
+    let referredBy = undefined;
+
     // Créer le document utilisateur dans Firestore
     await UsersService.create({
       email: user.email!,
@@ -53,6 +63,7 @@ class AuthService {
       photoURL: user.photoURL || '',
       role,
       walletBalance: 0,
+      referredBy,
       preferences: {}
     }, user.uid);
     

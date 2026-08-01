@@ -1,3 +1,4 @@
+import { logger } from '../lib/logger';
 import { collection, query, where, getDocs, setDoc, doc, serverTimestamp } from "firebase/firestore";
 import { db } from "../firebase";
 
@@ -48,7 +49,7 @@ export async function awardBadgeIfEligible(userId: string, badgeId: string): Pro
     });
     return true;
   } catch (err) {
-    console.error("Erreur lors de l'attribution du badge:", err);
+    logger.error("Erreur lors de l'attribution du badge:", err);
     return false;
   }
 }

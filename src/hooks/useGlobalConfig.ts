@@ -1,3 +1,4 @@
+import { logger } from '../lib/logger';
 import { useState, useEffect } from "react";
 import { doc, onSnapshot } from "firebase/firestore";
 import { db } from "../firebase";
@@ -23,7 +24,7 @@ export function useGlobalConfig() {
         setLoading(false);
       },
       (error) => {
-        console.error("Erreur récupération global_config: ", error);
+        logger.error("Erreur récupération global_config: ", error);
         setLoading(false);
       }
     );

@@ -1,3 +1,4 @@
+import { logger } from './lib/logger';
 /// <reference lib="webworker" />
 import { precacheAndRoute, cleanupOutdatedCaches, createHandlerBoundToURL } from 'workbox-precaching';
 import { registerRoute, NavigationRoute, setCatchHandler } from 'workbox-routing';
@@ -5,7 +6,7 @@ import { CacheFirst, NetworkFirst } from 'workbox-strategies';
 import { ExpirationPlugin } from 'workbox-expiration';
 import { CacheableResponsePlugin } from 'workbox-cacheable-response';
 
-declare let self: ServiceWorkerGlobalScope;
+declare let self: any;
 
 // Nettoyer les anciens caches lors d'une mise à jour
 cleanupOutdatedCaches();
@@ -180,7 +181,7 @@ async function prefetchVideo(masterPlaylistUrl: string, videoId: string, client:
                 try {
                     await fetch(url, { mode: 'no-cors' }); 
                 } catch (e) {
-                    console.error("Erreur téléchargement segment:", url, e);
+                    logger.error("Erreur téléchargement segment:" + " " + url, e);
                 }
             }));
             

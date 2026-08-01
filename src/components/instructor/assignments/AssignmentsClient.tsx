@@ -1,3 +1,5 @@
+import { logger } from '../../../lib/logger';
+import { toast } from '../../../hooks/use-toast';
 import { useState, useEffect, useMemo } from "react";
 import {
   collection,
@@ -11,6 +13,7 @@ import {
   onSnapshot,
   collectionGroup,
   limit,
+  writeBatch,
 } from "firebase/firestore";
 import { db } from "../../../firebase";
 import { useRole } from "../../../context/RoleContext";
@@ -28,6 +31,8 @@ import {
 } from "lucide-react";
 import { SwipeableItem } from "../../ui/SwipeableItem";
 import { TouchArea } from "../../ui/TouchArea";
+import { uploadToR2 } from "../../../lib/r2Upload";
+import { Paperclip } from "lucide-react";
 
 export function AssignmentsClient() {
   const { currentUser: instructor } = useRole();
@@ -46,6 +51,11 @@ export function AssignmentsClient() {
   const [selectedCourse, setSelectedCourse] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [isCreating, setIsCreating] = useState(false);
+  const [maxGrade, setMaxGrade] = useState("20");
+  const [attachmentUrl, setAttachmentUrl] = useState("");
+  const [attachmentName, setAttachmentName] = useState("");
+  const [isUploading, setIsUploading] = useState(false);
+  const [status, setStatus] = useState<"draft" | "published">("published");
 
   // Grade state
   const [selectedSubmission, setSelectedSubmission] = useState<any>(null);
@@ -62,18 +72,26 @@ export function AssignmentsClient() {
       collection(db, "courses"),
       where("instructorId", "==", instructor.uid),
     );
+    logger.info("Listening courses", { collection: "courses", uid: instructor?.uid });
     const unsubCourses = onSnapshot(qCourses, (snap) => {
       setCourses(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-    });
+    }, (err) => logger.error("Courses snapshot failed", err));
 
     // Fetch assignments
     const qAssignments = query(
       collectionGroup(db, "assignments"),
       where("instructorId", "==", instructor.uid),
     );
+    logger.info("Listening assignments", { collection: "assignments", uid: instructor?.uid });
     const unsubAssignments = onSnapshot(qAssignments, (snap) => {
-      setAssignments(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-    });
+      const fetched = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      fetched.sort((a: any, b: any) => {
+        const dA = a.createdAt?.toMillis?.() || 0;
+        const dB = b.createdAt?.toMillis?.() || 0;
+        return dB - dA;
+      });
+      setAssignments(fetched);
+    }, (err) => logger.error("Assignments snapshot failed", err));
 
     // Fetch submissions (Limité à 100 pour préserver le billing)
     const qSubmissions = query(
@@ -120,18 +138,55 @@ export function AssignmentsClient() {
         courseTitle: courseObj?.title || "Formation",
         instructorId: instructor.uid,
         dueDate: dueDate ? new Date(dueDate) : null,
+        maxGrade: Number(maxGrade),
+        attachmentUrl,
+        attachmentName,
+        status,
         createdAt: serverTimestamp(),
       });
       setNewTitle("");
       setNewDescription("");
       setDueDate("");
+      setMaxGrade("20");
+      setAttachmentUrl("");
+      setAttachmentName("");
+      setStatus("published");
       setActiveTab("grade");
-    } catch (error: any) {
-      console.error("Erreur lors de la création de l'assignment:", error);
-      alert(
-        "Erreur lors de la création : " +
-          (error.message || "Permissions insuffisantes."),
-      );
+
+      
+      // Notify students (fire and forget)
+      if (status === 'published') {
+        (async () => {
+          try {
+            const enrollmentsRef = collection(db, 'enrollments');
+            const qE = query(enrollmentsRef, where('courseId', '==', selectedCourse));
+            const enrollSnap = await getDocs(qE);
+            
+            const batch = writeBatch(db);
+            enrollSnap.forEach(docSnap => {
+              const studentId = docSnap.data().studentId;
+              if (studentId) {
+                const notifRef = doc(collection(db, `users/${studentId}/notifications`));
+                batch.set(notifRef, {
+                  title: "Nouveau devoir disponible",
+                  message: `Un nouveau devoir "${newTitle}" a été ajouté à la formation "${courseObj?.title || 'Formation'}".`,
+                  type: 'assignment_created',
+                  link: '/student/devoirs',
+                  read: false,
+                  createdAt: serverTimestamp()
+                });
+              }
+            });
+            await batch.commit();
+          } catch (e) {
+            console.warn("Failed to send notifications", e);
+          }
+        })();
+      }
+} catch (error: any) {
+      logger.error("Erreur lors de la création de l'assignment:", error);
+      toast({ variant: 'destructive', title: 'Erreur', description: "Erreur lors de la création : " +
+          (error.message || "Permissions insuffisantes.") });
     } finally {
       setIsCreating(false);
     }
@@ -206,6 +261,20 @@ Retourne un objet JSON strict contenant exactement :
       });
 
       setGradeSuccess(true);
+
+      // Notify student
+      if (selectedSubmission?.studentId) {
+        const notifRef = doc(collection(db, `users/${selectedSubmission.studentId}/notifications`));
+        setDoc(notifRef, {
+          title: "Devoir noté",
+          message: `Votre devoir a été noté. Note: ${data.finalGrade || 0}/20.`,
+          type: 'assignment_graded',
+          link: '/student/devoirs',
+          read: false,
+          createdAt: serverTimestamp()
+        }).catch(e => console.warn("Failed to send notification", e));
+      }
+
       setTimeout(() => {
         setGradeSuccess(false);
         setSelectedSubmission(null);
@@ -213,10 +282,8 @@ Retourne un objet JSON strict contenant exactement :
         setFeedback("");
       }, 3000);
     } catch (error) {
-      console.error("Error generating AI grading:", error);
-      alert(
-        "Erreur de correction IA. Assurez-vous que la clé VITE_GEMINI_API_KEY est valide.",
-      );
+      logger.error("Error generating AI grading:", error);
+      toast({ variant: 'destructive', title: 'Erreur', description: "Erreur de correction IA. Assurez-vous que la clé VITE_GEMINI_API_KEY est valide." });
     } finally {
       setIsGeneratingAI(false);
     }
@@ -236,6 +303,19 @@ Retourne un objet JSON strict contenant exactement :
       });
       setGradeSuccess(true);
 
+      // Notify student
+      if (selectedSubmission?.studentId) {
+        const notifRef = doc(collection(db, `users/${selectedSubmission.studentId}/notifications`));
+        setDoc(notifRef, {
+          title: "Devoir noté",
+          message: `Votre devoir a été noté. Note: ${Number(grade)}/20.`,
+          type: 'assignment_graded',
+          link: '/student/devoirs',
+          read: false,
+          createdAt: serverTimestamp()
+        }).catch(e => console.warn("Failed to send notification", e));
+      }
+
       setTimeout(() => {
         setGradeSuccess(false);
         setSelectedSubmission(null);
@@ -243,12 +323,8 @@ Retourne un objet JSON strict contenant exactement :
         setFeedback("");
       }, 2000);
     } catch (error: any) {
-      console.error("Error grading:", error);
-      alert(
-        "Erreur lors de la notation : " +
-          (error.message ||
-            "Permissions insuffisantes. Le timestamp ('gradedAt') ou d'autres champs bloquent peut-être Firestore."),
-      );
+      logger.error("Error grading:", error);
+      toast({ variant: 'destructive', title: 'Erreur', description: "Erreur lors de la notation : " + (error.message || "Permissions insuffisantes.") });
     } finally {
       setIsGrading(false);
     }
@@ -315,12 +391,65 @@ Retourne un objet JSON strict contenant exactement :
               onChange={(e) => setNewDescription(e.target.value)}
             />
 
-            <input
-              type="date"
-              className="w-full bg-[#0f172a] border border-white/10 rounded-2xl p-4 text-sm focus:ring-1 focus:ring-primary/50 text-slate-400"
-              value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
-            />
+            
+            <div className="grid grid-cols-2 gap-4">
+              <input
+                type="date"
+                className="w-full bg-[#0f172a] border border-white/10 rounded-2xl p-4 text-sm focus:ring-1 focus:ring-primary/50 text-slate-400"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+              />
+              <input
+                type="number"
+                placeholder="Note maximale (ex: 20)"
+                className="w-full bg-[#0f172a] border border-white/10 rounded-2xl p-4 text-sm focus:ring-1 focus:ring-primary/50 text-white"
+                value={maxGrade}
+                onChange={(e) => setMaxGrade(e.target.value)}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <select
+                className="w-full bg-[#0f172a] border border-white/10 rounded-2xl p-4 text-sm focus:ring-1 focus:ring-primary/50 text-white"
+                value={status}
+                onChange={(e) => setStatus(e.target.value as any)}
+              >
+                <option value="published">Publié (Visible)</option>
+                <option value="draft">Brouillon (Caché)</option>
+              </select>
+
+              <div className="relative">
+                <input
+                  type="file"
+                  id="assignment-attachment"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    setIsUploading(true);
+                    try {
+                      const url = await uploadToR2(file, 'assignments_attachments');
+                      setAttachmentUrl(url);
+                      setAttachmentName(file.name);
+                      toast({ title: 'Information', description: 'Fichier ajouté avec succès' });
+                    } catch (err) {
+                      logger.error(err);
+                      toast({ variant: 'destructive', title: 'Erreur', description: 'Échec de l\'upload' });
+                    } finally {
+                      setIsUploading(false);
+                    }
+                  }}
+                />
+                <label
+                  htmlFor="assignment-attachment"
+                  className={`w-full h-[54px] bg-[#0f172a] border border-white/10 rounded-2xl p-4 text-sm focus:ring-1 focus:ring-primary/50 text-slate-400 flex items-center justify-between cursor-pointer ${isUploading ? "opacity-50" : ""}`}
+                >
+                  <span className="truncate">{attachmentName || "Joindre un fichier..."}</span>
+                  {isUploading ? <Loader2 className="w-4 h-4 animate-spin text-primary" /> : <Paperclip className="w-4 h-4 text-primary" />}
+                </label>
+              </div>
+            </div>
+
 
             <button
               onClick={handleCreateAssignment}

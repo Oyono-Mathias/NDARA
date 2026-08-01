@@ -1,3 +1,4 @@
+import { logger } from '../lib/logger';
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
@@ -136,7 +137,7 @@ export function UniversalPlayground() {
             setAgronomyData(JSON.parse(data.initialCode || "{}"));
         }
       } catch (e) {
-        console.error("Erreur chargement demo filière:", e);
+        logger.error("Erreur chargement demo filière:", e);
       }
     }
 
@@ -181,7 +182,7 @@ export function UniversalPlayground() {
           await loadTemplateData(null);
         }
       } catch (err) {
-        console.error("Erreur au chargement de la sandbox", err);
+        logger.error("Erreur au chargement de la sandbox", err);
       } finally {
         setIsLoading(false);
       }
@@ -210,7 +211,7 @@ export function UniversalPlayground() {
           }
         }
       } catch (e) {
-        console.error("Erreur de récupération du template", e);
+        logger.error("Erreur de récupération du template", e);
       }
     }
 
@@ -256,7 +257,7 @@ export function UniversalPlayground() {
 
       setToast({ type: "success", text: "Exercice sauvegardé avec succès !" });
     } catch (err) {
-      console.error("Erreur lors de la sauvegarde :", err);
+      logger.error("Erreur lors de la sauvegarde :", err);
       setToast({ type: "error", text: "Erreur lors de la sauvegarde." });
     } finally {
       setIsSaving(false);
@@ -360,6 +361,7 @@ export function UniversalPlayground() {
         outputLogs.push(`Analyse de la campagne par l'IA Mathias...`);
         const chatRes = await fetch("/api/chat", {
           method: "POST",
+        credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             message: `Tu es un expert marketing. Évalue cet exercice d'un étudiant. Critères: ${expectedOutput || "Créativité, cohérence"}.
@@ -680,7 +682,7 @@ document.addEventListener('DOMContentLoaded', () => {
   try {
     ${scriptContent}
   } catch (err) {
-    console.error(err);
+    logger.error(err);
   }
 });
 </script>`;
@@ -701,7 +703,7 @@ document.addEventListener('DOMContentLoaded', () => {
   try {
     ${renderedHTML}
   } catch (err) {
-    console.error(err);
+    logger.error(err);
   }
 });
 </script>`;

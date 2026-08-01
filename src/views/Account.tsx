@@ -1,3 +1,6 @@
+import { logger } from '../lib/logger';
+import { useConfirm } from '../components/ui/ConfirmDialog';
+import { toast } from '../hooks/use-toast';
 import { User, ShieldCheck, Mail, MapPin, Globe, CreditCard, GraduationCap, Loader2 } from "lucide-react";
 import { useRole } from "../context/RoleContext";
 import { useState } from "react";
@@ -6,12 +9,14 @@ import { db } from "../firebase";
 import { TopAppBar } from "../components/ui/TopAppBar";
 
 export function AccountView() {
+  const confirm = useConfirm();
+
   const { currentUser, role } = useRole();
   const [isRequesting, setIsRequesting] = useState(false);
 
   const handleRequestInstructor = async () => {
       if (!currentUser?.uid || isRequesting) return;
-      if (!window.confirm("Envoyer une demande pour devenir formateur (expert) ?")) return;
+      if (!(await confirm("Envoyer une demande pour devenir formateur (expert) ?"))) return;
 
       setIsRequesting(true);
       try {
@@ -19,11 +24,11 @@ export function AccountView() {
              role: "pending_instructor",
              status: "pending"
           });
-          alert("Votre demande a bien été envoyée à l'administration !");
+          toast({ title: 'Information', description: String("Votre demande a bien été envoyée à l'administration !") });
           window.location.reload(); // force reload context
       } catch (e: any) {
-          console.error(e);
-          alert("Erreur: " + e.message);
+          logger.error(e);
+          toast({ variant: 'destructive', title: 'Erreur', description: String("Erreur: " + e.message) });
       } finally {
           setIsRequesting(false);
       }

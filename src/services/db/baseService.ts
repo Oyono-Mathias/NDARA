@@ -43,13 +43,13 @@ export class BaseService<T extends BaseModel> {
   }
 
   async getAll(constraints: QueryConstraint[] = [], includeDeleted = false): Promise<T[]> {
-    let finalConstraints = [...constraints];
-    if (!includeDeleted) {
-        finalConstraints.push(where('deletedAt', '==', null));
-    }
-    const q = query(this.getCollectionRef(), ...finalConstraints);
+    const q = query(this.getCollectionRef(), ...constraints);
     const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => doc.data());
+    const results = querySnapshot.docs.map(doc => doc.data());
+    if (!includeDeleted) {
+        return results.filter((doc: any) => !doc.deletedAt);
+    }
+    return results;
   }
   
   async getPaginated(
@@ -59,9 +59,6 @@ export class BaseService<T extends BaseModel> {
     includeDeleted = false
   ) {
       let finalConstraints = [...constraints];
-      if (!includeDeleted) {
-          finalConstraints.push(where('deletedAt', '==', null));
-      }
       finalConstraints.push(limit(pageSize));
       if (lastDoc) {
           finalConstraints.push(startAfter(lastDoc));
@@ -70,8 +67,12 @@ export class BaseService<T extends BaseModel> {
       const q = query(this.getCollectionRef(), ...finalConstraints);
       const querySnapshot = await getDocs(q);
       
+      let data = querySnapshot.docs.map(doc => doc.data());
+      if (!includeDeleted) {
+          data = data.filter((doc: any) => !doc.deletedAt);
+      }
       return {
-          data: querySnapshot.docs.map(doc => doc.data()),
+          data,
           lastDoc: querySnapshot.docs.length > 0 ? querySnapshot.docs[querySnapshot.docs.length - 1] : undefined
       };
   }
@@ -106,13 +107,12 @@ export class BaseService<T extends BaseModel> {
   }
 
   subscribe(constraints: QueryConstraint[], callback: (data: T[]) => void, includeDeleted = false) {
-    let finalConstraints = [...constraints];
-    if (!includeDeleted) {
-        finalConstraints.push(where('deletedAt', '==', null));
-    }
-    const q = query(this.getCollectionRef(), ...finalConstraints);
+    const q = query(this.getCollectionRef(), ...constraints);
     return onSnapshot(q, (snapshot) => {
-      const results = snapshot.docs.map(doc => doc.data());
+      let results = snapshot.docs.map(doc => doc.data());
+      if (!includeDeleted) {
+          results = results.filter((doc: any) => !doc.deletedAt);
+      }
       callback(results);
     });
   }

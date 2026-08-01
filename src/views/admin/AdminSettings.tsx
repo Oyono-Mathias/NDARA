@@ -1,3 +1,4 @@
+import { logger } from '../../lib/logger';
 import React, { useState, useEffect } from 'react';
 import { 
   Settings, Palette, Wrench, Users, GraduationCap, BookOpen, Award, CreditCard, 
@@ -7,6 +8,7 @@ import {
 import clsx from 'clsx';
 import { doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { db, auth } from '../../firebase';
+import { GoogleWorkspaceAuth } from '../../components/GoogleWorkspaceAuth';
 
 const HUBS = [
   {
@@ -111,6 +113,7 @@ export function AdminSettings() {
         const token = await auth.currentUser?.getIdToken();
         const res = await fetch('/api/admin/video/ping', {
             method: 'POST',
+        credentials: "include",
             headers: { 
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}` 
@@ -157,7 +160,7 @@ export function AdminSettings() {
             });
         }
     } catch(err) {
-        console.error("Failed to fetch health stats", err);
+        logger.error("Failed to fetch health stats", err);
     }
     setLoadingHealth(false);
   };
@@ -230,7 +233,7 @@ export function AdminSettings() {
         }
         fetchHealthStats(loadedConfig);
       } catch (error) {
-        console.error("Error fetching settings: ", error);
+        logger.error("Error fetching settings: ", error);
       } finally {
         setIsLoading(false);
       }
@@ -255,6 +258,7 @@ export function AdminSettings() {
             
           const res = await fetch('/api/admin/video/validate', {
               method: 'POST',
+        credentials: "include",
               headers: {
                   'Content-Type': 'application/json',
                   'Authorization': `Bearer ${token}`
@@ -282,7 +286,7 @@ export function AdminSettings() {
       const docRef = doc(db, 'settings', 'global_config');
       await updateDoc(docRef, config);
     } catch (error) {
-       console.error("Error updating config:", error);
+       logger.error("Error updating config:", error);
     } finally {
       setIsSaving(false);
     }
@@ -547,6 +551,7 @@ export function AdminSettings() {
             <>
                 <TextInput label="Clé API OpenAI (GPT-4 / Whisper)" type="password" placeholder="sk-..." value={config.openai_api_key} onChange={(v: string) => updateObj('openai_api_key', v)} />
                 <TextInput label="Google OAuth Client ID" type="text" placeholder="123456789-xxxx.apps.googleusercontent.com" value={config.google_client_id} onChange={(v: string) => updateObj('google_client_id', v)} />
+                <div className="mt-4"><GoogleWorkspaceAuth onSuccess={(t) => updateObj('google_workspace_token', t)} /></div>
             </>
         );
         case 'storage': return (

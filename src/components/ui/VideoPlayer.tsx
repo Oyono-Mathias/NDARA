@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
+import Hls from 'hls.js';
 import { Play, Pause, Maximize, Volume2, VolumeX } from 'lucide-react';
 
 interface VideoPlayerProps {
@@ -7,9 +8,10 @@ interface VideoPlayerProps {
   onProgress?: (time: number) => void;
   onEnded?: () => void;
   className?: string;
+  playerType?: string;
 }
 
-export function VideoPlayer({ url, startTime = 0, onProgress, onEnded, className = "" }: VideoPlayerProps) {
+export function VideoPlayer({ url, startTime = 0, onProgress, onEnded, className = "", playerType = "bunny" }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   
@@ -22,11 +24,43 @@ export function VideoPlayer({ url, startTime = 0, onProgress, onEnded, className
   let controlsTimeout: any;
 
   useEffect(() => {
-    if (videoRef.current) {
-      videoRef.current.currentTime = startTime;
-      videoRef.current.play().catch(e => console.log("Auto-play prevented", e));
+    const video = videoRef.current;
+    if (!video) return;
+
+    let hls: Hls | null = null;
+
+    const playVideo = () => {
+      video.currentTime = startTime;
+      video.play().catch(e => console.log("Auto-play prevented", e));
+    };
+
+    if (url.endsWith('.m3u8')) {
+      if (Hls.isSupported()) {
+        hls = new Hls({
+          startPosition: startTime
+        });
+        hls.loadSource(url);
+        hls.attachMedia(video);
+        hls.on(Hls.Events.MANIFEST_PARSED, function () {
+          playVideo();
+        });
+      } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        // Safari native support
+        video.src = url;
+        video.addEventListener('loadedmetadata', playVideo);
+      }
+    } else {
+      video.src = url;
+      video.addEventListener('loadedmetadata', playVideo);
     }
-  }, [url, startTime]);
+
+    return () => {
+      if (hls) {
+        hls.destroy();
+      }
+      video.removeEventListener('loadedmetadata', playVideo);
+    };
+  }, [url]);
 
   const handleTimeUpdate = () => {
     if (videoRef.current) {
@@ -88,6 +122,32 @@ export function VideoPlayer({ url, startTime = 0, onProgress, onEnded, className
     }
   };
 
+  // Logic based on playerType config
+  if (playerType === 'mux') {
+    // Mux player placeholder/logic if available
+  }
+  
+  if (playerType === 'cloudflare') {
+    // Cloudflare stream placeholder/logic if available
+  }
+  
+  if (playerType === 'local') {
+    // Local player (will skip the iframe return if we want, but if url is bunny we still have to render it as iframe since it's bunny url)
+  }
+
+  if (url.includes('iframe.mediadelivery.net') || url.includes('youtube.com') || url.includes('vimeo.com')) {
+    return (
+      <div className={`relative w-full h-full bg-black ${className}`}>
+        <iframe
+          src={url}
+          className="w-full h-full"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowFullScreen
+        ></iframe>
+      </div>
+    );
+  }
+
   return (
     <div 
       ref={containerRef} 
@@ -97,7 +157,7 @@ export function VideoPlayer({ url, startTime = 0, onProgress, onEnded, className
     >
       <video
         ref={videoRef}
-        src={url}
+        
         className="w-full h-full max-h-full object-contain"
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleLoadedMetadata}

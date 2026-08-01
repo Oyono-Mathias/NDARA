@@ -1,3 +1,4 @@
+import { logger } from '../../lib/logger';
 import React, { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import {
@@ -80,7 +81,7 @@ export function AdminInterface() {
       }
       setIsLoading(false);
     }, (error) => {
-      console.error("Erreur de récupération de system_settings/landing_page:", error);
+      logger.error("Erreur de récupération de system_settings/landing_page:", error);
       setIsLoading(false);
     });
 
@@ -93,7 +94,7 @@ export function AdminInterface() {
       const docRef = doc(db, "system_settings", "landing_page");
       await setDoc(docRef, settings, { merge: true });
     } catch (error) {
-      console.error("Error saving landing_page settings:", error);
+      logger.error("Error saving landing_page settings:", error);
     } finally {
       setIsSaving(false);
     }
@@ -113,7 +114,7 @@ export function AdminInterface() {
       setNewSlide({ imageUrl: "", link: "", order: 0 });
       setIsAddingSlide(false);
     } catch (error) {
-      console.error("Error saving slide:", error);
+      logger.error("Error saving slide:", error);
     } finally {
       setIsSaving(false);
     }
@@ -504,7 +505,7 @@ export function AdminInterface() {
                 Métadonnées SEO
               </h3>
               <p className="text-xs leading-relaxed text-slate-400 max-w-lg font-medium uppercase tracking-wider">
-                Les configurations avancées d'indexation (Balises meta, Open Graph, Twitter Cards) seront bientôt disponibles dans cette section.
+                
               </p>
             </div>
           )}

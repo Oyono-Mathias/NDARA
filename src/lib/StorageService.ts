@@ -1,3 +1,4 @@
+import { logger } from '../lib/logger';
 import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import crypto from "crypto";
@@ -152,7 +153,7 @@ export class StorageService {
           key: uniqueFileName,
         };
       } catch (localError) {
-        // console.error("Local upload fallback failed:", localError);
+        // logger.error("Local upload fallback failed:", localError);
         
         let dummyUrl = `https://dummyimage.com/800x600/10b981/ffffff&text=${encodeURIComponent(path.basename(uniqueFileName))}`;
         if (contentType.startsWith('video/')) {
@@ -211,7 +212,7 @@ export class StorageService {
       });
       return url;
     } catch (fbError) {
-      console.error("Firebase getSignedUrl failed:", fbError);
+      logger.error("Firebase getSignedUrl failed:", fbError);
       return this.getPublicUrl(key);
     }
   }
@@ -242,7 +243,7 @@ export class StorageService {
       return true;
     } catch (fbError: any) {
       if (fbError.code === 404) return true; // File didn't exist anyway
-      console.error(`Failed to delete file ${key} via Firebase`, fbError);
+      logger.error(`Failed to delete file ${key} via Firebase`, fbError);
       return false; // don't crash
     }
   }

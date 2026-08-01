@@ -1,3 +1,5 @@
+import { logger } from '../../lib/logger';
+import { useConfirm } from '../../components/ui/ConfirmDialog';
 import React, { useState, useEffect } from "react";
 import { collection, query, orderBy, onSnapshot, deleteDoc, doc, where, updateDoc } from "firebase/firestore";
 import { db } from "../../firebase";
@@ -15,6 +17,8 @@ export interface Squad {
 }
 
 export function AdminSquads() {
+  const confirm = useConfirm();
+
   const [squads, setSquads] = useState<Squad[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -33,7 +37,7 @@ export function AdminSquads() {
       setSquads(data);
       setIsLoading(false);
     }, (error) => {
-      console.error("Error fetching squads:", error);
+      logger.error("Error fetching squads:", error);
       setIsLoading(false);
     });
 
@@ -64,7 +68,7 @@ export function AdminSquads() {
       await deleteDoc(doc(db, "squads", squadToDelete.id));
       setStatusMsg({ type: 'success', text: 'Squad supprimée avec succès.' });
     } catch (err) {
-      console.error("Error deleting squad:", err);
+      logger.error("Error deleting squad:", err);
       setStatusMsg({ type: 'error', text: 'Erreur lors de la suppression de la Squad.' });
     } finally {
       setSquadToDelete(null);
@@ -73,24 +77,23 @@ export function AdminSquads() {
   };
 
   const handleDeleteMessage = async (msgId: string) => {
-    if (!window.confirm("Supprimer ce message ?")) return;
+    if (!(await confirm("Supprimer ce message ?"))) return;
     try {
       await deleteDoc(doc(db, "squad_messages", msgId));
     } catch(err) {
-      console.error(err);
+      logger.error(err);
       setStatusMsg({ type: 'error', text: 'Impossible de supprimer le message.' });
     }
   };
 
   const handleBanUser = async (userId: string) => {
-    const reason = window.prompt("Motif de la suspension ? (Ce motif n'est peut-être pas sauvegardé si la base ne l'attend pas, mais c'est pour confirmer)");
-    if (reason === null) return;
+    if (!(await confirm("Voulez-vous vraiment suspendre cet utilisateur ?"))) return;
     try {
       await updateDoc(doc(db, "users", userId), { status: 'suspended', suspendedAt: new Date() });
       setStatusMsg({ type: 'success', text: `Utilisateur banni avec succès.` });
       setTimeout(() => setStatusMsg(null), 3000);
     } catch(err) {
-      console.error(err);
+      logger.error(err);
       setStatusMsg({ type: 'error', text: 'Impossible de suspendre l\'utilisateur.' });
     }
   };

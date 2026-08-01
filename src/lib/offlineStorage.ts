@@ -1,3 +1,4 @@
+import { logger } from '../lib/logger';
 export const OFFLINE_STORAGE_KEY = 'edu_offline_videos';
 
 export interface OfflineVideo {
@@ -56,6 +57,6 @@ export async function removeVideoOffline(videoId: string) {
       }
     }
   } catch (e) {
-    console.error("Erreur lors de la suppression du cache vidéo :", e);
+    logger.error("Erreur lors de la suppression du cache vidéo :", e);
   }
 }

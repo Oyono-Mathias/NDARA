@@ -33,7 +33,8 @@ export function useCatalog() {
 export function useCourse(slug: string) {
   const [course, setCourse] = useState<Course | null>(null);
   const [loading, setLoading] = useState(true);
-  const { firebaseUser } = useAuth();
+  const [enrollmentLoading, setEnrollmentLoading] = useState(true);
+  const { firebaseUser, appUser } = useAuth();
   
   const [isEnrolled, setIsEnrolled] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
@@ -45,6 +46,13 @@ export function useCourse(slug: string) {
       const data = await CoursesService.getAll([where('slug', '==', slug), limit(1)]);
       if (data.length > 0) {
         setCourse(data[0]);
+      } else {
+        const courseById = await CoursesService.getById(slug);
+        if (courseById) {
+          setCourse(courseById);
+        } else {
+          setCourse(null);
+        }
       }
       setLoading(false);
     };
@@ -53,14 +61,31 @@ export function useCourse(slug: string) {
   }, [slug]);
 
   useEffect(() => {
-    if (!firebaseUser || !course) return;
+    if (!firebaseUser || !course) {
+        if (!firebaseUser) setEnrollmentLoading(false);
+        return;
+    }
 
-    const unsubEnroll = EnrollmentsService.subscribe(
-      [where('studentId', '==', firebaseUser.uid), where('courseId', '==', course.id)],
-      (data) => {
-        setIsEnrolled(data.length > 0 && data[0].status === 'active');
-      }
-    );
+    let unsubEnroll: any = null;
+
+    // Bypass enrollment check for admins or the course instructor
+    console.log("Checking enrollment bypass:", {
+        appUserRole: appUser?.role,
+        courseInstructorId: course.instructorId,
+        firebaseUserUid: firebaseUser.uid
+    });
+    if (appUser?.role === 'admin' || appUser?.role === 'superadmin' || course.instructorId === firebaseUser.uid) {
+        setIsEnrolled(true);
+        setEnrollmentLoading(false);
+    } else {
+        unsubEnroll = EnrollmentsService.subscribe(
+          [where('studentId', '==', firebaseUser.uid), where('courseId', '==', course.id)],
+          (data) => {
+            setIsEnrolled(data.length > 0 && data[0].status !== 'cancelled');
+            setEnrollmentLoading(false);
+          }
+        );
+    }
 
     const unsubFav = FavoritesService.subscribe(
       [where('userId', '==', firebaseUser.uid), where('entityId', '==', course.id)],
@@ -70,10 +95,10 @@ export function useCourse(slug: string) {
     );
 
     return () => {
-      unsubEnroll();
+      if (unsubEnroll) unsubEnroll();
       unsubFav();
     };
-  }, [firebaseUser, course]);
+  }, [firebaseUser, appUser, course]);
 
   const toggleFavorite = async () => {
     if (!firebaseUser || !course) return;
@@ -100,7 +125,7 @@ export function useCourse(slug: string) {
     }
   };
 
-  return { course, loading, isEnrolled, isFavorite, toggleFavorite, enroll };
+  return { course, loading, enrollmentLoading, isEnrolled, isFavorite, toggleFavorite, enroll };
 }
 
 export function useMyCourses() {

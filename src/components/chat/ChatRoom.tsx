@@ -1,3 +1,5 @@
+import { logger } from '../../lib/logger';
+import { toast } from '../../hooks/use-toast';
 import React from 'react';
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
@@ -45,7 +47,7 @@ export function ChatRoom({ chatId, newChatUser }: { chatId: string | null, newCh
             const perm = await Notification.requestPermission();
             if (perm === 'granted') {
                 setPushEnabled(true);
-                alert("Notifications Push activées !");
+                toast({ title: 'Information', description: String("Notifications Push activées !") });
             }
         }
     };
@@ -275,7 +277,7 @@ export function ChatRoom({ chatId, newChatUser }: { chatId: string | null, newCh
                 await batch.commit();
             }
         } catch (error) {
-            console.error("Error sending message:", error);
+            logger.error("Error sending message:", error);
         }
         
         setNewMessage('');

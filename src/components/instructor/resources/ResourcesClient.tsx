@@ -1,3 +1,6 @@
+import { logger } from '../../../lib/logger';
+import { useConfirm } from '../../../components/ui/ConfirmDialog';
+import { toast } from '../../../hooks/use-toast';
 import React, { useState, useEffect, useRef } from "react";
 import {
   collection,
@@ -24,6 +27,8 @@ import {
 } from "lucide-react";
 
 export function ResourcesClient() {
+  const confirm = useConfirm();
+
   const { currentUser } = useRole();
   const [courses, setCourses] = useState<any[]>([]);
   const [resources, setResources] = useState<any[]>([]);
@@ -114,24 +119,22 @@ export function ResourcesClient() {
       setTimeout(() => setToastMessage(null), 3000);
 
     } catch (error: any) {
-      console.error("Erreur lors de l'upload:", error);
+      logger.error("Erreur lors de l'upload:", error);
       setIsUploading(false);
       setUploadProgress(0);
-      alert(`Erreur d'upload: ${error.message || "Vérifiez votre connexion"}`);
+      toast({ variant: 'destructive', title: 'Erreur', description: String(`Erreur d'upload: ${error.message || "Vérifiez votre connexion"}`) });
     }
   };
 
   const handleDeleteResource = async (resId: string) => {
     if (!resId) return;
-    if (confirm("Supprimer cette ressource ?")) {
+    if ((await confirm("Supprimer cette ressource ?"))) {
       try {
         await deleteDoc(doc(db, "course_resources", resId));
       } catch (error: any) {
-        console.error("Erreur lors de la suppression de la ressource:", error);
-        alert(
-          "Erreur lors de la suppression : " +
-            (error.message || "Permissions insuffisantes."),
-        );
+        logger.error("Erreur lors de la suppression de la ressource:", error);
+        toast({ variant: 'destructive', title: 'Erreur', description: "Erreur lors de la suppression : " +
+            (error.message || "Permissions insuffisantes.") });
       }
     }
   };

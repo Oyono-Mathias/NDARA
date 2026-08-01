@@ -1,3 +1,4 @@
+import { logger } from '../../lib/logger';
 import React, { useEffect, useState } from 'react';
 import { 
   collection, query, where, getDocs, onSnapshot,
@@ -93,7 +94,7 @@ export function AdminDashboard() {
           });
         }
       } catch (error) {
-        console.error("Erreur KPI:", error);
+        logger.error("Erreur KPI:", error);
       } finally {
         if (isMounted) setLoading(false);
       }

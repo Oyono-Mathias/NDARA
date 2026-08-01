@@ -199,3 +199,25 @@
       box-shadow: 0 0 40px rgba(16, 185, 129, 0.3);
   }
 }
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Google Drive Picker z-index fix */
+.picker-dialog-bg {
+  z-index: 99998 !important;
+}
+.picker-dialog {
+  z-index: 99999 !important;
+}
+.picker-dialog iframe {
+  pointer-events: auto !important;
+}
+.picker-dialog {
+  pointer-events: auto !important;
+}
+.picker-dialog-bg {
+  pointer-events: auto !important;
+}

@@ -1,3 +1,5 @@
+import { logger } from '../../lib/logger';
+import { toast } from '../../hooks/use-toast';
 import { useState, useMemo, useEffect } from "react";
 import { CourseForm } from "../../components/instructor/CourseForm";
 import { ContentManager } from "../../components/instructor/course-content/ContentManager";
@@ -44,7 +46,7 @@ export function InstructorCourseEdit() {
         setIsLoading(false);
       },
       (err) => {
-        console.error(err);
+        logger.error("Erreur:", err);
         setError(true);
         setIsLoading(false);
       },
@@ -58,7 +60,7 @@ export function InstructorCourseEdit() {
 
   const handleUpdateCourse = async (data: any) => {
     if (!courseId) {
-      console.error("Erreur: ID de cours manquant ou invalide.");
+      logger.error("Erreur: ID de cours manquant ou invalide.");
       return;
     }
     setIsSaving(true);
@@ -68,10 +70,8 @@ export function InstructorCourseEdit() {
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (e: any) {
-      console.error("Erreur détaillée lors de la mise à jour:", e);
-      alert(
-        "Erreur de sauvegarde: " + (e.message || "Permissions insuffisantes."),
-      );
+      logger.error("Erreur détaillée lors de la mise à jour", e);
+      toast({ variant: 'destructive', title: 'Erreur', description: "Erreur de sauvegarde: " + (e.message || "Permissions insuffisantes.") });
     } finally {
       setIsSaving(false);
     }
@@ -79,7 +79,7 @@ export function InstructorCourseEdit() {
 
   const handleSubmitForReview = async () => {
     if (!currentUser?.uid || !course?.id) {
-      console.error("Erreur: Utilisateur non connecté ou ID cours manquant.");
+      logger.error("Erreur: Utilisateur non connecté ou ID cours manquant.");
       return;
     }
     setIsSubmittingReview(true);
@@ -89,14 +89,10 @@ export function InstructorCourseEdit() {
         status: "Pending Review",
       });
       setCourse({ ...course, status: "Pending Review" });
-      alert(
-        "C'est envoyé ! Votre cours est en cours d'examen par nos administrateurs.",
-      );
+      toast({ title: 'Information', description: "C'est envoyé ! Votre cours est en cours d'examen par nos administrateurs." });
     } catch (e: any) {
-      console.error("Erreur lors de la soumission pour examen:", e);
-      alert(
-        "Erreur de soumission: " + (e.message || "Permissions insuffisantes."),
-      );
+      logger.error("Erreur lors de la soumission pour examen:", e);
+      toast({ variant: 'destructive', title: 'Erreur', description: "Erreur de soumission: " + (e.message || "Permissions insuffisantes.") });
     }
 
     setIsSubmittingReview(false);

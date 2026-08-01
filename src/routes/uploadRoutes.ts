@@ -1,5 +1,6 @@
+import { logger } from '../lib/logger';
 import { Router, Request, Response, NextFunction } from "express";
-import { isAuthenticated, requireRole, AuthRequest } from "../middlewares/authMiddleware.js";
+import {   requireRole, AuthRequest, isAuthenticated } from "../middlewares/authMiddleware.js";
 import { 
   uploadAvatar, 
   uploadForumImage, 
@@ -37,7 +38,7 @@ const wrapAuth = (fn: (req: AuthRequest, res: Response) => Promise<any>) => {
 // Avatar upload (requires Auth)
 router.post(
   "/avatar",
-  isAuthenticated,
+   
   uploadAvatar.single("file"),
   wrapAuth(handleAvatarUpload)
 );
@@ -45,7 +46,7 @@ router.post(
 // Forum Image upload (requires Auth)
 router.post(
   "/forum",
-  isAuthenticated,
+   
   uploadForumImage.single("file"),
   wrapAuth(handleForumImageUpload)
 );
@@ -53,7 +54,7 @@ router.post(
 // Ads Photo upload (requires Auth)
 router.post(
   "/ads",
-  isAuthenticated,
+   
   uploadAdsPhoto.single("file"),
   wrapAuth(handleAdsPhotoUpload)
 );
@@ -67,7 +68,7 @@ router.post(
 // KYC Documents (requires Auth, maybe specific role later)
 router.post(
   "/kyc",
-  isAuthenticated,
+   
   uploadKycDoc.single("file"),
   wrapAuth(handleKycUpload)
 );
@@ -75,7 +76,7 @@ router.post(
 // Course Materials (PDFs)
 router.post(
   "/materials",
-  isAuthenticated,
+   
   requireRole(["admin", "instructor"]), // Assumes you have an instructor role logic
   uploadCourseMaterial.single("file"),
   wrapAuth(handleCourseMaterialUpload)
@@ -90,7 +91,7 @@ router.post(
 // Backups (requires Auth & "admin" role)
 router.post(
   "/backup",
-  isAuthenticated,
+   
   requireRole(["admin"]),
   uploadBackup.single("file"),
   wrapAuth(handleBackupUpload)
@@ -105,14 +106,14 @@ router.post(
 // Delete files
 router.delete(
   "/",
-  isAuthenticated, // Admin check enforced inside controller or role middleware
+    // Admin check enforced inside controller or role middleware
   wrapAuth(handleFileDeletion)
 );
 
 // Get signed URL for private files
 router.get(
   "/signed-url",
-  isAuthenticated, // Private files require auth to view
+    // Private files require auth to view
   wrapAuth(handleGetSignedUrl)
 );
 
@@ -129,6 +130,7 @@ import os from "os";
 // 5.1 Multipart Upload Support to bypass NGINX limits
 router.post(
   "/multipart/start",
+   
   isAuthenticated,
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
@@ -148,7 +150,7 @@ router.post(
 
       res.json({ uploadId });
     } catch (e: any) {
-      console.error(e);
+      logger.error(e);
       res.status(500).json({ error: e.message });
     }
   }
@@ -156,6 +158,7 @@ router.post(
 
 router.put(
   "/multipart/:uploadId/chunk/:index",
+   
   isAuthenticated,
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
@@ -177,7 +180,7 @@ router.put(
 
       res.json({ success: true });
     } catch (e: any) {
-      console.error("Chunk error:", e);
+      logger.error("Chunk error:", e);
       res.status(500).json({ error: e.message });
     }
   }
@@ -185,6 +188,7 @@ router.put(
 
 router.post(
   "/multipart/:uploadId/finish",
+   
   isAuthenticated,
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
@@ -256,7 +260,7 @@ router.post(
                 .output(path.join(outputDir, "playlist.m3u8"))
                 .on("end", resolve)
                 .on("error", (err: any) => {
-                   console.error("FFMPEG Error:", err);
+                   logger.error("FFMPEG Error:", err);
                    reject(err);
                 })
                 .run();
@@ -305,7 +309,7 @@ router.post(
 
       res.json({ success: true, publicUrl: result.url });
     } catch (e: any) {
-      console.error("Finish error:", e);
+      logger.error("Finish error:", e);
       res.status(500).json({ error: e.message });
     }
   }
@@ -314,7 +318,7 @@ router.post(
 // Endpoints for securely retrieving the video key
 router.get(
   "/video-key/:uploadId",
-  isAuthenticated,
+   
   wrapAuth(async (req: AuthRequest, res: Response) => {
     try {
       const { uploadId } = req.params;
@@ -344,7 +348,7 @@ router.get(
         res.status(404).json({ error: "Key not found" });
       }
     } catch (error: any) {
-      console.error("Key retrieval error:", error);
+      logger.error("Key retrieval error:", error);
       res.status(404).json({ error: "Access denied or key missing" });
     }
   })
@@ -389,7 +393,7 @@ router.get("/file/*", async (req: Request, res: Response): Promise<void> => {
     if (error.name === "NoSuchKey") {
       res.status(404).json({ error: "File not found" });
     } else {
-      console.error("Proxy stream error:", error);
+      logger.error("Proxy stream error:", error);
       res.status(error.$metadata?.httpStatusCode || 500).json({ error: "Failed to read file from storage" });
     }
   }
@@ -398,6 +402,7 @@ router.get("/file/*", async (req: Request, res: Response): Promise<void> => {
 // Handle raw PUT uploads from r2Upload.ts
 router.put(
   "/proxy",
+   
   isAuthenticated,
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
@@ -423,7 +428,7 @@ router.put(
 
       res.json({ success: true, publicUrl: result.url, provider: "Cloudflare R2" });
     } catch (error: any) {
-      console.error("Storage proxy error:", error);
+      logger.error("Storage proxy error:", error);
       res.status(500).json({ error: error.message || "Failed to proxy upload." });
     }
   }
@@ -438,8 +443,9 @@ import { bunnyStreamService } from "../lib/BunnyStreamService.js";
 
 router.post(
   "/bunny/upload",
-  isAuthenticated,
+   
   requireRole(["admin", "instructor"]),
+  isAuthenticated,
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const { title, collectionId } = req.query as { title?: string, collectionId?: string };
@@ -470,7 +476,7 @@ router.post(
         provider: "Bunny Stream (Pilot)"
       });
     } catch (error: any) {
-      console.error("[Bunny Stream Pilot Upload Error]:", error);
+      logger.error("[Bunny Stream Pilot Upload Error]:", error);
       res.status(500).json({ error: error.message || "Failed to upload video to Bunny Stream" });
     }
   }

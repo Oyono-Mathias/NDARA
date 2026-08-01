@@ -1,3 +1,4 @@
+import { logger } from '../lib/logger';
 import { adminDb, admin } from '../lib/firebaseAdmin';
 
 export async function generateDailyStats() {
@@ -22,7 +23,7 @@ export async function generateDailyStats() {
         
         console.log("Stats generated for", today);
     } catch (e) {
-        console.error("Error in generateDailyStats", e);
+        logger.error("Error in generateDailyStats", e);
     }
 }
 
@@ -58,7 +59,7 @@ export async function generateCertificates() {
         }
         console.log(`Generated certificates for ${enrollments.size} enrollments.`);
     } catch (e) {
-        console.error("Error in generateCertificates", e);
+        logger.error("Error in generateCertificates", e);
     }
 }
 
@@ -91,7 +92,7 @@ export async function generateNotifications() {
             await batch.commit();
         }
     } catch (e) {
-        console.error("Error in generateNotifications", e);
+        logger.error("Error in generateNotifications", e);
     }
 }
 
@@ -114,7 +115,7 @@ export async function cleanupExpiredData() {
             console.log(`Cleaned up ${snapshot.size} expired logs.`);
         }
     } catch (e) {
-        console.error("Error in cleanupExpiredData", e);
+        logger.error("Error in cleanupExpiredData", e);
     }
 }
 
@@ -139,7 +140,7 @@ export async function archiveData() {
             await batch.commit();
         }
     } catch (e) {
-        console.error("Error in archiveData", e);
+        logger.error("Error in archiveData", e);
     }
 }
 
@@ -164,7 +165,7 @@ export async function deleteExpiredAccounts() {
             await batch.commit();
         }
     } catch (e) {
-        console.error("Error in deleteExpiredAccounts", e);
+        logger.error("Error in deleteExpiredAccounts", e);
     }
 }
 
@@ -189,7 +190,7 @@ export async function generateReports() {
             generatedAt: admin.firestore.FieldValue.serverTimestamp()
         }, { merge: true });
     } catch (e) {
-        console.error("Error in generateReports", e);
+        logger.error("Error in generateReports", e);
     }
 }
 

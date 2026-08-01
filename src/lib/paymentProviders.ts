@@ -1,3 +1,4 @@
+import { logger } from '../lib/logger';
 import Stripe from 'stripe';
 
 let stripeClient: Stripe | null = null;
@@ -52,6 +53,8 @@ export async function createMobileMoneyIntent(
   try {
     const response = await fetch('https://api.flutterwave.com/v3/charges?type=mobile_money_franco', {
       method: 'POST',
+      credentials: 'include',
+        
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json'
@@ -80,7 +83,7 @@ export async function createMobileMoneyIntent(
       throw new Error(data.message || 'Mobile Money charge failed');
     }
   } catch (error: any) {
-    console.error('Mobile Money API Error:', error);
+    logger.error('Mobile Money API Error:', error);
     return {
       success: false,
       status: 'failed',

@@ -1,3 +1,5 @@
+import { logger } from '../lib/logger';
+import { toast } from '../hooks/use-toast';
 import { 
     Users, 
     ArrowUpRight, 
@@ -46,11 +48,12 @@ export function AmbassadorView() {
                 if (token) {
                     await fetch('/api/wallet/release-escrows', {
                         method: 'POST',
+        credentials: "include",
                         headers: { 'Authorization': `Bearer ${token}` }
                     });
                 }
             } catch (e) {
-                console.error("Escrow release error", e);
+                logger.error("Escrow release error", e);
             }
         };
         releaseEscrows();
@@ -104,11 +107,11 @@ export function AmbassadorView() {
     const handleWithdraw = async () => {
         if (!currentUser?.uid) return;
         if (balance < 5000) {
-            alert("Le retrait minimum est de 5 000 XOF.");
+            toast({ title: 'Information', description: String("Le retrait minimum est de 5 000 XOF.") });
             return;
         }
         if (!phoneValue || phoneValue.length < 8) {
-            alert("Veuillez saisir votre numéro Mobile Money.");
+            toast({ title: 'Information', description: String("Veuillez saisir votre numéro Mobile Money.") });
             return;
         }
 
@@ -116,6 +119,7 @@ export function AmbassadorView() {
         try {
             const response = await fetch("/api/wallet/request-payout", {
                 method: "POST",
+        credentials: "include",
                 headers: { "Content-Type": "application/json", "Authorization": `Bearer ${await auth.currentUser?.getIdToken()}` },
                 body: JSON.stringify({
                     userId: currentUser.uid,
@@ -131,12 +135,12 @@ export function AmbassadorView() {
                 throw new Error(data.error || "Échec de l'envoi de la demande.");
             }
 
-            alert("Demande envoyée ! Votre virement sera traité sous 48h par nos vérificateurs.");
+            toast({ title: 'Information', description: String("Demande envoyée ! Votre virement sera traité sous 48h par nos vérificateurs.") });
             setIsWithdrawModalOpen(false);
             setPhoneValue("");
         } catch (e: any) {
-            console.error(e);
-            alert(e.message || "Erreur technique lors du retrait.");
+            logger.error(e);
+            toast({ variant: 'destructive', title: 'Erreur', description: String(e.message || "Erreur technique lors du retrait.") });
         } finally {
             setIsSubmitting(false);
         }

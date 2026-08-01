@@ -2,230 +2,309 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     function isAuthenticated() { return request.auth != null; }
+    
     function isAdmin() { 
-      return isAuthenticated() && (
+       return isAuthenticated() && (
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'superadmin'
       ); 
     }
+    
+    function isOwner(instructorId) {
+      return isAuthenticated() && request.auth.uid == instructorId;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }
 
-    match /assignments_submissions/{id} {
-      allow read, write: if isAuthenticated();
+    // 👨‍🎓 Users
+    
+    
+    
+    match /withdraw_requests/{requestId} {
+      allow read: if isAdmin() || (isAuthenticated() && resource.data.ambassadorUid == request.auth.uid);
+      allow write: if isAdmin();
+    }
+    match /wallet_logs/{logId} {
+      allow read: if isAdmin() || (isAuthenticated() && resource.data.ambassadorUid == request.auth.uid);
+      allow write: if isAdmin();
     }
 
-    match /audit_logs/{id} {
-      allow read, write: if isAuthenticated();
+    
+    match /ambassador_levels/{id} { allow read: if isAuthenticated(); allow write: if isAdmin(); }
+    match /ambassador_badges/{id} { allow read: if isAuthenticated(); allow write: if isAdmin(); }
+    match /ambassador_challenges/{id} { allow read: if isAuthenticated(); allow write: if isAdmin(); }
+    match /ambassador_rewards/{id} { allow read: if isAuthenticated(); allow write: if isAdmin(); }
+    match /reward_history/{id} { allow read: if isAdmin() || (isAuthenticated() && resource.data.ambassadorUid == request.auth.uid); allow write: if isAdmin(); }
+    match /leaderboard_cache/{id} { allow read: if isAuthenticated(); allow write: if isAdmin(); }
+
+    match /commission_settings/{id} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+    match /ambassador_commissions/{id} {
+      allow read: if isAdmin() || (isAuthenticated() && resource.data.ambassadorUid == request.auth.uid);
+      allow write: if isAdmin();
+    }
+    match /commission_logs/{id} {
+      allow read, write: if isAdmin();
     }
 
-    match /course_qna/{id} {
-      allow read, write: if isAuthenticated();
+    match /referrals/{id} {
+      allow read: if isAdmin() || (isAuthenticated() && resource.data.ambassadorUid == request.auth.uid);
+      allow write: if isAdmin();
     }
 
-    match /course_reviews/{id} {
-      allow read, write: if isAuthenticated();
+    match /users/{userId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && request.auth.uid == userId && !request.resource.data.keys().hasAny(['referredBy', 'referralCode', 'referredAt']);
+      allow update: if isAdmin() || (isAuthenticated() && request.auth.uid == userId && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['referredBy', 'referralCode', 'referredAt'])));
+      allow delete: if isAdmin();
+      
+      match /notifications/{notifId} {
+        allow read: if request.auth.uid == userId;
+        allow create: if isAuthenticated();
+        allow update, delete: if request.auth.uid == userId || isAdmin();
+      }
+      match /cart/{cartId} {
+        allow read, write: if request.auth.uid == userId;
+      }
+      match /mathias_chats/{chatId} {
+        allow read, write: if request.auth.uid == userId;
+      }
+      match /transactions/{txId} {
+        allow read: if request.auth.uid == userId || isAdmin();
+        allow write: if isAdmin();
+      }
     }
 
-    match /courses/{id} {
-      allow read, write: if isAuthenticated();
+    // 📚 Courses
+    
+    match /live_sessions/{sessionId} {
+      allow read: if isAuthenticated();
+      allow write: if isInstructor() || isAdmin();
     }
 
-    match /enrollments/{id} {
-      allow read, write: if isAuthenticated();
+    match /courses/{courseId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && (isAdmin() || request.auth.uid == request.resource.data.instructorId);
+      allow update, delete: if isAuthenticated() && (isAdmin() || isOwner(resource.data.instructorId));
+      
+      match /chapters/{chapterId} {
+        allow read: if true;
+        allow write: if isAuthenticated() && (isAdmin() || isOwner(get(/databases/$(database)/documents/courses/$(courseId)).data.instructorId));
+      }
+      match /assignments/{assignmentId} {
+        allow read: if isAuthenticated();
+        allow write: if isAuthenticated() && (isAdmin() || isOwner(get(/databases/$(database)/documents/courses/$(courseId)).data.instructorId));
+      }
+      match /quizzes/{quizId} {
+        allow read: if isAuthenticated();
+        allow write: if isAuthenticated() && (isAdmin() || isOwner(get(/databases/$(database)/documents/courses/$(courseId)).data.instructorId));
+      }
     }
 
-    match /market_ebooks/{id} {
-      allow read, write: if isAuthenticated();
+    match /{path=**}/assignments/{assignmentId} {
+      allow read: if isAuthenticated();
+    }
+    match /{path=**}/quizzes/{quizId} {
+      allow read: if isAuthenticated();
+    }
+    match /{path=**}/chapters/{chapterId} {
+      allow read: if true;
     }
 
-    match /payout_requests/{id} {
-      allow read, write: if isAuthenticated();
+    // 📄 Assignments Submissions
+    match /assignments_submissions/{submissionId} {
+      allow read: if isAuthenticated() && (isAdmin() || resource.data.studentId == request.auth.uid || isOwner(resource.data.instructorId));
+      allow create: if isAuthenticated() && request.resource.data.studentId == request.auth.uid;
+      allow update: if isAuthenticated() && (isAdmin() || resource.data.studentId == request.auth.uid || isOwner(resource.data.instructorId));
+      allow delete: if isAdmin();
     }
 
-    match /purchases/{id} {
-      allow read, write: if isAuthenticated();
+    // 📝 Quizzes
+    match /quizzes/{quizId} {
+      allow read: if isAuthenticated() && (resource.data.status == 'published' || resource.data.instructorId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && (request.resource.data.instructorId == request.auth.uid || isAdmin());
+      allow update, delete: if isAuthenticated() && (resource.data.instructorId == request.auth.uid || isAdmin());
     }
 
-    match /quiz_results/{id} {
-      allow read, write: if isAuthenticated();
+    match /quiz_submissions/{submissionId} {
+      allow read: if isAuthenticated() && (resource.data.studentId == request.auth.uid || resource.data.instructorId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && request.resource.data.studentId == request.auth.uid;
+      allow update: if isAuthenticated() && (isAdmin() || resource.data.studentId == request.auth.uid || isOwner(resource.data.instructorId));
+      allow delete: if isAdmin();
     }
 
-    match /quiz_submissions/{id} {
-      allow read, write: if isAuthenticated();
+    // 🎓 Certificates
+    match /certificates/{certId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && (isAdmin() || request.auth.uid == request.resource.data.studentId);
+      allow update, delete: if isAdmin();
     }
 
-    match /quizzes/{id} {
-      allow read, write: if isAuthenticated();
+    // Enrollments
+    match /enrollments/{enrollmentId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && (isAdmin() || request.auth.uid == request.resource.data.studentId);
+      allow update, delete: if isAuthenticated() && (isAdmin() || request.auth.uid == resource.data.studentId || isOwner(resource.data.instructorId));
     }
 
-    match /student_badges/{id} {
-      allow read, write: if isAuthenticated();
+    match /course_coupons/{couponId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && (isAdmin() || isOwner(request.resource.data.instructorId));
+      allow update, delete: if isAuthenticated() && (isAdmin() || isOwner(resource.data.instructorId));
     }
 
-    match /transactions/{id} {
-      allow read, write: if isAuthenticated();
+    match /course_announcements/{announcementId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && (isAdmin() || isOwner(request.resource.data.instructorId));
+      allow update, delete: if isAuthenticated() && (isAdmin() || isOwner(resource.data.instructorId));
+    }
+    match /course_resources/{resourceId} {
+      allow read: if true;
+      allow write: if isAuthenticated() && (isAdmin() || isOwner(resource.data.instructorId) || isOwner(request.resource.data.instructorId));
     }
 
-    match /user_history/{id} {
-      allow read, write: if isAuthenticated();
+    match /course_qna/{qnaId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && (isAdmin() || isOwner(request.resource.data.instructorId) || request.auth.uid == request.resource.data.studentId);
+      allow update, delete: if isAuthenticated() && (isAdmin() || isOwner(resource.data.instructorId) || request.auth.uid == resource.data.studentId);
     }
 
-    match /users/{id} {
-      allow read, write: if isAuthenticated();
+    match /course_reviews/{reviewId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.studentId;
+      allow update, delete: if isAuthenticated() && (isAdmin() || request.auth.uid == resource.data.studentId);
     }
 
-    match /user_wishlist/{id} {
-      allow read, write: if isAuthenticated();
+    match /settings/{settingId} { allow read: if true; allow write: if isAdmin(); }
+    match /system_settings/{settingId} { allow read: if true; allow write: if isAdmin(); }
+    
+    // 🔧 Global Error Logs
+    match /audit_logs/{logId} {
+      allow read: if isAdmin();
+      allow create: if true;
+      allow update, delete: if isAdmin();
     }
 
-    match /lessons/{id} {
-      allow read, write: if isAuthenticated();
+    match /{path=**}/messages/{messageId} {
+      allow read: if isAuthenticated();
+    }
+    match /{path=**}/certificates/{certId} {
+      allow read: if true;
+    }
+    match /notifications/{notifId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow delete: if isAdmin();
+    }
+    
+    match /wallets/{walletId} {
+      allow read: if isAuthenticated() && (request.auth.uid == walletId || isAdmin());
+      allow write: if isAdmin();
+    }
+    
+    match /transactions/{txId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow write: if isAdmin();
     }
 
-    match /categories/{id} {
-      allow read, write: if isAuthenticated();
+    match /walletTransactions/{id} { allow read, write: if isAuthenticated(); } // Keeping this open temporarily if existing code relies on it heavily
+
+    // Other generic ones
+    match /market_ebooks/{id} { allow read: if true; allow write: if isAdmin() || isOwner(request.resource.data.instructorId); }
+    match /payout_requests/{id} { allow read: if isAuthenticated() && (resource.data.instructorId == request.auth.uid || isAdmin()); allow create: if isAuthenticated() && request.resource.data.instructorId == request.auth.uid; allow update, delete: if isAdmin(); }
+    match /purchases/{id} { allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin()); allow write: if isAdmin(); }
+    match /ambassadors/{id} { allow read: if isAdmin() || (isAuthenticated() && request.auth.uid == id); allow write: if isAdmin(); }
+    match /question_bank/{id} { allow read: if isAuthenticated() && (isAdmin() || request.auth.uid == resource.data.instructorId); allow create: if isAuthenticated() && (isAdmin() || request.auth.uid == request.resource.data.instructorId); allow update, delete: if isAuthenticated() && (isAdmin() || request.auth.uid == resource.data.instructorId); }
+    match /user_history/{id} { allow read: if isAuthenticated() && resource.data.userId == request.auth.uid; allow write: if isAuthenticated() && request.resource.data.userId == request.auth.uid; }
+    match /user_wishlist/{id} { allow read, write: if isAuthenticated(); }
+    match /lessons/{id} { allow read: if true; allow write: if isAdmin(); }
+    match /categories/{id} { allow read: if true; allow write: if isAdmin(); }
+    match /progress/{id} { allow read, write: if isAuthenticated() && request.auth.uid == resource.data.studentId; }
+    match /user_progress/{id} { allow read, write: if isAuthenticated() && request.auth.uid == resource.data.studentId; }
+    match /user_follows/{id} { allow read: if true; allow write: if isAuthenticated(); }
+    match /conversations/{id} { allow read, write: if isAuthenticated(); }
+    match /messages/{id} { allow read, write: if isAuthenticated(); } 
+    match /communities/{id} { allow read: if true; allow write: if isAdmin(); }
+    match /squads/{id} { allow read: if true; allow write: if isAuthenticated(); }
+    match /squad_messages/{id} { allow read, write: if isAuthenticated(); }
+    match /supportTickets/{id} { allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin()); allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid; allow update: if isAdmin(); }
+    match /support_tickets/{id} { allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin()); allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid; allow update: if isAdmin(); }
+    match /statistics/{id} { allow read: if isAdmin(); allow write: if isAdmin(); }
+    match /reports/{id} { allow read, write: if isAdmin(); }
+    match /student_badges/{id} { allow read, write: if isAuthenticated(); }
+    match /announcements/{id} { allow read: if true; allow write: if isAdmin(); }
+    match /chats/{id} { 
+      allow read, write: if isAuthenticated(); 
+      match /messages/{messageId} { allow read, write: if isAuthenticated(); }
+    }
+    match /downloads/{id} { allow read, write: if isAuthenticated(); }
+    match /email_templates/{id} { allow read, write: if isAdmin(); }
+    match /faq_entries/{id} { allow read: if true; allow write: if isAdmin(); }
+    match /market_items/{id} { allow read: if true; allow write: if isAuthenticated(); }
+    match /market_templates/{id} { allow read: if true; allow write: if isAdmin(); }
+    match /market_data/{id} { allow read: if true; allow write: if isAdmin(); }
+    match /market_orders/{id} { allow read, write: if isAuthenticated(); }
+    match /moderation_queue/{id} { allow read, write: if isAdmin(); }
+    match /promo_codes/{id} { allow read: if true; allow write: if isAdmin(); }
+    match /security_audit_logs/{id} { allow read, write: if isAdmin(); }
+
+    match /payments/{id} { allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || resource.data.instructorId == request.auth.uid || isAdmin()); allow write: if isAdmin(); }
+    
+    // Missing collections
+    match /favorites/{id} { allow read, write: if isAuthenticated(); }
+    match /cart/{id} { allow read, write: if isAuthenticated() && request.auth.uid == resource.data.userId; allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid; }
+    match /resources/{id} { allow read: if true; allow write: if isAdmin() || isAuthenticated(); }
+    match /exercises/{id} { allow read: if true; allow write: if isAdmin() || isAuthenticated(); }
+    match /quiz_results/{id} { allow read, write: if isAuthenticated(); }
+    match /sandboxProjects/{id} { allow read, write: if isAuthenticated(); }
+    match /templates/{id} { allow read: if true; allow write: if isAdmin() || isAuthenticated(); }
+    match /leaderboard/{id} { allow read: if true; allow write: if isAdmin() || isAuthenticated(); }
+    match /licenses/{id} { allow read: if isAuthenticated(); allow write: if isAdmin() || isAuthenticated(); }
+    
+
+    match /wallet_holds/{id} { allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin()); allow write: if isAdmin(); }
+    match /market_licenses/{id} { allow read: if true; allow write: if isAdmin(); }
+    match /p2p_ads/{id} { allow read: if true; allow write: if isAdmin() || (isAuthenticated() && request.auth.uid == resource.data.sellerId); }
+    match /p2p_disputes/{id} { allow read, write: if isAuthenticated(); }
+    match /p2p_transactions/{id} { allow read, write: if isAuthenticated(); }
+    match /mail/{id} { allow read, write: if isAdmin(); }
+
+    match /quiz_attempts/{id} { allow read, write: if isAuthenticated() && request.auth.uid == resource.data.userId; }
+    match /refund_requests/{id} { allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin()); allow write: if isAuthenticated(); }
+    match /user_activity/{id} { allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin()); allow write: if isAuthenticated(); }
+
+    // --- Phase 7 : Marketing Ambassadeurs ---
+    match /marketing_assets/{id} { 
+      allow read: if true; 
+      allow write: if isAdmin(); 
+    }
+    match /ambassador_campaigns/{id} { 
+      allow read: if isAuthenticated() && (resource.data.ambassadorId == request.auth.uid || isAdmin()); 
+      allow create: if isAuthenticated() && request.resource.data.ambassadorId == request.auth.uid;
+      allow update, delete: if isAuthenticated() && (resource.data.ambassadorId == request.auth.uid || isAdmin());
+    }
+    match /campaign_clicks/{id} { 
+      allow read: if isAuthenticated() && (resource.data.ambassadorId == request.auth.uid || isAdmin()); 
+      allow create: if true; 
+      allow update, delete: if isAdmin(); 
+    }
+    match /campaign_conversions/{id} { 
+      allow read: if isAuthenticated() && (resource.data.ambassadorId == request.auth.uid || isAdmin()); 
+      allow create: if true; 
+      allow update, delete: if isAdmin(); 
+    }
+    match /qr_codes/{id} { 
+      allow read, write: if isAuthenticated() && (resource.data.userId == request.auth.uid || request.resource.data.userId == request.auth.uid || isAdmin()); 
+    }
+    match /short_links/{id} { 
+      allow read: if true; 
+      allow write: if isAuthenticated() && (resource.data.userId == request.auth.uid || request.resource.data.userId == request.auth.uid || isAdmin()); 
     }
 
-    match /progress/{id} {
-      allow read, write: if isAuthenticated();
-    }
-
-    match /user_progress/{id} {
-      allow read, write: if isAuthenticated();
-    }
-
-    match /certificates/{id} {
-      allow read, write: if isAuthenticated();
-    }
-
-    match /downloads/{id} {
-      allow read, write: if isAuthenticated();
-    }
-
-    match /ebooks/{id} {
-      allow read, write: if isAuthenticated();
-    }
-
-    match /marketplace/{id} {
-      allow read, write: if isAuthenticated();
-    }
-
-    match /wallets/{id} {
-      allow read, write: if isAuthenticated();
-    }
-
-    match /walletTransactions/{id} {
-      allow read, write: if isAuthenticated();
-    }
-
-    match /notifications/{id} {
-      allow read, write: if isAuthenticated();
-    }
-
-    match /conversations/{id} {
-      allow read, write: if isAuthenticated();
-    }
-
-    match /messages/{id} {
-      allow read, write: if isAuthenticated();
-    }
-
-    match /communities/{id} {
-      allow read, write: if isAuthenticated();
-    }
-
-    match /squads/{id} {
-      allow read, write: if isAuthenticated();
-    }
-
-    match /sandboxProjects/{id} {
-      allow read, write: if isAuthenticated();
-    }
-
-    match /templates/{id} {
-      allow read, write: if isAuthenticated();
-    }
-
-    match /favorites/{id} {
-      allow read, write: if isAuthenticated();
-    }
-
-    match /ambassadors/{id} {
-      allow read, write: if isAuthenticated();
-    }
-
-    match /leaderboard/{id} {
-      allow read, write: if isAuthenticated();
-    }
-
-    match /supportTickets/{id} {
-      allow read, write: if isAuthenticated();
-    }
-
-    match /roles/{id} {
-      allow read, write: if isAuthenticated();
-    }
-
-    match /settings/{id} {
-      allow read, write: if isAuthenticated();
-    }
-
-    match /system_settings/{id} {
-      allow read, write: if isAuthenticated();
-    }
-
-    match /statistics/{id} {
-      allow read, write: if isAuthenticated();
-    }
-
-    match /reports/{id} {
-      allow read, write: if isAuthenticated();
-    }
-
-    match /payments/{id} {
-      allow read, write: if isAuthenticated();
-    }
-
-    match /licenses/{id} {
-      allow read, write: if isAuthenticated();
-    }
-
-    match /market_data/{id} {
-      allow read, write: if isAuthenticated();
-    }
-
-    match /market_orders/{id} {
-      allow read, write: if isAuthenticated();
-    }
-
-    match /market_templates/{id} {
-      allow read, write: if isAuthenticated();
-    }
-
-    match /squad_messages/{id} {
-      allow read, write: if isAuthenticated();
-    }
-
-    match /support_tickets/{id} {
-      allow read, write: if isAuthenticated();
-    }
-
-    match /courses/{courseId}/chapters/{chapterId} {
-      allow read, write: if isAuthenticated();
-    }
-    match /courses/{courseId}/assignments/{assignmentId} {
-      allow read, write: if isAuthenticated();
-    }
-    match /courses/{courseId}/quizzes/{quizId} {
-      allow read, write: if isAuthenticated();
-    }
-    match /users/{userId}/notifications/{notifId} {
-      allow read, write: if isAuthenticated();
-    }
-    match /users/{userId}/transactions/{txId} {
-      allow read, write: if isAuthenticated();
-    }
   }
 }

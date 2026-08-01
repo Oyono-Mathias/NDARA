@@ -1,3 +1,4 @@
+import { logger } from '../lib/logger';
 import { useState, useEffect } from "react";
 import { doc, onSnapshot } from "firebase/firestore";
 import { db } from "../firebase";
@@ -28,7 +29,7 @@ export function useLandingSettings() {
         setLoading(false);
       },
       (error) => {
-        console.error("Erreur hook LandingSettings: ", error);
+        logger.error("Erreur hook LandingSettings: ", error);
         if (_mounted) setLoading(false);
       },
     );

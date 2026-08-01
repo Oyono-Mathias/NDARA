@@ -1,3 +1,5 @@
+import { logger } from '../../lib/logger';
+import { useConfirm } from '../../components/ui/ConfirmDialog';
 import React, { useState, useEffect } from 'react';
 import { 
   Headphones, 
@@ -67,6 +69,8 @@ export const NdaraSkeleton: React.FC<{ type: 'table' | 'cards' | 'list' | string
 }
 
 export function AdminSupport() {
+  const confirm = useConfirm();
+
   const [activeTab, setActiveTab] = useState<'tickets' | 'faq'>('tickets');
   const [searchTerm, setSearchTerm] = useState('');
   
@@ -94,7 +98,7 @@ export function AdminSupport() {
       setTickets(fetchedTickets);
       setIsLoadingTickets(false);
     }, (err) => {
-      console.error("Erreur de récupération tickets:", err);
+      logger.error("Erreur de récupération tickets:", err);
       setIsLoadingTickets(false);
     });
 
@@ -112,7 +116,7 @@ export function AdminSupport() {
       setFaqs(fetchedFaqs);
       setIsLoadingFaqs(false);
     }, (err) => {
-      console.error("Erreur de récupération FAQ:", err);
+      logger.error("Erreur de récupération FAQ:", err);
       setIsLoadingFaqs(false);
     });
 
@@ -141,7 +145,7 @@ export function AdminSupport() {
           });
       }
     } catch (err) {
-      console.error("Error updating ticket status: ", err);
+      logger.error("Error updating ticket status: ", err);
     }
   };
 
@@ -178,7 +182,7 @@ export function AdminSupport() {
       
       setReplyMessage('');
     } catch (error) {
-      console.error("Erreur lors de l'envoi de la réponse: ", error);
+      logger.error("Erreur lors de l'envoi de la réponse: ", error);
     } finally {
       setIsReplying(false);
     }
@@ -209,7 +213,7 @@ export function AdminSupport() {
       setIsAddingFaq(false);
       setFaqForm({ id: '', question_fr: '', answer_fr: '', tags: '', order: 0 });
     } catch (error) {
-      console.error("Error saving FAQ:", error);
+      logger.error("Error saving FAQ:", error);
     } finally {
       setIsSavingFaq(false);
     }
@@ -217,11 +221,11 @@ export function AdminSupport() {
 
   // Action FAQ: deleteDoc
   const handleDeleteFaq = async (id: string) => {
-    if(!window.confirm("Confirmer la suppression de cette FAQ ?")) return;
+    if(!(await confirm("Confirmer la suppression de cette FAQ ?"))) return;
     try {
       await deleteDoc(doc(db, 'faq_entries', id));
     } catch (err) {
-      console.error("Error deleting FAQ: ", err);
+      logger.error("Error deleting FAQ: ", err);
     }
   };
 

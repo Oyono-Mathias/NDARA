@@ -1,3 +1,5 @@
+import { logger } from '../../lib/logger';
+import { toast } from '../../hooks/use-toast';
 import { useState, useEffect, useMemo } from "react";
 import { useRole } from "../../context/RoleContext";
 import {
@@ -66,11 +68,12 @@ export function InstructorWealth() {
             if (token) {
                 await fetch('/api/wallet/release-escrows', {
                     method: 'POST',
+        credentials: "include",
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
             }
         } catch (e) {
-            console.error("Escrow release error", e);
+            logger.error("Escrow release error", e);
         }
     };
     releaseEscrows();
@@ -85,7 +88,7 @@ export function InstructorWealth() {
         const unsubPayments = onSnapshot(
       query(
         collection(db, "users", instructorId, "transactions"),
-        orderBy("timestamp", "desc")
+        /* orderBy removed */
       ),
       (snap) => {
         const txs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
@@ -100,7 +103,7 @@ export function InstructorWealth() {
       query(
         collection(db, "payout_requests"),
         where("instructorId", "==", instructorId),
-        orderBy("createdAt", "desc"),
+        /* orderBy removed */
         limit(50),
       ),
       (snap) => {
@@ -137,18 +140,18 @@ export function InstructorWealth() {
 
   const handleRequestWithdrawal = async () => {
     if (!instructor?.uid) {
-      console.error("Erreur: Utilisateur non connecté.");
+      logger.error("Erreur: Utilisateur non connecté.");
       return;
     }
     const amountNum = parseFloat(withdrawAmount);
 
     if (isNaN(amountNum) || amountNum < 5000) {
-      alert("Le montant minimum pour un retrait est de 5 000 FCFA.");
+      toast({ title: 'Information', description: "Le montant minimum pour un retrait est de 5 000 FCFA." });
       return;
     }
 
     if (amountNum > stats.availableBalance) {
-      alert("Votre solde disponible est insuffisant.");
+      toast({ title: 'Information', description: "Votre solde disponible est insuffisant." });
       return;
     }
 
@@ -164,18 +167,14 @@ export function InstructorWealth() {
         createdAt: serverTimestamp(),
       });
 
-      alert(
-        "Demande de retrait enregistrée et fonds sécurisés sous séquestre d'audit !",
-      );
+      toast({ title: 'Information', description: "Demande de retrait enregistrée et fonds sécurisés sous séquestre d'audit !" });
       setIsWithdrawModalOpen(false);
       setWithdrawAmount("");
       setPhoneValue("");
     } catch (e: any) {
-      console.error("Erreur lors de la demande de retrait:", e);
-      alert(
-        "Erreur de requête: " +
-          (e.message || "Permissions insuffisantes ou erreur inconnue."),
-      );
+      logger.error("Erreur lors de la demande de retrait:", e);
+      toast({ variant: 'destructive', title: 'Erreur', description: "Erreur de requête: " +
+          (e.message || "Permissions insuffisantes ou erreur inconnue.") });
     } finally {
       setIsSubmitting(false);
     }

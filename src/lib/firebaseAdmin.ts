@@ -1,3 +1,4 @@
+import { logger } from '../lib/logger';
 import admin from 'firebase-admin';
 import { getFirestore } from 'firebase-admin/firestore';
 import fs from 'fs';
@@ -14,7 +15,7 @@ try {
         databaseId = config.firestoreDatabaseId;
     }
 } catch (e) {
-    console.error("Could not read firebase-applet-config.json", e);
+    logger.error("Could not read firebase-applet-config.json", e);
 }
 
 if (!admin.apps.length) {

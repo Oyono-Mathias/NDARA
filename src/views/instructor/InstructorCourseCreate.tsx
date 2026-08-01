@@ -1,11 +1,16 @@
+import { useRef } from "react";
+import { logger } from '../../lib/logger';
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useRole } from "../../context/RoleContext";
-import { db } from "../../firebase";
+import { db, auth } from "../../firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { Loader2, ChevronDown } from "lucide-react";
 import { BottomSheet } from "../../components/ui/BottomSheet";
 import { TouchArea } from "../../components/ui/TouchArea";
+import { uploadToR2 } from "../../lib/r2Upload";
+import { uploadVideoToBunny } from "../../lib/bunnyUpload";
+import { GoogleDriveFilePicker } from "../../components/GoogleDriveFilePicker";
 
 const CATEGORIES = [
   { value: "marketing", label: "Marketing Digital" },
@@ -75,6 +80,9 @@ export function InstructorCourseCreate() {
   } | null>(null);
 
   const [isUploading, setIsUploading] = useState(false);
+  const imagesInputRef = useRef<HTMLInputElement>(null);
+  const videosInputRef = useRef<HTMLInputElement>(null);
+  const docsInputRef = useRef<HTMLInputElement>(null);
   const [uploadTitle, setUploadTitle] = useState("");
   const [uploadProgressList, setUploadProgressList] = useState<
     { name: string; progress: number }[]
@@ -148,7 +156,7 @@ export function InstructorCourseCreate() {
         isValid = false;
       }
     }
-    if (!isValid) showToast(message, "error");
+    if (!isValid) showToast(message, "warning");
     return isValid;
   };
 
@@ -172,8 +180,46 @@ export function InstructorCourseCreate() {
   };
 
   // Upload Logic (R2 via API)
+  const handleDriveVideoPicked = async (accessToken: string, fileId: string, fileName: string) => {
+    try {
+      showToast("Transfert depuis Google Drive en cours...", "success");
+      const newFile = {
+        name: fileName,
+        size: 0,
+        type: "video/mp4",
+        url: "",
+        videoId: "",
+        status: "Transfert en cours...",
+        uploadedAt: new Date().toISOString()
+      };
+      setVideos(prev => [...prev, newFile]);
+
+      const idToken = await auth.currentUser?.getIdToken();
+      const res = await fetch('/api/admin/video/drive-to-bunny', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`
+        },
+        body: JSON.stringify({ fileId, driveToken: accessToken, fileName, courseId: "new" })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erreur de transfert");
+
+      showToast("Vidéo importée depuis Google Drive !", "success");
+      
+      const updateStatus = (list: any[]) => list.map(item => item.name === fileName ? { ...item, status: "Prêt", videoId: data.videoId, url: data.videoUrl || "" } : item);
+      setVideos(updateStatus);
+    } catch(err: any) {
+      console.error(err);
+      showToast("Erreur lors de l'import: " + err.message, "warning");
+      const updateStatus = (list: any[]) => list.map(item => item.name === fileName ? { ...item, status: "Échec" } : item);
+      setVideos(updateStatus);
+    }
+  };
+
+    
   const executeUpload = async (file: File, bucketFolder: string) => {
-    const { uploadToR2 } = await import("../../lib/r2Upload");
     return uploadToR2(file, bucketFolder, (progress) => {
       setUploadProgressList((prev) => {
         const existing = [...prev];
@@ -206,7 +252,7 @@ export function InstructorCourseCreate() {
     const maxFiles = type === "images" ? 20 : type === "videos" ? 10 : 15;
 
     if (currentCount + files.length > maxFiles) {
-      showToast(`Maximum ${maxFiles} fichiers pour cette catégorie`, "error");
+      showToast(`Maximum ${maxFiles} fichiers pour cette catégorie`, "warning");
       return;
     }
 
@@ -220,7 +266,7 @@ export function InstructorCourseCreate() {
     if (invalidFiles.length > 0) {
       showToast(
         `${invalidFiles.length} fichier(s) dépassent la taille maximale`,
-        "error",
+        "warning",
       );
       return;
     }
@@ -246,7 +292,8 @@ export function InstructorCourseCreate() {
       ...files.map((f) => ({ name: f.name, progress: 0 }))
     ]);
 
-    const uploadSingleFile = async (file: File) => {
+    
+  const uploadSingleFile = async (file: File) => {
       const bucketFolder =
         type === "images"
           ? "course-images"
@@ -260,7 +307,6 @@ export function InstructorCourseCreate() {
       try {
         if (type === "videos") {
           try {
-            const { uploadVideoToBunny } = await import("../../lib/bunnyUpload");
             const result = await uploadVideoToBunny(file, (progress) => {
               setUploadProgressList((prev) => {
                 const existing = [...prev];
@@ -275,8 +321,12 @@ export function InstructorCourseCreate() {
             });
             finalUrl = result.iframeUrl;
             finalVideoId = result.videoId;
-          } catch (providerError) {
+          } catch (providerError: any) {
             console.warn("External video provider failed, falling back to basic storage:", providerError);
+            showToast(
+              `Bunny Stream ignoré: ${providerError.message}. Bascule sur le stockage de secours. Veuillez vérifier vos clés API Bunny.`,
+              "warning"
+            );
             finalUrl = await executeUpload(file, bucketFolder);
             finalVideoId = finalUrl;
           }
@@ -292,8 +342,8 @@ export function InstructorCourseCreate() {
 
         showToast(`${file.name} téléversé avec succès !`, "success");
       } catch (err: any) {
-        console.error("UPLOAD ERROR:", err);
-        showToast(`Erreur ${file.name} : ${err?.message || ""}`, "error");
+        logger.error("UPLOAD ERROR:", err);
+        showToast(`Erreur ${file.name} : ${err?.message || ""}`, "warning");
         
         // Retirer le fichier échoué
         const removeFailed = (list: any[]) => list.filter(item => item.name !== file.name);
@@ -403,11 +453,11 @@ export function InstructorCourseCreate() {
         navigate("/instructor/courses");
       }, 2500);
     } catch (err: any) {
-      console.error("Erreur détaillée lors de l'ajout du cours:", err);
+      logger.error("Erreur détaillée lors de l'ajout du cours:", err);
       showToast(
         "Erreur lors de la publication : " +
           (err.message || "Permissions insuffisantes."),
-        "error",
+        "warning",
       );
     }
   };
@@ -868,7 +918,7 @@ export function InstructorCourseCreate() {
               <TouchArea
                 as="div"
                 className="upload-zone border border-[#334155] rounded-2xl p-4 text-center cursor-pointer hover:border-[#22C55E]/50 bg-[#1e293b]"
-                onClick={() => document.getElementById("imagesInput")?.click()}
+                onClick={() => imagesInputRef.current?.click()}
               >
                 <svg
                   className="w-8 h-8 text-gray-500 mx-auto mb-2"
@@ -886,9 +936,22 @@ export function InstructorCourseCreate() {
                 <p className="text-sm text-gray-400">
                   Touchez pour ajouter des images
                 </p>
+                <div className="flex justify-center mt-2" onClick={(e) => e.stopPropagation()}>
+                  <GoogleDriveFilePicker
+                    folder="course-images"
+                    allowedTypes="IMAGE"
+                    label="Importer depuis Drive"
+                    onFileImported={(url, fileName) => {
+                      setImages(prev => [...prev, {
+                        name: fileName, url, status: "Prêt", uploadedAt: new Date().toISOString()
+                      }]);
+                    }}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-[#1E293B] hover:bg-[#334155] text-white border border-[#334155] rounded-lg transition-all font-bold text-[10px] uppercase tracking-widest"
+                  />
+                </div>
                 <input
                   type="file"
-                  id="imagesInput"
+                  id="imagesInput" ref={imagesInputRef}
                   accept="image/*"
                   multiple
                   className="hidden"
@@ -964,7 +1027,7 @@ export function InstructorCourseCreate() {
               <TouchArea
                 as="div"
                 className="upload-zone border border-[#334155] rounded-2xl p-4 text-center cursor-pointer hover:border-[#22C55E]/50 bg-[#1e293b]"
-                onClick={() => document.getElementById("videosInput")?.click()}
+                onClick={() => videosInputRef.current?.click()}
               >
                 <svg
                   className="w-8 h-8 text-gray-500 mx-auto mb-2"
@@ -985,9 +1048,18 @@ export function InstructorCourseCreate() {
                 <p className="text-[10px] text-gray-500 mt-1">
                   MP4, MOV • Max 500MB par fichier
                 </p>
+                <div className="flex justify-center mt-2" onClick={(e) => e.stopPropagation()}>
+                  <GoogleDriveFilePicker
+                    folder="course-videos"
+                    allowedTypes="VIDEO"
+                    label="Importer depuis Drive"
+                    onFilePicked={handleDriveVideoPicked}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-[#1E293B] hover:bg-[#334155] text-white border border-[#334155] rounded-lg transition-all font-bold text-[10px] uppercase tracking-widest"
+                  />
+                </div>
                 <input
                   type="file"
-                  id="videosInput"
+                  id="videosInput" ref={videosInputRef}
                   accept="video/*"
                   multiple
                   className="hidden"
@@ -1059,7 +1131,7 @@ export function InstructorCourseCreate() {
               <TouchArea
                 as="div"
                 className="upload-zone border border-[#334155] rounded-2xl p-4 text-center cursor-pointer hover:border-[#22C55E]/50 bg-[#1e293b]"
-                onClick={() => document.getElementById("docsInput")?.click()}
+                onClick={() => docsInputRef.current?.click()}
               >
                 <svg
                   className="w-8 h-8 text-gray-500 mx-auto mb-2"
@@ -1080,9 +1152,22 @@ export function InstructorCourseCreate() {
                 <p className="text-[10px] text-gray-500 mt-1">
                   PDF, DOCX, PPTX • Max 50MB
                 </p>
+                <div className="flex justify-center mt-2" onClick={(e) => e.stopPropagation()}>
+                  <GoogleDriveFilePicker
+                    folder="course-docs"
+                    allowedTypes="ALL"
+                    label="Importer depuis Drive"
+                    onFileImported={(url, fileName) => {
+                      setDocs(prev => [...prev, {
+                        name: fileName, url, status: "Prêt", uploadedAt: new Date().toISOString()
+                      }]);
+                    }}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-[#1E293B] hover:bg-[#334155] text-white border border-[#334155] rounded-lg transition-all font-bold text-[10px] uppercase tracking-widest"
+                  />
+                </div>
                 <input
                   type="file"
-                  id="docsInput"
+                  id="docsInput" ref={docsInputRef}
                   accept=".pdf,.doc,.docx,.ppt,.pptx"
                   multiple
                   className="hidden"
@@ -1539,12 +1624,12 @@ export function InstructorCourseCreate() {
       {toastMessage && (
         <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-top-2">
           <div
-            className={`flex items-center gap-2 px-4 py-3 rounded-xl shadow-2xl border bg-[#1E293B] ${toastMessage.type === "error" ? "border-red-500" : "border-[#334155]"}`}
+            className={`flex items-center gap-2 px-4 py-3 rounded-xl shadow-2xl border bg-[#1E293B] ${toastMessage.type === "warning" ? "border-red-500" : "border-[#334155]"}`}
           >
             <span
-              className={`text-lg ${toastMessage.type === "error" ? "text-red-500" : "text-[#22C55E]"}`}
+              className={`text-lg ${toastMessage.type === "warning" ? "text-red-500" : "text-[#22C55E]"}`}
             >
-              {toastMessage.type === "error" ? "⚠️" : "✅"}
+              {toastMessage.type === "warning" ? "⚠️" : "✅"}
             </span>
             <span className="text-sm font-medium text-white">
               {toastMessage.msg}

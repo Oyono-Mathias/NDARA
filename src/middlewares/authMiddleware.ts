@@ -1,3 +1,4 @@
+import { logger } from '../lib/logger';
 import { Request, Response, NextFunction } from "express";
 import { admin } from "../lib/firebaseAdmin.js";
 
@@ -28,7 +29,7 @@ export const isAuthenticated = async (req: AuthRequest, res: Response, next: Nex
         const config = JSON.parse(configStr);
         projectId = config.projectId;
         databaseId = config.firestoreDatabaseId;
-      } catch (e) {}
+      } catch (e) { console.warn("Ignored error", e); }
 
       if (projectId && databaseId) {
         const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${databaseId}/documents/users/${decodedToken.uid}`;
@@ -43,13 +44,13 @@ export const isAuthenticated = async (req: AuthRequest, res: Response, next: Nex
         }
       }
     } catch (e) {
-      console.error("Failed to load user document for role enrichment via REST:", e);
+      logger.error("Failed to load user document for role enrichment via REST:", e);
     }
 
     req.user = decodedToken;
     next();
   } catch (error) {
-    console.error("Auth middleware error:", error);
+    logger.error("Auth middleware error:", error);
     res.status(403).json({ error: "Unauthorized access" });
   }
 };

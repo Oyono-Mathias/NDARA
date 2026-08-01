@@ -1,3 +1,6 @@
+import { logger } from '../../lib/logger';
+import { useConfirm } from '../../components/ui/ConfirmDialog';
+import { toast } from '../../hooks/use-toast';
 import { useState, useMemo, useEffect } from "react";
 import { useRole } from "../../context/RoleContext";
 import {
@@ -13,7 +16,7 @@ import {
   Search,
   SlidersHorizontal,
   BookOpen,
-  Trash2,
+  Trash2, Eye,
   Edit2,
   Play,
   Users,
@@ -28,6 +31,8 @@ import { TopAppBar } from "../../components/ui/TopAppBar";
 import { BottomSheet } from "../../components/ui/BottomSheet";
 
 export function InstructorCourses() {
+  const confirm = useConfirm();
+
   const { currentUser } = useRole();
   const navigate = useNavigate();
   const [courses, setCourses] = useState<any[]>([]);
@@ -61,7 +66,7 @@ export function InstructorCourses() {
         setIsLoading(false);
       },
       (error) => {
-        console.error("Error fetching instructor courses:", error);
+        logger.error("Error fetching instructor courses:", error);
         setIsLoading(false);
       },
     );
@@ -81,23 +86,16 @@ export function InstructorCourses() {
 
   const handleDeleteCourse = async (courseId: string) => {
     if (!courseId) {
-      console.error("Erreur: L'ID de la formation est invalide.");
+      logger.error("Erreur: L'ID de la formation est invalide.");
       return;
     }
-    if (
-      window.confirm(
-        "Supprimer cette formation ? Cette action est irréversible.",
-      )
-    ) {
+    if (await confirm("Supprimer cette formation ? Cette action est irréversible.")) {
       try {
         await deleteDoc(doc(db, "courses", courseId));
-        alert("Formation supprimée avec succès.");
+        toast({ title: 'Information', description: String("Formation supprimée avec succès.") });
       } catch (error: any) {
-        console.error("Erreur lors de la suppression du cours:", error);
-        alert(
-          "Erreur lors de la suppression : " +
-            (error.message || "Permissions insuffisantes."),
-        );
+        logger.error("Erreur lors de la suppression du cours:", error);
+        toast({ variant: 'destructive', title: 'Erreur', description: "Erreur lors de la suppression : " + (error.message || "Permissions insuffisantes.") });
       }
     }
   };
@@ -156,7 +154,7 @@ export function InstructorCourses() {
                 course={course}
                 onEdit={() => navigate(`/instructor/courses/edit/${course.id}`)}
                 onDelete={() => handleDeleteCourse(course.id)}
-                onPreview={() => navigate(`/student/courses/${course.id}`)}
+                onPreview={() => navigate(`/instructor/courses/preview/${course.id}`)}
               />
             ))}
           </div>
@@ -227,30 +225,11 @@ function CourseListItem({ course, onEdit, onDelete, onPreview }: any) {
   const isDraft = course.status === "Draft";
 
   return (
-    <SwipeableItem
-      onSwipeRight={onEdit}
-      onSwipeLeft={onDelete}
-      rightAction={
-        <div className="flex flex-col items-center gap-1 text-primary">
-          <Edit2 size={20} />
-          <span className="text-[10px] uppercase font-bold tracking-widest">
-            Éditer
-          </span>
-        </div>
-      }
-      leftAction={
-        <div className="flex flex-col items-center gap-1 text-red-500">
-          <Trash2 size={20} />
-          <span className="text-[10px] uppercase font-bold tracking-widest">
-            Sup
-          </span>
-        </div>
-      }
-    >
+    <div className="bg-[#1e293b] p-3 rounded-2xl border border-white/5 flex gap-4 w-full text-left mb-3 group relative">
       <TouchArea
         as="div"
-        onClick={onPreview}
-        className="bg-[#1e293b] p-3 rounded-2xl border border-white/5 flex gap-4 w-full text-left"
+        onClick={onEdit}
+        className="flex-1 flex gap-4"
       >
         <div className="w-20 h-20 rounded-xl overflow-hidden bg-slate-900 shrink-0 relative">
           <img
@@ -271,7 +250,7 @@ function CourseListItem({ course, onEdit, onDelete, onPreview }: any) {
           </div>
         </div>
 
-        <div className="flex-1 flex flex-col justify-center min-w-0">
+        <div className="flex-1 flex flex-col justify-center min-w-0 pr-16">
           <h3 className="font-black text-sm text-white line-clamp-2 leading-tight uppercase tracking-tight">
             {course.title}
           </h3>
@@ -283,6 +262,15 @@ function CourseListItem({ course, onEdit, onDelete, onPreview }: any) {
           </div>
         </div>
       </TouchArea>
-    </SwipeableItem>
+      
+      <div className="absolute right-3 top-1/2 -translate-y-1/2 flex flex-col gap-2">
+        <TouchArea as="button" onClick={(e) => { e.stopPropagation(); onPreview(); }} className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-white hover:bg-white/10 transition-colors">
+            <Eye size={14} />
+        </TouchArea>
+        <TouchArea as="button" onClick={(e) => { e.stopPropagation(); onDelete(); }} className="w-8 h-8 rounded-full bg-red-500/10 flex items-center justify-center text-red-500 hover:bg-red-500/20 transition-colors">
+            <Trash2 size={14} />
+        </TouchArea>
+      </div>
+    </div>
   );
 }

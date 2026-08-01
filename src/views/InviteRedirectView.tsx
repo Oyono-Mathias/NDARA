@@ -1,3 +1,4 @@
+import { logger } from '../lib/logger';
 import { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getFirestore, collection, query, where, getDocs, limit } from 'firebase/firestore';
@@ -23,7 +24,7 @@ export function InviteRedirectView() {
                     navigate('/student/catalog', { replace: true });
                 }
             } catch(e) {
-                console.error(e);
+                logger.error(e);
                 navigate('/', { replace: true });
             }
         };

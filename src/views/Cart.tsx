@@ -1,3 +1,4 @@
+import { logger } from '../lib/logger';
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getFirestore, collection, query, onSnapshot, deleteDoc, doc } from 'firebase/firestore';
@@ -52,7 +53,7 @@ export function CartView() {
     try {
         await deleteDoc(doc(db, 'users', currentUser.uid, 'cart', itemId));
     } catch (err) {
-        console.error("Erreur suppression", err);
+        logger.error("Erreur suppression", err);
     }
   };
 

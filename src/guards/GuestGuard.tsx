@@ -15,7 +15,7 @@ export function GuestGuard({ children }: { children: ReactNode }) {
     );
   }
 
-  if (firebaseUser) {
+  if (firebaseUser && appUser) {
     // Si l'utilisateur est déjà connecté, on redirige vers son tableau de bord selon son rôle
     const targetPath = appUser?.role === 'admin' || appUser?.role === 'superadmin' 
       ? '/admin' 

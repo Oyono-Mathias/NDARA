@@ -1,3 +1,4 @@
+import { logger } from '../lib/logger';
 import { useState, useEffect } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -18,7 +19,7 @@ export function LegalView() {
           setContent('Contenu non disponible.');
         }
       } catch (error) {
-        console.error("Failed to fetch legal content:", error);
+        logger.error("Failed to fetch legal content:", error);
         setContent("Erreur lors du chargement du contenu.");
       } finally {
         setIsLoading(false);

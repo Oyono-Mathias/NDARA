@@ -1,13 +1,16 @@
+import { useConfirm } from '../components/ui/ConfirmDialog';
 import { Link, useNavigate } from "react-router-dom";
 import { DownloadCloud, Trash2, Video, Database, Loader2, ChevronLeft } from "lucide-react";
 import { useOfflineStorage } from "../hooks/useOfflineStorage";
 
 export default function OfflineDownloads() {
+  const confirm = useConfirm();
+
   const { downloads, totalSize, removeDownload, isLoading } = useOfflineStorage();
   const navigate = useNavigate();
 
   const handleRemove = async (videoId: string) => {
-    if (confirm("Voulez-vous vraiment supprimer cette vidéo du stockage de l'appareil ?")) {
+    if ((await confirm("Voulez-vous vraiment supprimer cette vidéo du stockage de l'appareil ?"))) {
       await removeDownload(videoId);
     }
   };

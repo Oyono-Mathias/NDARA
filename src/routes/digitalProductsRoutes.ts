@@ -1,3 +1,4 @@
+import { logger } from '../lib/logger';
 import express, { Request, Response } from "express";
 import { isAuthenticated, AuthRequest } from "../middlewares/authMiddleware.js";
 import { adminDb } from "../lib/firebaseAdmin.js";
@@ -41,7 +42,7 @@ router.post("/licenses/generate", isAuthenticated, async (req: AuthRequest, res:
 
         res.json({ success: true, license: { id: licenseRef.id, licenseKey } });
     } catch (e: any) {
-        console.error("License generation error:", e);
+        logger.error("License generation error:", e);
         res.status(500).json({ error: "Erreur lors de la génération de la licence." });
     }
 });
@@ -89,7 +90,7 @@ router.post("/download", isAuthenticated, async (req: AuthRequest, res: Response
 
         res.json({ success: true, downloadUrl: secureDownloadUrl, message: "Licence validée. Téléchargement autorisé." });
     } catch (e: any) {
-        console.error("Secure download error:", e);
+        logger.error("Secure download error:", e);
         res.status(500).json({ error: "Erreur lors du téléchargement sécurisé." });
     }
 });

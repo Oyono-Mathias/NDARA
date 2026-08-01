@@ -1,3 +1,4 @@
+import { logger } from '../lib/logger';
 import express, { Request, Response } from "express";
 import { isAuthenticated, AuthRequest } from "../middlewares/authMiddleware.js";
 import { getStripe, createMobileMoneyIntent } from "../lib/paymentProviders.js";
@@ -57,12 +58,27 @@ async function fulfillPayment(transactionRef: string, method: string) {
         });
         
         // Now trigger the internal escrow purchase using the loaded balance
+        
+        // Marketing tracking for Ambassador campaigns
+        if (txData.refCode) {
+            try {
+                const { MarketingRoutes } = await import("../lib/marketingBackend.js");
+                await MarketingRoutes.trackConversion({
+                    body: { ref: txData.refCode, camp: txData.campCode, type: 'sale', amount: txData.amount, courseId: txData.courseId }
+                }, { json: () => {} });
+            } catch(e) {
+                logger.error("Marketing tracking error", e);
+            }
+        }
+        
         await purchaseCourseWithEscrow(
             txData.userId,
             txData.amount,
             txData.courseId,
             txData.courseTitle,
-            txData.sellerId
+            txData.sellerId,
+            undefined,
+            txData.couponCode
         );
     }
 }
@@ -70,12 +86,33 @@ async function fulfillPayment(transactionRef: string, method: string) {
 // 1. Create a Payment Intent (Card or Mobile Money)
 router.post("/intent", isAuthenticated, async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-        const { amount, currency = 'XAF', method, type, courseId, courseTitle, sellerId, phone } = req.body;
+        let { amount, currency = 'XAF', method, type, courseId, courseTitle, sellerId, phone, couponCode, camp, refCode } = req.body;
         const userId = req.user!.uid;
         
         if (!amount || !method || !type) {
              res.status(400).json({ error: "Paramètres manquants." });
              return;
+        }
+
+        if (type === 'course_purchase' && courseId) {
+            const courseDoc = await adminDb.collection('courses').doc(courseId).get();
+            if (courseDoc.exists) {
+                let actualPrice = courseDoc.data()?.price || amount;
+                let couponDiscount = 0;
+                if (couponCode) {
+                    const couponSnap = await adminDb.collection('course_coupons').where('code', '==', couponCode).get();
+                    if (!couponSnap.empty) {
+                        const coupon = couponSnap.docs[0].data();
+                        if (coupon.isActive !== false) {
+                            if (!coupon.courses || coupon.courses.length === 0 || coupon.courses.includes(courseId)) {
+                                couponDiscount = coupon.discount || 0;
+                            }
+                        }
+                    }
+                }
+                const calculatedPrice = actualPrice > 0 ? actualPrice - (actualPrice * (couponDiscount / 100)) : 0;
+                amount = Math.round(calculatedPrice);
+            }
         }
 
         const txRef = `TX_${Date.now()}_${userId.substring(0,5)}`;
@@ -92,6 +129,9 @@ router.post("/intent", isAuthenticated, async (req: AuthRequest, res: Response):
             courseId: courseId || null,
             courseTitle: courseTitle || null,
             sellerId: sellerId || null,
+            couponCode: couponCode || null,
+            campCode: camp || null,
+            refCode: refCode || null,
             status: 'pending',
             createdAt: new Date().toISOString()
         });
@@ -130,7 +170,7 @@ router.post("/intent", isAuthenticated, async (req: AuthRequest, res: Response):
             res.status(400).json({ error: "Méthode de paiement non supportée." });
         }
     } catch (e: any) {
-        console.error("Payment intent error:", e);
+        logger.error("Payment intent error:", e);
         res.status(500).json({ error: "Erreur lors de l'initialisation du paiement." });
     }
 });
@@ -163,7 +203,7 @@ router.post("/webhook", express.raw({type: 'application/json'}), async (req: Req
         }
         res.status(200).send("Webhook received");
     } catch (err: any) {
-        console.error("Webhook Error:", err.message);
+        logger.error("Webhook Error:", err.message);
         res.status(400).send(`Webhook Error: ${err.message}`);
     }
 });
@@ -214,7 +254,7 @@ router.post("/refund", isAuthenticated, async (req: AuthRequest, res: Response):
 
         res.json({ success: true, message: "Remboursement effectué." });
     } catch (e: any) {
-        console.error("Refund error:", e);
+        logger.error("Refund error:", e);
         res.status(500).json({ error: "Erreur lors du remboursement." });
     }
 });

@@ -1,3 +1,4 @@
+import { logger } from '../lib/logger';
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { doc, onSnapshot, collection, query, where, getDocs, setDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
@@ -43,7 +44,7 @@ export function CourseDetail() {
                             viewedAt: serverTimestamp()
                         });
                     } catch (e) {
-                        console.error('Failed to log course view', e);
+                        logger.error('Failed to log course view', e);
                     }
                 }
 
@@ -129,11 +130,14 @@ export function CourseDetail() {
                          courseId: course.id,
                          enrolledAt: new Date(),
                          progress: 0,
-                         instructorId: course.instructorId || 'admin'
+                         instructorId: course.instructorId || 'admin',
+                         deletedAt: null,
+                         createdAt: Date.now(),
+                         updatedAt: Date.now()
                      });
                      navigate(`/student/courses/${course.id}`);
                  } catch(e) {
-                     console.error("Auto-enroll failed", e);
+                     logger.error("Auto-enroll failed", e);
                      navigate(`/student/checkout/${course.slug || slug || course.id}`);
                  }
             } else {
@@ -159,7 +163,7 @@ export function CourseDetail() {
                 });
             }
         } catch (error) {
-            console.error("Erreur lors de l'ajout aux favoris", error);
+            logger.error("Erreur lors de l'ajout aux favoris", error);
         }
     };
 

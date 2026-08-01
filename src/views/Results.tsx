@@ -1,3 +1,4 @@
+import { logger } from '../lib/logger';
 import React, { useMemo, useState, useEffect } from 'react';
 import { useRole } from '../context/RoleContext';
 import { collection, query, where, getFirestore, onSnapshot } from 'firebase/firestore';
@@ -46,7 +47,7 @@ export function ResultsView() {
         setRawResults(results);
         setResultsLoading(false);
     }, (error) => {
-        console.error("Error fetching results", error);
+        logger.error("Error fetching results", error);
         setResultsLoading(false);
     });
 

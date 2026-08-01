@@ -1,6 +1,8 @@
+import { logger } from '../lib/logger';
+import { toast } from '../hooks/use-toast';
 import { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { doc, getFirestore, onSnapshot, collection, query, where, getDocs, limit } from 'firebase/firestore';
+import { doc, getFirestore, onSnapshot, collection, query, where, getDocs, getDoc, limit } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { 
   ArrowLeft, 
@@ -46,6 +48,11 @@ export function CheckoutView() {
   const [course, setCourse] = useState<any>(null);
   const [courseLoading, setCourseLoading] = useState(true);
 
+  const [couponInput, setCouponInput] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
+  const [couponError, setCouponError] = useState('');
+  const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
+
   useEffect(() => {
     if (ctxUser) {
         setCurrentUser(ctxUser);
@@ -57,15 +64,26 @@ export function CheckoutView() {
 
     if (slug) {
         const q = query(collection(db, 'courses'), where('slug', '==', slug), where('status', '==', 'Published'));
-        const unsubscribe = onSnapshot(q, (snap) => {
+        const unsubscribe = onSnapshot(q, async (snap) => {
             if (!snap.empty) {
                 setCourse({ id: snap.docs[0].id, ...snap.docs[0].data() });
+                setCourseLoading(false);
             } else {
-                setCourse({ id: slug, title: 'Formation ' + slug, price: 25000 });
+                // Fallback to id
+                try {
+                    const docSnap = await getDoc(doc(db, 'courses', slug));
+                    if (docSnap.exists() && docSnap.data().status === 'Published') {
+                        setCourse({ id: docSnap.id, ...docSnap.data() });
+                    } else {
+                        setCourse({ id: slug, title: 'Formation ' + slug, price: 25000 });
+                    }
+                } catch(e) {
+                    setCourse({ id: slug, title: 'Formation ' + slug, price: 25000 });
+                }
+                setCourseLoading(false);
             }
-            setCourseLoading(false);
         }, (e) => {
-            console.error("Error fetching course", e);
+            logger.error("Error fetching course", e);
             setCourseLoading(false);
         });
         return () => unsubscribe();
@@ -110,11 +128,45 @@ export function CheckoutView() {
   }, [activeMethod]);
 
 
+  const finalPrice = useMemo(() => {
+    if (!course) return 0;
+    if (!appliedCoupon) return course.price || 0;
+    const discount = appliedCoupon.discount || 0;
+    return Math.round(course.price - (course.price * (discount / 100)));
+  }, [course, appliedCoupon]);
+
+  const handleApplyCoupon = async () => {
+    if (!couponInput.trim() || !course) return;
+    setIsApplyingCoupon(true);
+    setCouponError('');
+    try {
+      const q = query(collection(db, 'course_coupons'), where('code', '==', couponInput.toUpperCase().trim()), limit(1));
+      const snap = await getDocs(q);
+      if (snap.empty) {
+        setCouponError('Code promo invalide ou expiré.');
+      } else {
+        const couponData = snap.docs[0].data();
+        if (couponData.isActive === false) {
+           setCouponError('Ce code promo est inactif.');
+        } else if (couponData.courses && couponData.courses.length > 0 && !couponData.courses.includes(course.id)) {
+           setCouponError('Ce code promo n\'est pas valable pour cette formation.');
+        } else {
+           setAppliedCoupon(couponData);
+           setCouponError('');
+        }
+      }
+    } catch (err: any) {
+       setCouponError('Erreur lors de la vérification du code.');
+    } finally {
+      setIsApplyingCoupon(false);
+    }
+  };
+
   const handlePayment = async () => {
     if (!course) return;
     
     // Check if free
-    if (course.price === 0) {
+    if (finalPrice === 0) {
       setIsProcessing(true);
       try {
         const { setDoc, doc, collection } = await import("firebase/firestore");
@@ -123,7 +175,10 @@ export function CheckoutView() {
           courseId: course.id,
           enrolledAt: new Date(),
           progress: 0,
-          instructorId: course.instructorId || 'admin'
+          instructorId: course.instructorId || 'admin',
+          deletedAt: null,
+          createdAt: Date.now(),
+          updatedAt: Date.now()
         });
         setIsSuccess(true);
       } catch (e: any) {
@@ -142,13 +197,17 @@ export function CheckoutView() {
         try {
             const response = await fetch('/api/wallet/purchase', {
                 method: 'POST',
+        credentials: "include",
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await auth.currentUser?.getIdToken()}` },
                 body: JSON.stringify({
                     studentId: currentUser.uid,
-                    price: course.price || 0,
+                    price: finalPrice,
                     courseId: course.id,
                     courseTitle: course.title,
-                    sellerId: course.instructorId || 'admin'
+                    sellerId: course.instructorId || 'admin',
+                    couponCode: appliedCoupon ? appliedCoupon.code : undefined,
+                    camp: localStorage.getItem('ndara_camp') || undefined,
+                    refCode: localStorage.getItem('ndara_ref') || undefined
                 })
             });
 
@@ -168,7 +227,7 @@ export function CheckoutView() {
 
     } else if (activeMethod.provider === 'mesomb' || activeMethod.provider === 'mobile_money') {
         if (!certifiedNumber) {
-            alert(`Veuillez enregistrer votre numéro ${activeMethod.name} dans votre profil.`);
+            toast({ title: 'Information', description: String(`Veuillez enregistrer votre numéro ${activeMethod.name} dans votre profil.`) });
             return;
         }
         setIsAwaitingUssd(true);
@@ -178,16 +237,18 @@ export function CheckoutView() {
             const token = await auth.currentUser?.getIdToken();
             const response = await fetch('/api/payment/intent', {
                 method: 'POST',
+        credentials: "include",
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({
-                    amount: course.price,
+                    amount: finalPrice,
                     currency: countryData?.currency || 'XAF',
                     method: activeMethod.id === 'mtn_momo' ? 'mtn' : 'orange',
                     type: 'course_purchase',
                     courseId: course.id,
                     courseTitle: course.title,
                     sellerId: course.instructorId || 'admin',
-                    phone: certifiedNumber
+                    phone: certifiedNumber,
+                    couponCode: appliedCoupon ? appliedCoupon.code : undefined
                 })
             });
             const data = await response.json();
@@ -236,9 +297,43 @@ export function CheckoutView() {
                 <h2 className="font-black text-[#D97706] text-sm uppercase truncate pr-4">{course?.title}</h2>
             </div>
             <div className="flex justify-between items-end">
-                <span className="text-[#D97706]/60 text-[10px] font-black uppercase tracking-widest">Total à payer</span>
-                <span className="font-mono font-black text-[#D97706] text-3xl">{(course?.price || 0).toLocaleString()} {currencySymbol}</span>
+                <div className="flex flex-col">
+                  <span className="text-[#D97706]/60 text-[10px] font-black uppercase tracking-widest">Total à payer</span>
+                  {appliedCoupon && (
+                    <span className="text-xs text-[#D97706]/60 line-through">{(course?.price || 0).toLocaleString()} {currencySymbol}</span>
+                  )}
+                </div>
+                <span className="font-mono font-black text-[#D97706] text-3xl">{finalPrice.toLocaleString()} {currencySymbol}</span>
             </div>
+        </div>
+
+        {/* Coupon Section */}
+        <div className="bg-slate-900 rounded-[2rem] p-6 shadow-xl relative overflow-hidden">
+          <h3 className="text-white font-bold mb-4 uppercase text-[10px] tracking-widest">Code promo</h3>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <input 
+                type="text" 
+                value={couponInput} 
+                onChange={(e) => setCouponInput(e.target.value)}
+                placeholder="Ex: SOLDES2024" 
+                className="bg-slate-950/50 text-white placeholder-slate-500 rounded-xl px-4 py-3 border border-white/5 focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none uppercase w-full font-mono text-sm"
+              />
+              <button 
+                onClick={handleApplyCoupon}
+                disabled={isApplyingCoupon || !couponInput.trim() || appliedCoupon !== null}
+                className="bg-white/5 hover:bg-white/10 disabled:opacity-50 text-white px-4 py-3 rounded-xl font-bold transition-colors text-sm whitespace-nowrap"
+              >
+                {isApplyingCoupon ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Appliquer'}
+              </button>
+            </div>
+            {couponError && <p className="text-red-400 text-xs font-medium">{couponError}</p>}
+            {appliedCoupon && (
+              <p className="text-emerald-400 text-xs font-medium">
+                Code {appliedCoupon.code} appliqué ! (-{appliedCoupon.discount}%)
+              </p>
+            )}
+          </div>
         </div>
 
         <section className="space-y-4">

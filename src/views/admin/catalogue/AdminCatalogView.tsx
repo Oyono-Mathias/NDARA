@@ -1,7 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate, Routes, Route, Link, useLocation } from 'react-router-dom';
-import { FolderTree, BookOpen, Search, Filter, Plus, FileVideo, CheckSquare } from 'lucide-react';
+import { FolderTree, BookOpen, Search, Filter, Plus, FileVideo, CheckSquare, Book } from 'lucide-react';
 import { TouchArea } from '../../../components/ui/TouchArea';
+import { EbooksManager } from './EbooksManager';
+import { CoursesManager } from './CoursesManager';
+import { CategoriesManager } from './CategoriesManager';
+import { CourseBuilder } from './CourseBuilder';
 
 export function AdminCatalogView() {
   const location = useLocation();
@@ -10,6 +14,7 @@ export function AdminCatalogView() {
   const tabs = [
     { label: 'Formations', path: '/admin/catalog', icon: BookOpen },
     { label: 'Catégories', path: '/admin/catalog/categories', icon: FolderTree },
+    { label: 'Ebooks', path: '/admin/catalog/ebooks', icon: Book },
   ];
 
   return (
@@ -40,39 +45,10 @@ export function AdminCatalogView() {
         <Routes>
           <Route path="/" element={<CoursesManager />} />
           <Route path="/categories" element={<CategoriesManager />} />
+          <Route path="/ebooks" element={<EbooksManager />} />
           <Route path="/courses/:courseId/builder" element={<CourseBuilder />} />
         </Routes>
       </div>
-    </div>
-  );
-}
-
-function CoursesManager() {
-  const navigate = useNavigate();
-  return (
-    <div className="text-center py-12">
-      <h2 className="text-xl font-bold text-white mb-2">Formations</h2>
-      <p className="text-slate-400 mb-6">Gérez l'ensemble des formations du catalogue.</p>
-      <TouchArea as="button" onClick={() => navigate('/admin/catalog/courses/new/builder')} className="px-6 py-3 bg-emerald-500 text-slate-950 font-bold uppercase tracking-widest rounded-xl">
-        Créer une formation
-      </TouchArea>
-    </div>
-  );
-}
-
-function CategoriesManager() {
-  return (
-    <div className="text-center py-12">
-      <h2 className="text-xl font-bold text-white mb-2">Catégories</h2>
-      <p className="text-slate-400 mb-6">Organisez le catalogue en catégories et sous-catégories.</p>
-    </div>
-  );
-}
-
-function CourseBuilder() {
-  return (
-    <div className="text-center py-12">
-      <h2 className="text-xl font-bold text-white mb-2">Éditeur de formation</h2>
     </div>
   );
 }

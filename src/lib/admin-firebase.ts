@@ -1,3 +1,4 @@
+import { logger } from '../lib/logger';
 import { collection, query, where, onSnapshot, getCountFromServer, Timestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useState, useEffect } from 'react';
@@ -39,7 +40,7 @@ export function useAdminDashboardStats() {
           });
         }
       } catch (error) {
-        console.error("Error fetching admin stats", error);
+        logger.error("Error fetching admin stats", error);
         if (isMounted) {
           setStats(prev => ({ ...prev, loading: false }));
         }

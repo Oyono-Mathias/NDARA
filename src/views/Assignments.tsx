@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { logger } from '../lib/logger';
 import { 
   getFirestore, 
   collection, 
@@ -29,42 +30,58 @@ export function AssignmentsView() {
             
             // 1. Écouter les inscriptions pour savoir quels cours l'étudiant suit
             const enrollQuery = query(collection(db, 'enrollments'), where('studentId', '==', user.uid));
+            const coursesQuery = query(collection(db, 'courses'), where('instructorId', '==', user.uid));
             
             const unsubEnroll = onSnapshot(enrollQuery, (enrollSnap) => {
                 const enrolledCourseIds = enrollSnap.docs.map(d => d.data().courseId);
 
-                if (enrolledCourseIds.length === 0) {
-                    setAssignments([]);
-                    setIsLoading(false);
-                    return;
-                }
+                // Listen to courses created by the user as well
+                const unsubCourses = onSnapshot(coursesQuery, (coursesSnap) => {
+                    const createdCourseIds = coursesSnap.docs.map(d => d.id);
+                    const allCourseIds = Array.from(new Set([...enrolledCourseIds, ...createdCourseIds]));
 
-                // 2. Écouter tous les devoirs et filtrer ceux des cours inscrits
-                const assignmentsQuery = query(collectionGroup(db, 'assignments'), orderBy('createdAt', 'desc'));
-                const unsubAssignments = onSnapshot(assignmentsQuery, (assignSnap) => {
-                    const filtered = assignSnap.docs
-                        .map(doc => ({ id: doc.id, ...doc.data() }))
-                        .filter((a: any) => enrolledCourseIds.includes(a.courseId));
-                    
-                    setAssignments(filtered);
+                    if (allCourseIds.length === 0) {
+                        setAssignments([]);
+                        setIsLoading(false);
+                        return;
+                    }
+
+                    // 2. Écouter tous les devoirs et filtrer ceux des cours accessibles
+                    const assignmentsQuery = query(collectionGroup(db, 'assignments'));
+                    logger.info("Listening assignments", { collection: "assignments", uid: user.uid });
+                    const unsubAssignments = onSnapshot(assignmentsQuery, (assignSnap) => {
+                        const filtered = assignSnap.docs
+                            .map(doc => ({ id: doc.id, ...doc.data() }))
+                            .filter((a: any) => allCourseIds.includes(a.courseId) && a.status !== 'draft')
+                            .sort((a: any, b: any) => {
+                                const dA = a.createdAt?.toMillis?.() || 0;
+                                const dB = b.createdAt?.toMillis?.() || 0;
+                                return dB - dA;
+                            });
+                        
+                        setAssignments(filtered);
+                    }, (err) => logger.error("Assignments snapshot failed", err));
+
+                    // 3. Écouter les soumissions existantes de l'étudiant
+                    const submissionsQuery = query(collection(db, 'assignments_submissions'), where('studentId', '==', user.uid));
+                    logger.info("Listening assignments_submissions", { collection: "assignments_submissions", uid: user.uid });
+                    const unsubSubmissions = onSnapshot(submissionsQuery, (subSnap) => {
+                        const subMap: Record<string, any> = {};
+                        subSnap.forEach(doc => {
+                            const data = doc.data();
+                            subMap[data.assignmentId] = data;
+                        });
+                        setSubmissions(subMap);
+                        setIsLoading(false);
+                    }, (err) => logger.error("Submissions snapshot failed", err));
+
+                    return () => {
+                        unsubAssignments();
+                        unsubSubmissions();
+                    };
                 });
 
-                // 3. Écouter les soumissions existantes de l'étudiant
-                const submissionsQuery = query(collection(db, 'assignments_submissions'), where('studentId', '==', user.uid));
-                const unsubSubmissions = onSnapshot(submissionsQuery, (subSnap) => {
-                    const subMap: Record<string, any> = {};
-                    subSnap.forEach(doc => {
-                        const data = doc.data();
-                        subMap[data.assignmentId] = data;
-                    });
-                    setSubmissions(subMap);
-                    setIsLoading(false);
-                });
-
-                return () => {
-                    unsubAssignments();
-                    unsubSubmissions();
-                };
+                return () => unsubCourses();
             });
 
             return () => unsubEnroll();
@@ -211,7 +228,7 @@ function AssignmentCard({ assignment, submission }: { assignment: any, submissio
       
       <div className="px-6 pb-6 pt-0">
         <Link 
-          to={`/student/assignments/${assignment.id}`}
+          to={`/student/devoirs/${assignment.courseId}/${assignment.id}`}
           className={`flex items-center justify-center w-full h-14 rounded-2xl font-black uppercase text-xs tracking-widest transition-all
             ${submission ? "bg-slate-800 text-slate-400 hover:bg-slate-700" : "bg-primary text-white shadow-xl shadow-primary/20"}`}
         >

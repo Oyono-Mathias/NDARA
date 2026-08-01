@@ -12,9 +12,12 @@ import {
   useNavigate,
   Link,
   Navigate,
+  useLocation,
 } from "react-router-dom";
 
+import { Toaster } from "sonner";
 import { AuthLayout } from "./layouts/AuthLayout";
+import { ConfirmProvider } from "./components/ui/ConfirmDialog";
 import { AuthGuard } from "./guards/AuthGuard";
 import { GuestGuard } from "./guards/GuestGuard";
 import { RoleGuard } from "./guards/RoleGuard";
@@ -46,6 +49,7 @@ const AccountSettingsView = React.lazy(() => import('./views/profile/AccountSett
 const CoursesView = React.lazy(() => import('./views/Courses').then(module => ({ default: module.CoursesView })));
 const CoursePlayer = React.lazy(() => import('./views/CoursePlayer').then(module => ({ default: module.CoursePlayer })));
 const MathiasTutor = React.lazy(() => import('./views/MathiasTutor').then(module => ({ default: module.MathiasTutor })));
+const GoogleWorkspaceTest = React.lazy(() => import('./views/GoogleWorkspaceTest').then(module => ({ default: module.GoogleWorkspaceTest })));
 const CartView = React.lazy(() => import('./views/Cart').then(module => ({ default: module.CartView })));
 const CertificatesView = React.lazy(() => import('./views/Certificates').then(module => ({ default: module.CertificatesView })));
 const AssignmentsView = React.lazy(() => import('./views/Assignments').then(module => ({ default: module.AssignmentsView })));
@@ -78,6 +82,7 @@ const EbookMarket = React.lazy(() => import('./views/EbookMarket').then(module =
 const OfflineDownloads = React.lazy(() => import('./views/OfflineDownloads'));
 const CourseDetail = React.lazy(() => import('./views/CourseDetail').then(module => ({ default: module.CourseDetail })));
 const AdminLayout = React.lazy(() => import('./views/admin/AdminLayout').then(module => ({ default: module.AdminLayout })));
+const AmbassadorLayout = React.lazy(() => import('./views/ambassador/AmbassadorLayout').then(module => ({ default: module.AmbassadorLayout })));
 const AdminDashboard = React.lazy(() => import('./views/admin/AdminDashboard').then(module => ({ default: module.AdminDashboard })));
 const AdminMembers = React.lazy(() => import('./views/admin/AdminMembers').then(module => ({ default: module.AdminMembers })));
 const AdminSquads = React.lazy(() => import('./views/admin/AdminSquads').then(module => ({ default: module.AdminSquads })));
@@ -93,6 +98,9 @@ const AdminSettings = React.lazy(() => import('./views/admin/AdminSettings').the
 const AdminAiConfig = React.lazy(() => import('./views/admin/AdminAiConfig').then(module => ({ default: module.AdminAiConfig })));
 const AdminMarketControl = React.lazy(() => import('./views/admin/AdminMarketControl').then(module => ({ default: module.AdminMarketControl })));
 const AdminInstructors = React.lazy(() => import('./views/admin/AdminInstructors').then(module => ({ default: module.AdminInstructors })));
+const AdminCommissions = React.lazy(() => import('./views/admin/AdminCommissions').then(module => ({ default: module.AdminCommissions })));
+const AdminWithdrawals = React.lazy(() => import('./views/admin/AdminWithdrawals').then(module => ({ default: module.AdminWithdrawals })));
+const AdminAmbassadorProgram = React.lazy(() => import('./views/admin/AdminAmbassadorProgram').then(module => ({ default: module.AdminAmbassadorProgram })));
 
 
 // Admin Views
@@ -118,7 +126,14 @@ function GenericPlaceholder({ title }: { title: string }) {
   );
 }
 
+
+const RedirectWithParams = ({ to }: { to: string }) => {
+  const location = useLocation();
+  return <Navigate to={`${to}${location.search}`} replace />;
+};
+
 export default function App() {
+  useTracking();
   useEffect(() => {
     const setVh = () => {
       let vh = window.innerHeight * 0.01;
@@ -130,8 +145,10 @@ export default function App() {
   }, []);
 
   return (
-    <BrowserRouter>
+    <ConfirmProvider>
+      <BrowserRouter>
       <OfflineIndicator />
+      <Toaster position="top-right" theme="dark" />
       <Suspense fallback={<div className="h-screen flex items-center justify-center"><div className="animate-spin w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full"></div></div>}>
       <Routes>
         {/* === PUBLIC ROUTES === */}
@@ -151,8 +168,9 @@ export default function App() {
         </Route>
         
         <Route path="/auth" element={<Navigate to="/auth/login" replace />} />
-        <Route path="/login" element={<Navigate to="/auth/login" replace />} />
-        <Route path="/register" element={<Navigate to="/auth/register" replace />} />
+        <Route path="/login" element={<RedirectWithParams to="/auth/login" />} />
+        <Route path="/register" element={<RedirectWithParams to="/auth/register" />} />
+        <Route path="/signup" element={<RedirectWithParams to="/auth/register" />} />
 
           <Route path="/legal" element={<LegalView />} />
           <Route path="/leaderboard" element={<LeaderboardView />} />
@@ -172,6 +190,7 @@ export default function App() {
         <Route path="/profile" element={<ProfileRedirect />} />
 
         <Route path="/student/courses/:slug" element={<CoursePlayer />} />
+        <Route path="/google-test" element={<GoogleWorkspaceTest />} />
 
         {/* === STUDENT ROUTES === */}
         <Route path="/student" element={<AuthGuard><StudentLayout /></AuthGuard>}>
@@ -201,7 +220,7 @@ export default function App() {
           <Route path="mes-formations" element={<CoursesView />} />
           <Route path="wishlist" element={<WishlistView />} />
           <Route path="devoirs" element={<AssignmentsView />} />
-          <Route path="devoirs/:id" element={<AssignmentDetail />} />
+          <Route path="devoirs/:courseId/:id" element={<AssignmentDetail />} />
           <Route path="quiz/:id" element={<QuizView />} />
           <Route path="results" element={<ResultsView />} />
           <Route path="payments" element={<PaymentsView />} />
@@ -226,6 +245,8 @@ export default function App() {
 
         {/* === INSTRUCTOR ROUTES === */}
         <Route path="/instructor/*" element={<InstructorLayout />} />
+
+        <Route path="/ambassador/*" element={<AmbassadorLayout />} />
 
         {/* === ADMIN ROUTES === */}
         <Route path="/admin" element={<AdminLayout />}>
@@ -254,6 +275,9 @@ export default function App() {
           <Route path="visuals" element={<AdminInterface />} />
           <Route path="seo" element={<AdminSettings />} />
           <Route path="settings" element={<AdminSettings />} />
+          <Route path="commissions" element={<AdminCommissions />} />
+          <Route path="withdrawals" element={<AdminWithdrawals />} />
+          <Route path="ambassador-program" element={<AdminAmbassadorProgram />} />
           <Route path="roles" element={<AdminSecurity />} />
           <Route path="audit" element={<AdminSecurity />} />
           <Route path="*" element={<Navigate to="/admin" replace />} />
@@ -261,5 +285,6 @@ export default function App() {
       </Routes>
       </Suspense>
     </BrowserRouter>
+      </ConfirmProvider>
   );
 }

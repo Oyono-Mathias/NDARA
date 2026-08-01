@@ -1,3 +1,6 @@
+import { logger } from '../../lib/logger';
+import { useConfirm } from '../../components/ui/ConfirmDialog';
+import { toast } from '../../hooks/use-toast';
 import React, { useState, useEffect } from 'react';
 import { 
   Landmark, 
@@ -18,9 +21,40 @@ import clsx from 'clsx';
 import { collection, collectionGroup, query, orderBy, onSnapshot, doc, runTransaction, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { EmptyState, NdaraSkeleton } from './AdminSupport';
+import { useToast } from '../../hooks/use-toast';
 
 export function AdminTransactions() {
+  const confirm = useConfirm();
+
   const [processing, setProcessing] = useState(false);
+
+  const { toast } = useToast();
+  
+  const handleExportToDrive = async () => {
+    try {
+      toast({ title: 'Export en cours', description: 'Génération du registre comptable...' });
+      
+      const csvContent = "ID,Type,Montant,Date\n" + ledger.map(l => `${l.id},${l.type || 'SYSTEM_TRANSACTION'},${l.amount},${new Date(l.createdAt?.toDate ? l.createdAt.toDate() : l.createdAt || 0).toLocaleDateString('fr-FR')}`).join('\n');
+      
+      const response = await fetch('/api/admin/drive/export', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fileName: `Registre_Financier_${new Date().toISOString().split('T')[0]}.csv`,
+          content: csvContent,
+          mimeType: 'text/csv'
+        })
+      });
+      
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error);
+      
+      toast({ title: 'Succès', description: 'Registre exporté sur Google Drive !' });
+    } catch (err: any) {
+      toast({ title: 'Erreur', description: err.message, variant: 'destructive' });
+    }
+  };
+
 
   const [activeTab, setActiveTab] = useState<'payments' | 'payouts' | 'ledger' | 'wallets'>('payments');
   const [searchTerm, setSearchTerm] = useState('');
@@ -38,11 +72,12 @@ export function AdminTransactions() {
 
   
   const handleRefundPayment = async (txRef: string) => {
-    if (!window.confirm("Êtes-vous sûr de vouloir rembourser cette transaction ?")) return;
+    if (!(await confirm("Êtes-vous sûr de vouloir rembourser cette transaction ?"))) return;
     // setProcessing(true);
     try {
       const response = await fetch('/api/payment/refund', {
         method: 'POST',
+        credentials: "include",
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${"dummy"}` },
         body: JSON.stringify({ txRef, reason: 'Demande utilisateur' })
       });
@@ -50,10 +85,10 @@ export function AdminTransactions() {
       if (response.ok && data.success) {
          setPayments(prev => prev.map(p => p.id === txRef ? { ...p, status: 'refunded' } : p));
       } else {
-         alert(data.error || 'Erreur lors du remboursement');
+         toast({ variant: 'destructive', title: 'Erreur', description: String(data.error || 'Erreur lors du remboursement') });
       }
     } catch (e: any) {
-      alert(e.message || "Erreur réseau");
+      toast({ variant: 'destructive', title: 'Erreur', description: String(e.message || "Erreur réseau") });
     } finally {
       // setProcessing(false);
     }
@@ -67,14 +102,14 @@ export function AdminTransactions() {
       const data: any[] = [];
       snap.forEach(doc => data.push({ id: doc.id, ...doc.data() }));
       setPayments(data);
-    }, (err) => console.error("Erreur sync payments:", err));
+    }, (err) => logger.error("Erreur sync payments:", err));
 
     const qPayouts = query(collection(db, 'payout_requests'), orderBy('timestamp', 'desc'));
     const unsubPayouts = onSnapshot(qPayouts, (snap) => {
       const data: any[] = [];
       snap.forEach(doc => data.push({ id: doc.id, ...doc.data() }));
       setPayouts(data);
-    }, (err) => console.error("Erreur sync payouts:", err));
+    }, (err) => logger.error("Erreur sync payouts:", err));
 
     const qLedger = query(collectionGroup(db, 'transactions'), orderBy('timestamp', 'desc'));
     
@@ -83,13 +118,13 @@ export function AdminTransactions() {
       const data: any[] = [];
       snap.forEach(doc => data.push({ id: doc.id, ...doc.data() }));
       setWallets(data);
-    }, (err) => console.error("Erreur sync wallets:", err));
+    }, (err) => logger.error("Erreur sync wallets:", err));
 
     const unsubLedger = onSnapshot(qLedger, (snap) => {
       const data: any[] = [];
       snap.forEach(doc => data.push({ id: doc.id, ...doc.data() }));
       setLedger(data);
-    }, (err) => console.error("Erreur sync ledger:", err));
+    }, (err) => logger.error("Erreur sync ledger:", err));
 
     const timer = setTimeout(() => setIsLoading(false), 800);
 
@@ -104,7 +139,7 @@ export function AdminTransactions() {
 
   // 1. Validation de Reçu Mobile Money (Paiement)
   const handleValidatePayment = async (payment: any) => {
-    if (!window.confirm("Valider ce reçu et débloquer l'accès pour cet étudiant ?")) return;
+    if (!(await confirm("Valider ce reçu et débloquer l'accès pour cet étudiant ?"))) return;
     setIsProcessing(payment.id);
     try {
       await runTransaction(db, async (t) => {
@@ -149,15 +184,15 @@ export function AdminTransactions() {
         });
       });
     } catch(err: any) {
-      console.error("Erreur validation paiement:", err);
-      alert("Erreur: " + err.message);
+      logger.error("Erreur validation paiement:", err);
+      toast({ variant: 'destructive', title: 'Erreur', description: String("Erreur: " + err.message) });
     } finally {
       setIsProcessing((undefined));
     }
   };
 
   const handleRejectPayment = async (paymentId: string) => {
-    if (!window.confirm("Rejeter ce paiement/reçu ?")) return;
+    if (!(await confirm("Rejeter ce paiement/reçu ?"))) return;
     setIsProcessing(paymentId);
     try {
       await updateDoc(doc(db, 'payments', paymentId), { 
@@ -165,7 +200,7 @@ export function AdminTransactions() {
         updatedAt: new Date() 
       });
     } catch (err) {
-      console.error(err);
+      logger.error(err);
     } finally {
       setIsProcessing((undefined));
     }
@@ -175,37 +210,27 @@ export function AdminTransactions() {
   
   
   
-  const handleCorrectTransaction = async (txId: string) => {
-    const newAmount = window.prompt("Entrez le nouveau montant (laissez vide pour annuler):");
-    if (!newAmount || isNaN(Number(newAmount))) return;
-    
-    try {
-      await updateDoc(doc(db, 'transactions', txId), { amount: Number(newAmount), updatedAt: new Date() });
-      alert("Transaction corrigée avec succès !");
-    } catch (e: any) {
-      alert("Erreur lors de la correction: " + e.message);
-    }
-  };
 
   const toggleWalletStatus = async (userId: string, currentStatus: string) => {
     const newStatus = currentStatus === 'locked' ? 'active' : 'locked';
-    if (!window.confirm(`Voulez-vous vraiment ${newStatus === 'locked' ? 'geler' : 'réactiver'} ce portefeuille ?`)) return;
+    if (!(await confirm(`Voulez-vous vraiment ${newStatus === 'locked' ? 'geler' : 'réactiver'} ce portefeuille ?`))) return;
     try {
       await updateDoc(doc(db, 'users', userId), { walletStatus: newStatus });
-      alert(`Portefeuille ${newStatus === 'locked' ? 'gelé' : 'réactivé'} avec succès.`);
+      toast({ title: 'Information', description: String(`Portefeuille ${newStatus === 'locked' ? 'gelé' : 'réactivé'} avec succès.`) });
     } catch (e: any) {
-      alert("Erreur: " + e.message);
+      toast({ variant: 'destructive', title: 'Erreur', description: String("Erreur: " + e.message) });
     }
   };
 
   const handleValidatePayout = async (payout: any) => {
-    if (!window.confirm(`Approuver ce retrait de ${payout.amount} XAF et déduire les fonds ?`)) return;
+    if (!(await confirm(`Approuver ce retrait de ${payout.amount} XAF et déduire les fonds ?`))) return;
     setIsProcessing(payout.id);
     try {
       const auth = await import('../../firebase').then(m => m.auth);
       const token = "dummy";
       const res = await fetch('/api/wallet/approve-payout', {
         method: 'POST',
+        credentials: "include",
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
@@ -213,10 +238,10 @@ export function AdminTransactions() {
         body: JSON.stringify({ requestId: payout.id, status: 'completed' })
       });
       if (!res.ok) throw new Error(await res.text());
-      alert('Retrait approuvé avec succès !');
+      toast({ title: 'Information', description: String('Retrait approuvé avec succès !') });
     } catch (e: any) {
-      console.error(e);
-      alert('Erreur: ' + e.message);
+      logger.error(e);
+      toast({ variant: 'destructive', title: 'Erreur', description: String('Erreur: ' + e.message) });
     } finally {
       setIsProcessing((undefined));
     }
@@ -225,13 +250,14 @@ export function AdminTransactions() {
 
   
   const handleRejectPayout = async (payoutId: string) => {
-    if (!window.confirm('Rejeter ce retrait ? Les fonds seront recrédités.')) return;
+    if (!(await confirm('Rejeter ce retrait ? Les fonds seront recrédités.'))) return;
     setIsProcessing(payoutId);
     try {
       const auth = await import('../../firebase').then(m => m.auth);
       const token = "dummy";
       const res = await fetch('/api/wallet/approve-payout', {
         method: 'POST',
+        credentials: "include",
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
@@ -239,10 +265,10 @@ export function AdminTransactions() {
         body: JSON.stringify({ requestId: payoutId, status: 'rejected' })
       });
       if (!res.ok) throw new Error(await res.text());
-      alert('Retrait rejeté et remboursé !');
+      toast({ title: 'Information', description: String('Retrait rejeté et remboursé !') });
     } catch (e: any) {
-      console.error(e);
-      alert('Erreur: ' + e.message);
+      logger.error(e);
+      toast({ variant: 'destructive', title: 'Erreur', description: String('Erreur: ' + e.message) });
     } finally {
       setIsProcessing((undefined));
     }
@@ -250,7 +276,7 @@ export function AdminTransactions() {
 
 
   const handleValidateDeposit = async (tx: any) => {
-    if (!window.confirm(`Valider l'entrée de ${tx.amount} XAF au portefeuille de l'utilisateur ?`)) return;
+    if (!(await confirm(`Valider l'entrée de ${tx.amount} XAF au portefeuille de l'utilisateur ?`))) return;
     setIsProcessing(tx.id);
     try {
       await runTransaction(db, async (t) => {
@@ -274,20 +300,20 @@ export function AdminTransactions() {
         t.update(userRef, { balance: currentBalance + (tx.amount || 0) });
       });
     } catch(err: any) {
-      console.error("Erreur validation depot:", err);
-      alert("Erreur: " + err.message);
+      logger.error("Erreur validation depot:", err);
+      toast({ variant: 'destructive', title: 'Erreur', description: String("Erreur: " + err.message) });
     } finally {
       setIsProcessing((undefined));
     }
   };
 
   const handleRejectDeposit = async (tx: any) => {
-    if (!window.confirm("Rejeter ce rechargement ?")) return;
+    if (!(await confirm("Rejeter ce rechargement ?"))) return;
     setIsProcessing(tx.id);
     try {
       await updateDoc(doc(db, 'transactions', tx.id), { status: 'failed', updatedAt: new Date() });
     } catch(err) {
-      console.error(err);
+      logger.error(err);
     } finally {
       setIsProcessing((undefined));
     }
@@ -359,8 +385,8 @@ export function AdminTransactions() {
           <p className="text-slate-400 text-sm font-medium">Validation atomique des reçus et registre comptable global.</p>
         </div>
 
-        <button className="flex items-center justify-center gap-2 h-12 px-6 rounded-2xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-bold uppercase text-[10px] tracking-widest transition-all shadow-xl shadow-slate-900/50 w-full sm:w-auto">
-          <Download className="h-4 w-4" /> Imprimer le Registre
+        <button onClick={handleExportToDrive} className="flex items-center justify-center gap-2 h-12 px-6 rounded-2xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-bold uppercase text-[10px] tracking-widest transition-all shadow-xl shadow-slate-900/50 w-full sm:w-auto">
+          <Download className="h-4 w-4" /> Exporter vers Drive
         </button>
       </header>
 

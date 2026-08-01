@@ -1,3 +1,5 @@
+import { logger } from '../../lib/logger';
+import { toast } from '../../hooks/use-toast';
 import React, { useState, useEffect } from "react";
 import { useRole } from "../../context/RoleContext";
 import { Link } from "react-router-dom";
@@ -57,7 +59,7 @@ export function InstructorSettings() {
         }
       },
       (error) => {
-        console.error("Error listening to user settings:", error);
+        logger.error("Error listening to user settings:", error);
       },
     );
 
@@ -94,8 +96,8 @@ export function InstructorSettings() {
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (e: any) {
-      console.error(e);
-      alert("Erreur: " + e.message);
+      logger.error(e);
+      toast({ variant: 'destructive', title: 'Erreur', description: String("Erreur: " + e.message) });
     } finally {
       setIsSaving(false);
     }

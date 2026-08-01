@@ -111,7 +111,7 @@ export function CoursesView() {
                 >
                     {filteredResults.length > 0 ? (
                         filteredResults.map((course: any) => (
-                           <Link key={course.id} to={`/student/courses/${course.slug}`} className="block">
+                           <Link key={course.id} to={`/student/courses/${course.slug || course.id}`} className="block">
                               <TouchArea className="rounded-2xl sm:rounded-3xl p-3 sm:p-4 card-hover relative overflow-hidden flex gap-3 sm:gap-4 border border-white/5 bg-white/[0.02] hover:bg-white/5 transition-colors">
                                   <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl sm:rounded-2xl bg-slate-900 overflow-hidden shrink-0 relative">
                                      <img src={course.thumbnail} alt={course.title} className={`w-full h-full object-cover transition-all ${course.progress === 0 ? 'opacity-50 grayscale' : 'opacity-80'}`} />

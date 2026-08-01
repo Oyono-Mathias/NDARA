@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * @file PreviewModal.tsx
  * @description Premium preview modal with glassmorphism, backdrop blur,

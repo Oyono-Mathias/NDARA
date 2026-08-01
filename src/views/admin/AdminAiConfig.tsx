@@ -1,3 +1,4 @@
+import { logger } from '../../lib/logger';
 import React, { useState, useEffect } from 'react';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
@@ -11,6 +12,7 @@ import {
   Power
 } from 'lucide-react';
 import { NdaraSkeleton } from './AdminSupport';
+import { PlayCircle } from 'lucide-react';
 
 export function AdminAiConfig() {
   const [loading, setLoading] = useState(true);
@@ -21,7 +23,8 @@ export function AdminAiConfig() {
     temperature: 0.7,
     maxTokens: 2048,
     modelName: "gemini-1.5-pro",
-    isMaintenanceActive: false
+    isMaintenanceActive: false,
+    defaultVideoPlayer: "bunny"
   });
 
   const [statusMsg, setStatusMsg] = useState<{type: 'success'|'error', text: string} | null>(null);
@@ -39,7 +42,8 @@ export function AdminAiConfig() {
           temperature: data.temperature !== undefined ? data.temperature : aiConfig.temperature,
           maxTokens: data.maxTokens || aiConfig.maxTokens,
           modelName: data.modelName || aiConfig.modelName,
-          isMaintenanceActive: !!data.isMaintenanceActive
+          isMaintenanceActive: !!data.isMaintenanceActive,
+          defaultVideoPlayer: data.defaultVideoPlayer || "bunny"
         });
       } else {
         // Le document n'existe pas, on initialise avec les valeurs par défaut saines
@@ -51,12 +55,12 @@ export function AdminAiConfig() {
           isMaintenanceActive: aiConfig.isMaintenanceActive,
           createdAt: new Date(),
           updatedAt: new Date()
-        }).catch(err => console.error("Erreur auto-init ai_config:", err));
+        }).catch(err => logger.error("Erreur auto-init ai_config:", err));
       }
       // Petit délai pour l'effet de chargement de l'UI
       setTimeout(() => setLoading(false), 500);
     }, (err) => {
-      console.error("Erreur sync ai_config:", err);
+      logger.error("Erreur sync ai_config:", err);
       setLoading(false);
     });
 
@@ -77,13 +81,14 @@ export function AdminAiConfig() {
         maxTokens: aiConfig.maxTokens,
         modelName: aiConfig.modelName,
         isMaintenanceActive: aiConfig.isMaintenanceActive,
+        defaultVideoPlayer: aiConfig.defaultVideoPlayer || "bunny",
         updatedAt: new Date()
       }, { merge: true });
       
       setStatusMsg({ type: 'success', text: 'Configuration de l\'IA mise à jour avec succès.' });
       setTimeout(() => setStatusMsg(null), 3000);
     } catch(err: any) {
-      console.error("Erreur sauvegarde IA:", err);
+      logger.error("Erreur sauvegarde IA:", err);
       setStatusMsg({ type: 'error', text: `Erreur de sauvegarde: ${err.message}` });
     } finally {
       setSaving(false);
@@ -103,7 +108,7 @@ export function AdminAiConfig() {
         updatedAt: new Date()
       }, { merge: true });
     } catch(err) {
-      console.error("Erreur lors de l'activation/désactivation de l'IA:", err);
+      logger.error("Erreur lors de l'activation/désactivation de l'IA:", err);
     }
   };
 
@@ -242,6 +247,27 @@ export function AdminAiConfig() {
          </div>
 
          <div className="space-y-6">
+            <div className="bg-slate-800/40 border border-slate-700/50 rounded-3xl p-6 shadow-2xl backdrop-blur-sm">
+              <h2 className="text-lg font-bold text-white mb-6 flex items-center gap-2"><PlayCircle className="w-5 h-5 text-emerald-500" /> Lecteur Vidéo</h2>
+              
+              <div className="space-y-3">
+                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Lecteur par défaut</label>
+                 <select
+                    value={aiConfig.defaultVideoPlayer || "bunny"}
+                   onChange={e => setAiConfig({...aiConfig, defaultVideoPlayer: e.target.value})}
+                   className="w-full bg-[#0B1120]/80 border border-slate-700 rounded-xl px-4 py-3.5 text-sm text-emerald-400 font-bold focus:outline-none focus:border-emerald-500/50"
+                 >
+                   <option value="bunny">Bunny Stream</option>
+                   <option value="mux">Mux Video</option>
+                   <option value="cloudflare">Cloudflare Stream</option>
+                   <option value="local">Lecteur Local (HTML5)</option>
+                 </select>
+                 <p className="text-xs text-slate-500 mt-2 leading-relaxed">
+                   Détermine le lecteur vidéo utilisé pour l'ensemble des étudiants sur la plateforme.
+                 </p>
+              </div>
+            </div>
+
             <div className="bg-slate-800/40 border border-slate-700/50 rounded-3xl p-6 shadow-2xl backdrop-blur-sm">
               <h2 className="text-lg font-bold text-white mb-6 flex items-center gap-2"><Activity className="w-5 h-5 text-emerald-500" /> État du Système</h2>
               

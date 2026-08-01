@@ -1,3 +1,4 @@
+import { logger } from '../lib/logger';
 import { Request, Response, NextFunction } from "express";
 
 export const requireTurnstile = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -21,6 +22,7 @@ export const requireTurnstile = async (req: Request, res: Response, next: NextFu
   try {
     const response = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
       method: "POST",
+        credentials: "include",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
       },
@@ -36,7 +38,7 @@ export const requireTurnstile = async (req: Request, res: Response, next: NextFu
       res.status(403).json({ error: "Échec de la validation anti-bot (Cloudflare Turnstile)." });
     }
   } catch (error) {
-    console.error("[Turnstile Error]:", error);
+    logger.error("[Turnstile Error]:", error);
     res.status(500).json({ error: "Erreur serveur lors de la validation anti-bot." });
   }
 };

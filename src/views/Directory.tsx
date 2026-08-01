@@ -1,3 +1,4 @@
+import { logger } from '../lib/logger';
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -42,7 +43,7 @@ export function DirectoryView() {
             setClassmates(snap.docs.map(doc => ({ uid: doc.id, ...doc.data() })));
             setIsLoadingData(false);
         }, (err) => {
-            console.error("Error fetching users:", err);
+            logger.error("Error fetching users:", err);
             setIsLoadingData(false);
         });
 

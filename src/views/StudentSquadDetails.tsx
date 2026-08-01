@@ -1,3 +1,4 @@
+import { logger } from '../lib/logger';
 import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ChevronLeft, Send, Loader2, Users, MoreVertical } from "lucide-react";
@@ -108,6 +109,7 @@ export function StudentSquadDetails() {
         try {
           const res = await fetch('/api/ai/squad-tutor', {
             method: 'POST',
+        credentials: "include",
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               message: textToSend,
@@ -129,11 +131,11 @@ export function StudentSquadDetails() {
             }
           }
         } catch (aiError) {
-          console.error("Erreur de l'IA Mathias:", aiError);
+          logger.error("Erreur de l'IA Mathias:", aiError);
         }
       }
     } catch (err) {
-      console.error("Erreur d'envoi du message :", err);
+      logger.error("Erreur d'envoi du message :", err);
       // Restore input on failure
       setInputValue(textToSend);
     } finally {

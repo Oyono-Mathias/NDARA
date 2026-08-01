@@ -1,3 +1,4 @@
+import { logger } from '../lib/logger';
 import { Suspense, useState, useEffect } from 'react';
 import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import { ChatList } from '../components/chat/ChatList';
@@ -29,7 +30,7 @@ function MessagesPageContent() {
                 setStaffList(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
                 setLoadingStaff(false);
             }).catch(err => {
-                console.error(err);
+                logger.error(err);
                 setLoadingStaff(false);
             });
         }

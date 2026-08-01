@@ -1,3 +1,5 @@
+import { logger } from '../../../lib/logger';
+import { toast } from '../../../hooks/use-toast';
 import { useState, useEffect } from "react";
 import {
   collection,
@@ -69,10 +71,8 @@ export function QnaClient() {
       setAnswerText("");
       setAnsweringId(null);
     } catch (error: any) {
-      console.error("Erreur lors de l'envoi de la réponse:", error);
-      alert(
-        "Erreur de réponse: " + (error.message || "Permissions insuffisantes."),
-      );
+      logger.error("Erreur lors de l'envoi de la réponse:", error);
+      toast({ variant: 'destructive', title: 'Erreur', description: "Erreur de réponse: " + (error.message || "Permissions insuffisantes.") });
     } finally {
       setLoadingAnsweringId(null);
     }
@@ -207,11 +207,9 @@ export function QnaClient() {
                               });
                               setAnsweringId(null);
                             } catch (e: any) {
-                              console.error(e);
-                              alert(
-                                "Erreur de MAJ: " +
-                                  (e.message || "Permissions insuffisantes"),
-                              );
+                              logger.error(e);
+                              toast({ variant: 'destructive', title: 'Erreur', description: "Erreur de MAJ: " +
+                                  (e.message || "Permissions insuffisantes") });
                             } finally {
                               setLoadingAnsweringId(null);
                             }
@@ -243,11 +241,9 @@ export function QnaClient() {
                               validatedByInstructor: true,
                             });
                           } catch (e: any) {
-                            console.error(e);
-                            alert(
-                              "Erreur de Validation: " +
-                                (e.message || "Permissions insuffisantes"),
-                            );
+                            logger.error(e);
+                            toast({ variant: 'destructive', title: 'Erreur', description: "Erreur de Validation: " +
+                                (e.message || "Permissions insuffisantes") });
                           }
                         }}
                         className="h-12 px-4 bg-emerald-500/20 text-emerald-400 font-bold text-[10px] uppercase tracking-widest rounded-xl hover:bg-emerald-500/30 transition flex items-center justify-center gap-2 flex-1 sm:flex-none"

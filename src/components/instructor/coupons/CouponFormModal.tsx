@@ -1,3 +1,5 @@
+import { logger } from '../../../lib/logger';
+import { toast } from '../../../hooks/use-toast';
 import { useState } from "react";
 import { useRole } from "../../../context/RoleContext";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
@@ -42,11 +44,9 @@ export function CouponFormModal({ isOpen, onClose, courses }: any) {
       setSelectedCourseIds([]);
       onClose();
     } catch (error: any) {
-      console.error("Erreur lors de la création du coupon:", error);
-      alert(
-        "Erreur lors de la création : " +
-          (error.message || "Permissions insuffisantes."),
-      );
+      logger.error("Erreur lors de la création du coupon:", error);
+      toast({ variant: 'destructive', title: 'Erreur', description: "Erreur lors de la création : " +
+          (error.message || "Permissions insuffisantes.") });
     } finally {
       setIsSubmitting(false);
     }

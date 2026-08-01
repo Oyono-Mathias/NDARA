@@ -1,3 +1,4 @@
+import { logger } from '../lib/logger';
 import { auth } from '../firebase';
 
 export async function uploadVideoToCloudflare(
@@ -13,6 +14,8 @@ export async function uploadVideoToCloudflare(
   try {
     const res = await fetch('/api/video/cloudflare/create', {
       method: 'POST',
+      credentials: 'include',
+        
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
@@ -22,12 +25,20 @@ export async function uploadVideoToCloudflare(
 
     if (!res.ok) {
       const errorText = await res.text();
-      console.error("Server API Create Cloudflare Video error:", res.status, errorText);
+      logger.error("Server API Create Cloudflare Video error:" + " " + res.status, errorText);
       throw new Error(`Erreur de création vidéo CF: ${res.status} - ${errorText}`);
     }
-    data = await res.json();
+    const textData = await res.text();
+    try {
+      data = JSON.parse(textData);
+    } catch(e) {
+      if (textData.includes("<!doctype html>") || textData.includes("<html")) {
+        throw new Error("Upload intercepté par le proxy. Veuillez ouvrir l'application dans un nouvel onglet.");
+      }
+      throw new Error("Réponse serveur invalide (non-JSON).");
+    }
   } catch (err) {
-    console.error("API Create CF Video failed:", err);
+    logger.error("API Create CF Video failed:" + " " + err);
     throw new Error("Erreur de création de la vidéo sur Cloudflare. Vérifiez la configuration.");
   }
 
@@ -45,7 +56,7 @@ export async function uploadVideoToCloudflare(
     xhr.upload.addEventListener("progress", (event) => {
       if (event.lengthComputable) {
         const percentage = Math.round((event.loaded / event.total) * 100);
-        onProgress(percentage);
+        onProgress?.(percentage);
       }
     });
 

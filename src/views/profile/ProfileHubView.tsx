@@ -1,3 +1,4 @@
+import { logger } from '../../lib/logger';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { TouchArea } from '../../components/ui/TouchArea';
@@ -21,7 +22,7 @@ export function ProfileHubView() {
       await authService.logout();
       navigate('/auth/login');
     } catch (e) {
-      console.error(e);
+      logger.error(e);
       setIsLoggingOut(false);
     }
   };

@@ -1,3 +1,4 @@
+import { logger } from '../lib/logger';
 export async function downloadVideoForOffline(
   videoId: string, 
   cdnHostname: string, 
@@ -20,7 +21,7 @@ export async function downloadVideoForOffline(
                         resolve(true);
                     }
                 } else if (event.data?.type === 'PREFETCH_ERROR' && event.data?.videoId === videoId) {
-                    console.error("SW Prefetch Error:", event.data.error);
+                    logger.error("SW Prefetch Error:", event.data.error);
                     navigator.serviceWorker.removeEventListener('message', messageHandler);
                     reject(new Error(event.data.error));
                 }
@@ -39,7 +40,7 @@ export async function downloadVideoForOffline(
         throw new Error("Service Worker not active or not supported");
     }
   } catch (error) {
-    console.error("Initiation du téléchargement de la vidéo a échoué", error);
+    logger.error("Initiation du téléchargement de la vidéo a échoué", error);
     throw error;
   }
 }

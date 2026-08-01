@@ -10,7 +10,7 @@ import { where, orderBy } from 'firebase/firestore';
 export function CourseDetailView() {
   const { slug } = useParams();
   const navigate = useNavigate();
-  const { course, loading, isEnrolled, isFavorite, toggleFavorite, enroll } = useCourse(slug || '');
+  const { course, loading, enrollmentLoading, isEnrolled, isFavorite, toggleFavorite, enroll } = useCourse(slug || '');
 
   const [chapters, setChapters] = React.useState<Chapter[]>([]);
   const [lessons, setLessons] = React.useState<Lesson[]>([]);
@@ -32,13 +32,13 @@ export function CourseDetailView() {
 
   const handleEnrollOrContinue = async () => {
     if (isEnrolled) {
-      navigate(`/student/courses/${course.slug}`);
+      navigate(`/student/courses/${course.slug || course.id}`);
     } else {
       if (course.isFree) {
         await enroll();
-        navigate(`/student/courses/${course.slug}`);
+        navigate(`/student/courses/${course.slug || course.id}`);
       } else {
-        navigate(`/student/checkout/${course.slug}`);
+        navigate(`/student/checkout/${course.slug || course.id}`);
       }
     }
   };
@@ -126,8 +126,8 @@ export function CourseDetailView() {
             <div className="text-2xl font-black text-white tracking-wider">
               {course.isFree ? 'GRATUIT' : `${course.price} FCFA`}
             </div>
-            <TouchArea as="button" onClick={handleEnrollOrContinue} className="px-8 py-4 bg-emerald-500 text-slate-950 font-black uppercase tracking-widest text-sm rounded-xl hover:bg-emerald-400 transition-colors shadow-[0_0_20px_rgba(16,185,129,0.3)]">
-              {isEnrolled ? 'Continuer' : (course.isFree ? 'S\'inscrire' : 'Acheter')}
+            <TouchArea as="button" onClick={handleEnrollOrContinue} disabled={enrollmentLoading} className="px-8 py-4 bg-emerald-500 text-slate-950 font-black uppercase tracking-widest text-sm rounded-xl hover:bg-emerald-400 transition-colors shadow-[0_0_20px_rgba(16,185,129,0.3)] disabled:opacity-50">
+              {enrollmentLoading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : (isEnrolled ? 'Continuer' : (course.isFree ? 'S\'inscrire' : 'Acheter'))}
             </TouchArea>
           </div>
         </div>

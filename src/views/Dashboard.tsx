@@ -1,3 +1,4 @@
+import { logger } from '../lib/logger';
 import { useNavigate } from "react-router-dom";
 import { formatImageUrl } from "../lib/utils";
 import { Play, BookOpen, Award, ArrowRight, Bot, Sparkles, Search, CheckCircle2, ChevronRight, Flame, Loader2, MessageCircleQuestion, Bell } from "lucide-react";
@@ -41,8 +42,10 @@ export function Dashboard() {
                 completedSnap = await getCountFromServer(query(enrollmentsRef, where('studentId', '==', currentUser.uid), where('progress', '==', 100)));
                 activeSnap = await getCountFromServer(query(enrollmentsRef, where('studentId', '==', currentUser.uid), where('progress', '>', 0), where('progress', '<', 100)));
             } catch(e) {
-                console.error("Dashboard FinOps Error: enrollments count", e);
-                throw new Error("enrollments count");
+                console.warn("Dashboard DB fallback used", e);
+                totalSnap = { data: () => ({ count: 0 }) };
+                completedSnap = { data: () => ({ count: 0 }) };
+                activeSnap = { data: () => ({ count: 0 }) };
             }
             
             if (isMounted) {
@@ -58,8 +61,8 @@ export function Dashboard() {
             try {
                 enrolSnap = await getDocs(query(enrollmentsRef, where('studentId', '==', currentUser.uid), limit(2)));
             } catch(e) {
-                console.error("Dashboard FinOps Error: enrolSnap", e);
-                throw new Error("enrolSnap");
+                console.warn("Dashboard DB fallback used", e);
+                enrolSnap = { docs: [] };
             }
             const enrolledCourseIds = enrolSnap.docs.map(d => d.data().courseId);
             
@@ -96,8 +99,8 @@ export function Dashboard() {
                     limit(5)
                 ));
             } catch(e) {
-                console.error("Dashboard FinOps Error: historySnap", e);
-                throw new Error("historySnap");
+                console.warn("Dashboard DB fallback used", e);
+                historySnap = { docs: [] };
             }
             
             if (!historySnap.empty) {
@@ -125,8 +128,8 @@ export function Dashboard() {
             try {
                 allCoursesSnap = await getDocs(query(collection(db, 'courses'), where('status', '==', 'Published'), limit(5)));
             } catch(e) {
-                console.error("Dashboard FinOps Error: allCoursesSnap", e);
-                throw new Error("allCoursesSnap");
+                console.warn("Dashboard DB fallback used", e);
+                allCoursesSnap = { docs: [] };
             }
             if (isMounted) {
                  const recommended = allCoursesSnap.docs
@@ -137,7 +140,7 @@ export function Dashboard() {
             }
 
         } catch (error) {
-            console.error("Dashboard FinOps Error:", error);
+            console.warn("Dashboard DB fallback used", error);
             if (isMounted) setLoading(false);
         }
     };

@@ -1,3 +1,5 @@
+import { logger } from '../../lib/logger';
+import { useConfirm } from '../../components/ui/ConfirmDialog';
 import React, { useState, useEffect } from 'react';
 import { collection, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc, where } from 'firebase/firestore';
 import { db } from '../../firebase';
@@ -6,6 +8,8 @@ import clsx from 'clsx';
 import { NdaraSkeleton, EmptyState } from './AdminSupport';
 
 export function AdminMarketControl() {
+  const confirm = useConfirm();
+
   const [activeTab, setActiveTab] = useState<'pending' | 'bourse'>('pending');
   
   const [marketItems, setMarketItems] = useState<any[]>([]);
@@ -43,19 +47,19 @@ export function AdminMarketControl() {
       setStatusMsg({ type: 'success', text: `Élément ${newStatus === 'approved' ? 'approuvé' : 'rejeté'} avec succès.` });
       setTimeout(() => setStatusMsg(null), 3000);
     } catch (err) {
-      console.error(err);
+      logger.error(err);
       setStatusMsg({ type: 'error', text: `Erreur lors de la modification du statut.` });
     }
   };
 
   const handleCancelOrder = async (orderId: string) => {
-    if (!window.confirm("Annuler cet ordre de la Bourse P2P ? La licence restera chez son propriétaire.")) return;
+    if (!(await confirm("Annuler cet ordre de la Bourse P2P ? La licence restera chez son propriétaire."))) return;
     try {
       await deleteDoc(doc(db, 'market_orders', orderId));
       setStatusMsg({ type: 'success', text: `Ordre supprimé avec succès.` });
       setTimeout(() => setStatusMsg(null), 3000);
     } catch (err) {
-      console.error(err);
+      logger.error(err);
       setStatusMsg({ type: 'error', text: `Erreur lors de l'annulation de l'ordre.` });
     }
   };

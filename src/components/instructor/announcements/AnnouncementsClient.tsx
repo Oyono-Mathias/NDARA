@@ -1,3 +1,6 @@
+import { logger } from '../../../lib/logger';
+import { useConfirm } from '../../../components/ui/ConfirmDialog';
+import { toast } from '../../../hooks/use-toast';
 import { useState, useEffect } from "react";
 import {
   collection,
@@ -26,6 +29,8 @@ import { BottomSheet } from "../../ui/BottomSheet";
 import { TouchArea } from "../../ui/TouchArea";
 
 export function AnnouncementsClient() {
+  const confirm = useConfirm();
+
   const { currentUser } = useRole();
   const [courses, setCourses] = useState<any[]>([]);
   const [announcements, setAnnouncements] = useState<any[]>([]);
@@ -90,8 +95,8 @@ export function AnnouncementsClient() {
       setToastMessage("Annonce diffusée avec succès");
       setTimeout(() => setToastMessage(null), 3000);
     } catch (error) {
-      console.error("Erreur de publication:", error);
-      alert("Erreur lors de la diffusion de l'annonce.");
+      logger.error("Erreur de publication:", error);
+      toast({ variant: 'destructive', title: 'Erreur', description: "Erreur lors de la diffusion de l'annonce." });
     } finally {
       setIsSubmitting(false);
     }
@@ -99,15 +104,13 @@ export function AnnouncementsClient() {
 
   const handleDelete = async (id: string) => {
     if (!id) return;
-    if (confirm("Supprimer cette annonce ?")) {
+    if ((await confirm("Supprimer cette annonce ?"))) {
       try {
         await deleteDoc(doc(db, "course_announcements", id));
       } catch (error: any) {
-        console.error("Erreur lors de la suppression de l'annonce:", error);
-        alert(
-          "Erreur lors de la suppression : " +
-            (error.message || "Permissions insuffisantes."),
-        );
+        logger.error("Erreur lors de la suppression de l'annonce:", error);
+        toast({ variant: 'destructive', title: 'Erreur', description: "Erreur lors de la suppression : " +
+            (error.message || "Permissions insuffisantes.") });
       }
     }
   };

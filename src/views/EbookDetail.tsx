@@ -1,3 +1,5 @@
+import { logger } from '../lib/logger';
+import { toast } from '../hooks/use-toast';
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ChevronLeft, Share2, Heart, Star, BookOpen, Globe, CreditCard, Lock, FileText, Smartphone, Tablet, Loader2, Download } from "lucide-react";
@@ -35,7 +37,7 @@ export function EbookDetail() {
       }
       setLoading(false);
     }, (error) => {
-      console.error("Error fetching ebook:", error);
+      logger.error("Error fetching ebook:", error);
       setLoading(false);
     });
 
@@ -88,7 +90,7 @@ export function EbookDetail() {
               });
           }
       } catch (error) {
-          console.error("Erreur lors de l'ajout aux favoris", error);
+          logger.error("Erreur lors de l'ajout aux favoris", error);
       }
   };
 
@@ -99,6 +101,7 @@ export function EbookDetail() {
     try {
         const response = await fetch('/api/wallet/purchase', {
             method: 'POST',
+        credentials: "include",
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await auth.currentUser?.getIdToken()}` },
             body: JSON.stringify({
                 studentId: currentUser.uid,
@@ -129,6 +132,7 @@ export function EbookDetail() {
             try {
                 const licRes = await fetch('/api/digital/licenses/generate', {
                    method: 'POST',
+        credentials: "include",
                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await auth.currentUser?.getIdToken()}` },
                    body: JSON.stringify({ purchaseId: doc(db, "purchases", "dummy").id, productId: ebook.id, type: 'ebook' })
                 });
@@ -136,15 +140,15 @@ export function EbookDetail() {
                 if (licData.success) {
                     setLicenseKey(licData.license.licenseKey);
                 }
-            } catch (e) { console.error("License generation error", e); }
+            } catch (e) { logger.error("License generation error", e); }
             
             setShowSuccessModal(true);
 
         } else {
-            alert(data.error || "Erreur lors de l'achat");
+            toast({ variant: 'destructive', title: 'Erreur', description: String(data.error || "Erreur lors de l'achat") });
         }
     } catch (e: any) {
-        alert(e.message || "Erreur réseau");
+        toast({ variant: 'destructive', title: 'Erreur', description: String(e.message || "Erreur réseau") });
     } finally {
         setIsProcessing(false);
     }
@@ -152,7 +156,7 @@ export function EbookDetail() {
 
   const handleDownload = () => {
       // Create a blob and trigger download of a secure format
-      alert("Votre téléchargement de l'ebook " + selectedFormat.toUpperCase() + " sécurisé a commencé !");
+      toast({ title: 'Information', description: String("Votre téléchargement de l'ebook " + selectedFormat.toUpperCase() + " sécurisé a commencé !") });
   };
   
   const [scrollY, setScrollY] = useState(0);

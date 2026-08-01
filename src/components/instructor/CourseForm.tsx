@@ -1,3 +1,5 @@
+import { logger } from '../../lib/logger';
+import { toast } from '../../hooks/use-toast';
 import { useState, useEffect, FormEvent, useRef } from "react";
 import { UploadCloud, CheckCircle2, Loader2 } from "lucide-react";
 import { formatImageUrl } from "../../lib/utils";
@@ -32,7 +34,7 @@ export function CourseForm({ mode, initialData, onSubmit, isSubmitting }: any) {
           const pathParts = url.pathname.split("/").filter(Boolean);
           if (pathParts[0] === "ndara-bucket") pathParts.shift();
           thumb = `/api/storage/file/${pathParts.join("/")}`;
-        } catch (e) {}
+        } catch (e) { console.warn("Ignored error", e); }
       }
       setThumbnailStr(thumb);
     }
@@ -78,10 +80,8 @@ export function CourseForm({ mode, initialData, onSubmit, isSubmitting }: any) {
       });
       setThumbnailStr(url);
     } catch (error: any) {
-      console.error("Upload failed", error);
-      alert(
-        `Erreur lors de l'upload : ${error?.message || "Veuillez réessayer."}`,
-      );
+      logger.error("Upload failed", error);
+      toast({ variant: 'destructive', title: 'Erreur', description: String(`Erreur lors de l'upload : ${error?.message || "Veuillez réessayer."}`,) });
     } finally {
       setIsUploading(false);
       if (e.target) e.target.value = "";

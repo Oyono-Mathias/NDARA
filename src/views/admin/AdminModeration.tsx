@@ -1,3 +1,5 @@
+import { logger } from '../../lib/logger';
+import { useConfirm } from '../../components/ui/ConfirmDialog';
 import React, { useState, useEffect } from 'react';
 import { collection, query, onSnapshot, doc, updateDoc, deleteDoc, where } from 'firebase/firestore';
 import { db } from '../../firebase';
@@ -12,6 +14,8 @@ import {
 import { NdaraSkeleton, EmptyState } from './AdminSupport';
 
 export function AdminModeration() {
+  const confirm = useConfirm();
+
   const [items, setItems] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [statusMsg, setStatusMsg] = useState<{type: 'success'|'error', text: string} | null>(null);
@@ -38,13 +42,13 @@ export function AdminModeration() {
        await updateDoc(doc(db, 'moderation_queue', id), { status: 'ignored' });
        showMsg('success', 'Signalement ignoré (classé sans suite).');
     } catch (err) {
-       console.error("Error updating", err);
+       logger.error("Error updating", err);
        showMsg('error', 'Erreur lors de la mise à jour.');
     }
   };
 
   const handleDeleteContent = async (queueId: string, targetCollection: string, targetId: string) => {
-     if (!window.confirm('Supprimer définitivement ce contenu offensant ?')) return;
+     if (!(await confirm('Supprimer définitivement ce contenu offensant ?'))) return;
      try {
          // Delete actual content if we have references
          if (targetCollection && targetId) {
@@ -54,13 +58,13 @@ export function AdminModeration() {
          await updateDoc(doc(db, 'moderation_queue', queueId), { status: 'resolved_deleted' });
          showMsg('success', 'Contenu supprimé avec succès.');
      } catch (err) {
-         console.error("Error deleting", err);
+         logger.error("Error deleting", err);
          showMsg('error', 'Erreur lors de la suppression.');
      }
   };
 
   const handleBanUser = async (queueId: string, userId: string) => {
-    if (!window.confirm('Bannir définitivement cet utilisateur ? Cette action bloquera son accès.')) return;
+    if (!(await confirm('Bannir définitivement cet utilisateur ? Cette action bloquera son accès.'))) return;
     try {
         if (userId) {
             await updateDoc(doc(db, 'users', userId), { status: 'banned', role: 'banned' });
@@ -68,7 +72,7 @@ export function AdminModeration() {
         await updateDoc(doc(db, 'moderation_queue', queueId), { status: 'resolved_banned' });
         showMsg('success', 'Utilisateur banni de la plateforme.');
     } catch (err) {
-        console.error("Error banning user", err);
+        logger.error("Error banning user", err);
         showMsg('error', 'Erreur lors du bannissement.');
     }
   };

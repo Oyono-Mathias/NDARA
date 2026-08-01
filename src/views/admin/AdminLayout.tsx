@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Navigate, useLocation, Link, Outlet } from "react-router-dom";
+import { useAuth } from '../../contexts/AuthContext';
 import { useRole } from "../../context/RoleContext";
 import { AdminSidebar } from "../../components/admin/AdminSidebar";
 import { AdminHeader } from "../../components/admin/AdminHeader";
@@ -11,7 +12,7 @@ import {
   Users,
   BookOpen,
   Wallet,
-  Headphones,
+  Headphones, ArrowDownRight, Trophy, Target,
 } from "lucide-react";
 
 function AdminBottomNav() {
@@ -24,6 +25,10 @@ function AdminBottomNav() {
     { name: "COURS", path: "/admin/catalog", icon: BookOpen },
     { name: "FINANCES", path: "/admin/treasury", icon: Wallet },
     { name: "SUPPORT", path: "/admin/help", icon: Headphones },
+    { name: "RETRAITS", path: "/admin/withdrawals", icon: ArrowDownRight },
+    { name: "AMBASSADEURS", path: "/admin/ambassador-program", icon: Trophy },
+    { name: "MARKETING", path: "/admin/marketing-assets", icon: Target },
+
   ];
 
   return (
@@ -74,7 +79,19 @@ export function AdminLayout() {
     );
   }
 
-  if (!currentUser) return <Navigate to="/auth" replace />;
+  const { firebaseUser } = useAuth();
+  if (!currentUser) {
+    if (firebaseUser) {
+        return (
+            <div className="flex flex-col items-center justify-center h-screen bg-[#090E17] text-white p-4 text-center">
+                <h2 className="text-xl font-bold mb-2 text-red-500">Erreur de chargement</h2>
+                <p className="text-slate-400 mb-4">Impossible de charger votre profil administrateur.</p>
+                <button onClick={() => window.location.reload()} className="px-4 py-2 bg-red-500 rounded-lg text-white font-bold">Réessayer</button>
+            </div>
+        );
+    }
+    return <Navigate to="/auth" replace />;
+  }
 
   if (currentUser?.role !== "ceo" && currentUser?.role !== "admin") {
     return <Navigate to="/student/dashboard" replace />;

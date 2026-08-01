@@ -32,17 +32,17 @@ export function InstructorCoupons() {
       where("instructorId", "==", currentUser.uid),
     );
     const unsubCourses = onSnapshot(qCourses, (snap) => {
-      setCourses(snap.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+      setCourses(snap.docs.map((doc) => ({ id: doc.id, ...doc.data() })).sort((a,b) => (((b as any).createdAt?.toMillis?.() || 0) - ((a as any).createdAt?.toMillis?.() || 0))));
       setCoursesLoading(false);
     });
 
     const qCoupons = query(
       collection(db, "course_coupons"),
       where("instructorId", "==", currentUser.uid),
-      orderBy("createdAt", "desc"),
+      /* orderBy removed */
     );
     const unsubCoupons = onSnapshot(qCoupons, (snap) => {
-      setCoupons(snap.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+      setCoupons(snap.docs.map((doc) => ({ id: doc.id, ...doc.data() })).sort((a,b) => (((b as any).createdAt?.toMillis?.() || 0) - ((a as any).createdAt?.toMillis?.() || 0))));
       setCouponsLoading(false);
     });
 

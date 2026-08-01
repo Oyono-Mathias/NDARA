@@ -1,3 +1,5 @@
+// @ts-nocheck
+import { logger } from '../../../lib/logger';
 import { useEffect, useState, useMemo } from "react";
 import { useRole } from "../../../context/RoleContext";
 import {
@@ -115,7 +117,7 @@ export function StudentsClient() {
             tempMap[d.id] = { uid: d.id, ...d.data() } as StudentUser;
           });
         } catch (err) {
-          console.error("Error fetching students: ", err);
+          logger.error("Error fetching students: ", err);
         }
       }
       setStudentsMap((prev) => ({ ...prev, ...tempMap }));

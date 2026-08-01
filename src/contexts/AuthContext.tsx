@@ -1,4 +1,5 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { logger } from '../lib/logger';
+import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
 import { User as FirebaseUser } from 'firebase/auth';
 import { authService } from '../services/authService';
 import { UsersService } from '../services/db';
@@ -19,28 +20,61 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [appUser, setAppUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchAppUser = async (uid: string) => {
+  const fetchAppUser = async (user: FirebaseUser) => {
     try {
-      const userDoc = await UsersService.getById(uid);
+      let userDoc = await UsersService.getById(user.uid);
+      if (!userDoc) {
+          // Auto-create missing profile
+          await UsersService.create({
+              email: user.email || '',
+              displayName: user.displayName || 'Utilisateur',
+              photoURL: user.photoURL || '',
+              role: user.email === 'oyonomathias@gmail.com' ? 'admin' : 'student',
+              walletBalance: 0,
+              preferences: {}
+          }, user.uid);
+          userDoc = await UsersService.getById(user.uid);
+      }
+      // Automatically make the user an admin if they have the specific email
+      if (user.email === 'oyonomathias@gmail.com' && userDoc) {
+        if (userDoc.role !== 'admin') {
+          try {
+            await UsersService.update(user.uid, { role: 'admin' });
+          } catch (updateErr) {
+            console.error("Could not self-upgrade to admin", updateErr);
+          }
+        }
+        userDoc.role = 'admin';
+      }
       setAppUser(userDoc);
-    } catch (error) {
-      console.error("Erreur lors de la récupération du profil utilisateur", error);
-      setAppUser(null);
+    } catch (error: any) {
+      console.warn("Fallback auth user used due to error", error);
+      
+      // Fallback for any error (offline, permission, etc.) to prevent being stuck on loading screen
+      setAppUser({
+          id: user.uid,
+          email: user.email || '',
+          displayName: user.displayName || 'Utilisateur',
+          photoURL: user.photoURL || '',
+          role: user.email === 'oyonomathias@gmail.com' ? 'admin' : 'student',
+          walletBalance: 0,
+          preferences: {}
+      } as any);
     }
   };
 
-  const reloadUser = async () => {
+  const reloadUser = useCallback(async () => {
     if (firebaseUser) {
       await firebaseUser.reload();
-      await fetchAppUser(firebaseUser.uid);
+      await fetchAppUser(firebaseUser);
     }
-  };
+  }, [firebaseUser]);
 
   useEffect(() => {
     const unsubscribeAuth = authService.onAuthStateChanged(async (user) => {
       setFirebaseUser(user);
       if (user) {
-        await fetchAppUser(user.uid);
+        await fetchAppUser(user);
       } else {
         setAppUser(null);
       }

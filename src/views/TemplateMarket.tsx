@@ -1,3 +1,4 @@
+import { toast } from '../hooks/use-toast';
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
@@ -74,6 +75,7 @@ export function TemplateMarket() {
     try {
         const response = await fetch('/api/wallet/purchase', {
             method: 'POST',
+        credentials: "include",
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await auth.currentUser?.getIdToken()}` },
             body: JSON.stringify({
                 studentId: currentUser.uid,
@@ -98,10 +100,10 @@ export function TemplateMarket() {
             setSuccessToast(true);
             setTimeout(() => setSuccessToast(false), 4000);
         } else {
-            alert(data.error || "Erreur lors de l'achat");
+            toast({ variant: 'destructive', title: 'Erreur', description: String(data.error || "Erreur lors de l'achat") });
         }
     } catch (e: any) {
-        alert(e.message || "Erreur réseau");
+        toast({ variant: 'destructive', title: 'Erreur', description: String(e.message || "Erreur réseau") });
     } finally {
         setIsSubmitting(false);
     }

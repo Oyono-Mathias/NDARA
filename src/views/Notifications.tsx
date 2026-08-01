@@ -1,3 +1,4 @@
+import { logger } from '../lib/logger';
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getFirestore, collection, query, orderBy, writeBatch, doc, updateDoc, limit, onSnapshot } from 'firebase/firestore';
@@ -54,7 +55,7 @@ export function NotificationsView() {
         setNotifications(notifs);
         setIsLoading(false);
     }, (error) => {
-        console.error("Error fetching notifications", error);
+        logger.error("Error fetching notifications", error);
         setIsLoading(false);
     });
 

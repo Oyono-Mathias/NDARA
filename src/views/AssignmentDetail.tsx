@@ -1,3 +1,5 @@
+import { logger } from '../lib/logger';
+import { toast } from '../hooks/use-toast';
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getFirestore, doc, collection, query, where, getDocs, setDoc, serverTimestamp, collectionGroup, onSnapshot } from 'firebase/firestore';
@@ -19,7 +21,7 @@ import {
 import { TopAppBar } from '../components/ui/TopAppBar';
 import { Skeleton } from '../components/ui/Skeleton';
 export function AssignmentDetail() {
-  const { assignmentId } = useParams();
+  const { courseId, id: assignmentId } = useParams();
   const navigate = useNavigate();
   const [currentUser, setCurrentUser] = useState<any>(null);
 
@@ -34,22 +36,21 @@ export function AssignmentDetail() {
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
 
   useEffect(() => {
-    if (!assignmentId) return;
+    if (!assignmentId || !courseId) return;
 
     const unsubAuth = auth.onAuthStateChanged((user) => {
         if (user) {
             setCurrentUser(user);
             setIsLoading(true);
 
-            // Recherche du devoir dans toutes les sous-collections assignments
-            const qAssign = query(collectionGroup(db, 'assignments'), where('__name__', '==', assignmentId));
-            const unsubAssign = onSnapshot(qAssign, (snap) => {
-                if (snap.empty) {
+            // Fetch specific assignment by path
+            const assignRef = doc(db, 'courses', courseId, 'assignments', assignmentId);
+            const unsubAssign = onSnapshot(assignRef, (docSnap) => {
+                if (!docSnap.exists()) {
                     navigate('/student/devoirs');
                     return;
                 }
-                const assignDoc = snap.docs[0];
-                setAssignment({ id: assignDoc.id, ...assignDoc.data() });
+                setAssignment({ id: docSnap.id, ...docSnap.data() });
             });
 
             // Vérifier si l'étudiant a déjà rendu ce devoir
@@ -61,7 +62,7 @@ export function AssignmentDetail() {
                     setSubmission(null);
                 }
                 setIsLoading(false);
-            });
+            }, (err) => logger.error("Submissions snapshot failed", err));
 
             return () => {
                 unsubAssign();
@@ -92,17 +93,17 @@ export function AssignmentDetail() {
       setFileUrl(downloadURL);
       setUploadProgress(null);
     } catch (error) {
-      console.error("Erreur d'upload", error);
+      logger.error("Erreur d'upload", error);
       setUploadProgress(null);
       setFileName("");
-      alert("Erreur lors de l'upload du fichier");
+      toast({ variant: 'destructive', title: 'Erreur', description: String("Erreur lors de l'upload du fichier") });
     }
   };
 
   const handleSubmit = async () => {
     if (!assignment || isSubmitting) return;
     if (!textWork.trim() && !fileUrl) {
-        alert("Veuillez rédiger un texte ou joindre un fichier.");
+        toast({ title: 'Information', description: String("Veuillez rédiger un texte ou joindre un fichier.") });
         return;
     }
 
@@ -131,9 +132,24 @@ export function AssignmentDetail() {
       };
 
       await setDoc(subRef, payload);
+
+      // Notify instructor
+      if (assignment.instructorId) {
+        const notifRef = doc(collection(db, `users/${assignment.instructorId}/notifications`));
+        await setDoc(notifRef, {
+          title: "Nouvelle soumission de devoir",
+          message: `${currentUser?.displayName || 'Un étudiant'} a soumis le devoir "${assignment.title}".`,
+          type: 'assignment_submitted',
+          link: '/instructor/devoirs',
+          read: false,
+          userId: assignment.instructorId,
+          createdAt: serverTimestamp()
+        }).catch(e => console.warn("Failed to send notification to instructor", e));
+      }
+
       navigate('/student/devoirs');
     } catch (error) {
-      console.error("Erreur d'envoi", error);
+      logger.error("Erreur d'envoi", error);
     } finally {
       setIsSubmitting(false);
     }

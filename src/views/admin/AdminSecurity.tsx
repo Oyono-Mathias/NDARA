@@ -1,3 +1,4 @@
+import { logger } from '../../lib/logger';
 import React, { useState, useEffect } from 'react';
 import { 
   History, 
@@ -95,7 +96,7 @@ export function AdminSecurity() {
       setLogs(fetched);
       setIsLoadingLogs(false);
     }, (err) => {
-      console.error("Erreur de récupération audit logs:", err);
+      logger.error("Erreur de récupération audit logs:", err);
       setIsLoadingLogs(false);
     });
 
@@ -116,7 +117,7 @@ export function AdminSecurity() {
       setAdmins(fetched);
       setIsLoadingAdmins(false);
     }, (err) => {
-      console.error("Erreur de récupération des admins:", err);
+      logger.error("Erreur de récupération des admins:", err);
       setIsLoadingAdmins(false);
     });
 
@@ -133,7 +134,7 @@ export function AdminSecurity() {
         [`permissions.${permissionKey}`]: !currentValue
       });
     } catch (err) {
-      console.error("Erreur de modification de permission :", err);
+      logger.error("Erreur de modification de permission :", err);
     }
   };
 
@@ -142,7 +143,7 @@ export function AdminSecurity() {
       const docRef = doc(db, 'users', userId);
       await updateDoc(docRef, { role: newRole });
     } catch(err) {
-      console.error("Erreur de modification de rôle :", err);
+      logger.error("Erreur de modification de rôle :", err);
     }
   };
 

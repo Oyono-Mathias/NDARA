@@ -1,3 +1,4 @@
+import { logger } from '../lib/logger';
 import { Bot, Send, Sparkles, Paperclip, Mic, Loader2 } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import React, { useState, useEffect, useRef } from "react";
@@ -48,7 +49,7 @@ export function MathiasTutor() {
       setMessages(msgs);
       setIsHistoryLoading(false);
     }, (error) => {
-      console.error(error);
+      logger.error("Error from Firestore:", error);
       setIsHistoryLoading(false);
     });
 
@@ -85,7 +86,7 @@ export function MathiasTutor() {
         createdAt: new Date(),
       });
     } catch (err) {
-      console.error("Erreur d'envoi du message", err);
+      logger.error("Erreur d'envoi du message", err);
       setIsTyping(false);
       return;
     }
@@ -103,6 +104,7 @@ export function MathiasTutor() {
 
       const res = await fetch(`/api/chat`, {
          method: 'POST',
+        credentials: "include",
          headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
@@ -122,7 +124,7 @@ export function MathiasTutor() {
           throw new Error("Pas de réponse");
       }
     } catch (err) {
-      console.error("Erreur api/chat", err);
+      logger.error("Erreur api/chat", err);
       if (docRef) {
          await updateDoc(docRef, { response: "Désolé, l'IA Mathias est momentanément indisponible (Erreur de réseau)." });
       }

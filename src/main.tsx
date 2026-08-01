@@ -2,6 +2,7 @@ import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
+import './i18n';
 import { AppProvider } from './providers/AppProvider';
 import { registerSW } from 'virtual:pwa-register';
 
@@ -25,7 +26,7 @@ if ('serviceWorker' in navigator) {
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <AppProvider>
-      <App />
-    </AppProvider>
+            <App />
+          </AppProvider>
   </StrictMode>,
 );

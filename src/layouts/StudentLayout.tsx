@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Navigate, useLocation, useOutlet } from "react-router-dom";
 import { Bell, Menu, Loader2 } from "lucide-react";
+import { useAuth } from '../contexts/AuthContext';
 import { useRole } from "../context/RoleContext";
 import { Navigation } from "../components/Navigation";
 import { Sidebar } from "../components/Sidebar";
@@ -11,18 +12,6 @@ export function StudentLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const location = useLocation();
   const element = useOutlet();
-
-  if (loading) {
-    return (
-      <div className="flex h-screen w-full items-center justify-center bg-black">
-        <Loader2 className="h-8 w-8 animate-spin text-[#10B981]" />
-      </div>
-    );
-  }
-
-  if (!currentUser) {
-    return <Navigate to="/auth" replace />;
-  }
 
   // Hide bottom nav and adjust padding when inside a specific chat room, quiz, or detail views (Lot B)
   const isFullScreenView = location.pathname.includes('/messages') || 
@@ -47,6 +36,28 @@ export function StudentLayout() {
       }
     }
   }, [isFullScreenView]);
+
+  if (loading) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-black">
+        <Loader2 className="h-8 w-8 animate-spin text-[#10B981]" />
+      </div>
+    );
+  }
+
+  const { firebaseUser } = useAuth();
+  if (!currentUser) {
+    if (firebaseUser) {
+        return (
+            <div className="flex flex-col items-center justify-center h-screen bg-black text-white p-4 text-center">
+                <h2 className="text-xl font-bold mb-2">Erreur de chargement</h2>
+                <p className="text-slate-400 mb-4">Impossible de charger votre profil. Veuillez vérifier votre connexion ou réessayer plus tard.</p>
+                <button onClick={() => window.location.reload()} className="px-4 py-2 bg-[#10B981] rounded-lg text-black font-bold">Réessayer</button>
+            </div>
+        );
+    }
+    return <Navigate to="/auth" replace />;
+  }
 
   return (
     <div 

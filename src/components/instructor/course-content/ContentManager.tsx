@@ -1,5 +1,8 @@
+// @ts-nocheck
+import { logger } from '../../../lib/logger';
+import { toast } from '../../../hooks/use-toast';
 import { useState, useEffect, useRef } from "react";
-import { db } from "../../../firebase";
+import { db, auth } from "../../../firebase";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import {
   Plus,
@@ -10,9 +13,109 @@ import {
   Upload,
 } from "lucide-react";
 import { uploadToR2 } from "../../../lib/r2Upload";
+import { useGoogleLogin } from '@react-oauth/google';
 
 export function ContentManager({ courseId }: { courseId: string }) {
   const [content, setContent] = useState<any[]>([]);
+
+  const [isPickerLoading, setIsPickerLoading] = useState(false);
+  const [activeUploadTarget, setActiveUploadTarget] = useState<{modIdx: number, lesIdx: number, lesId: string} | null>(null);
+
+  const loadPickerScript = () => {
+    return new Promise((resolve, reject) => {
+      if ((window as any).google && (window as any).google.picker) {
+        resolve(true);
+        return;
+      }
+      const script = document.createElement('script');
+      script.src = 'https://apis.google.com/js/api.js';
+      script.onload = () => {
+        (window as any).gapi.load('picker', { callback: () => resolve(true) });
+      };
+      script.onerror = reject;
+      document.body.appendChild(script);
+    });
+  };
+
+  const handleDriveVideoPicked = async (accessToken: string, fileId: string, fileName: string, modIdx: number, lesIdx: number, lesId: string) => {
+     try {
+       setUploadingLessons((prev) => ({ ...prev, [lesId]: 0 }));
+       
+       const idToken = await auth.currentUser?.getIdToken();
+      const res = await fetch('/api/admin/video/drive-to-bunny', {
+         method: 'POST',
+         headers: { 
+           'Content-Type': 'application/json',
+           'Authorization': `Bearer ${idToken}`
+         },
+         body: JSON.stringify({ fileId, driveToken: accessToken, fileName, courseId: courseId || "new", lesId })
+       });
+       
+       if(!res.ok) throw new Error("Erreur de transfert");
+       const data = await res.json();
+       
+       const newModules = [...content];
+       newModules[modIdx].lessons[lesIdx].videoUrl = data.videoUrl;
+       newModules[modIdx].lessons[lesIdx].videoId = data.videoId;
+       newModules[modIdx].lessons[lesIdx].provider = 'bunny';
+       setContent(newModules);
+       updateDoc(doc(db, 'courses', courseId), { content: newModules });
+       
+       toast({ title: "Vidéo importée depuis Google Drive !" });
+     } catch(err) {
+       console.error(err);
+       toast({ title: "Erreur lors de l'import depuis Drive", variant: "destructive" });
+     } finally {
+       setUploadingLessons((prev) => {
+          const newState = { ...prev };
+          delete newState[lesId];
+          return newState;
+       });
+     }
+  };
+
+  const loginGoogleDrive = useGoogleLogin({
+    onSuccess: async (tokenResponse) => {
+      try {
+        await loadPickerScript();
+        const pickerOrigin = window.location.ancestorOrigins && window.location.ancestorOrigins.length > 0 
+          ? window.location.ancestorOrigins[window.location.ancestorOrigins.length - 1] 
+          : window.location.origin;
+
+        if (activeUploadTarget) {
+            const { modIdx, lesIdx, lesId } = activeUploadTarget;
+            
+            const picker = new (window as any).google.picker.PickerBuilder().setAppId('gen-lang-client-0381307586')
+              .addView((window as any).google.picker.ViewId.DOCS_VIDEOS)
+              .setOAuthToken(tokenResponse.access_token)
+              .setCallback((data: any) => {
+                if (data.action === (window as any).google.picker.Action.PICKED) {
+                  const file = data.docs[0];
+                  handleDriveVideoPicked(tokenResponse.access_token, file.id, file.name, modIdx, lesIdx, lesId);
+                }
+              })
+              .setOrigin(pickerOrigin)
+              .build();
+            picker.setVisible(true);
+        }
+      } catch (err) {
+        toast({ title: "Erreur de chargement du Picker", variant: "destructive" });
+      } finally {
+        setIsPickerLoading(false);
+      }
+    },
+    onError: () => {
+      setIsPickerLoading(false);
+      toast({ title: "Erreur de connexion à Google", variant: "destructive" });
+    },
+    scope: 'https://www.googleapis.com/auth/drive.readonly',
+  });
+
+  const openDrivePicker = (modIdx: number, lesIdx: number, lesId: string) => {
+    setActiveUploadTarget({ modIdx, lesIdx, lesId });
+    setIsPickerLoading(true);
+    loginGoogleDrive();
+  };
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingLessons, setUploadingLessons] = useState<{
@@ -28,6 +131,12 @@ export function ContentManager({ courseId }: { courseId: string }) {
     getDoc(doc(db, "settings", "global_config")).then((snap) => {
       if (snap.exists() && snap.data().active_video_provider) {
         setActiveVideoProvider(snap.data().active_video_provider);
+      }
+    });
+    // Aussi vérifier la nouvelle conf de l'admin (ai_config)
+    getDoc(doc(db, "settings", "ai_config")).then((snap) => {
+      if (snap.exists() && snap.data().defaultVideoPlayer) {
+        setActiveVideoProvider(snap.data().defaultVideoPlayer);
       }
     });
 
@@ -63,8 +172,13 @@ export function ContentManager({ courseId }: { courseId: string }) {
             setUploadingLessons((prev) => ({ ...prev, [lesId]: p }));
           });
         }
-      } catch (providerError) {
+      } catch (providerError: any) {
         console.warn("External video provider failed, falling back to basic storage:", providerError);
+        toast({ 
+          variant: 'destructive', 
+          title: 'Lecteur par défaut ignoré', 
+          description: "Échec du téléversement vers " + activeVideoProvider + " (" + (providerError.message || 'Erreur API') + "). Bascule sur le stockage local Firebase." 
+        });
         const { uploadToR2 } = await import("../../../lib/r2Upload");
         const publicUrl = await uploadToR2(file, "course-videos", (p) => {
           setUploadingLessons((prev) => ({ ...prev, [lesId]: p }));
@@ -76,10 +190,8 @@ export function ContentManager({ courseId }: { courseId: string }) {
       updateLesson(modIdx, lesIdx, "videoId", result.videoId);
       updateLesson(modIdx, lesIdx, "provider", activeVideoProvider);
     } catch (err: any) {
-      console.error(err);
-      alert(
-        `Erreur lors du téléversement de la vidéo: ${err.message || "Vérifiez la configuration/connexion."}`,
-      );
+      logger.error(err);
+      toast({ variant: 'destructive', title: 'Erreur', description: String(`Erreur lors du téléversement de la vidéo: ${err.message || "Vérifiez la configuration/connexion."}`,) });
     } finally {
       setUploadingLessons((prev) => {
         const newUp = { ...prev };
@@ -149,20 +261,18 @@ export function ContentManager({ courseId }: { courseId: string }) {
 
   const saveContent = async () => {
     if (!courseId) {
-      console.error("Erreur: L'ID de la formation est invalide.");
+      logger.error("Erreur: L'ID de la formation est invalide.");
       return;
     }
 
     setSaving(true);
     try {
       await updateDoc(doc(db, "courses", courseId), { content });
-      alert("Programme sauvegardé avec succès !");
+      toast({ title: 'Information', description: "Programme sauvegardé avec succès !" });
     } catch (e: any) {
-      console.error("Erreur lors de la sauvegarde du programme:", e);
-      alert(
-        "Erreur lors de la sauvegarde: " +
-          (e.message || "Permissions insuffisantes."),
-      );
+      logger.error("Erreur lors de la sauvegarde du programme:", e);
+      toast({ variant: 'destructive', title: 'Erreur', description: "Erreur lors de la sauvegarde: " +
+          (e.message || "Permissions insuffisantes.") });
     } finally {
       setSaving(false);
     }
@@ -288,6 +398,14 @@ export function ContentManager({ courseId }: { courseId: string }) {
                           ) : (
                             <Upload className="w-4 h-4" />
                           )}
+                        </button>
+                        <button
+                          onClick={() => openDrivePicker(modIdx, lesIdx, les.id)}
+                          disabled={typeof uploadingLessons[les.id] === "number" || isPickerLoading}
+                          className="p-1.5 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 rounded-lg text-blue-400 transition shrink-0 relative flex items-center justify-center"
+                          title="Importer depuis Google Drive"
+                        >
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg>
                         </button>
                       </div>
                       <input

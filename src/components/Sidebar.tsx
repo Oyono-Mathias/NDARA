@@ -1,6 +1,7 @@
+import { logger } from '../lib/logger';
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { X, Search, BookOpen, Wallet, LayoutGrid, Bot, TrendingUp, Users, MessageSquare, Award, Bookmark, User, Bell, LifeBuoy, LogOut, ArrowLeftRight, Heart, Medal, ShoppingBag, Folder, BadgeCheck, Tag, Megaphone, ClipboardCheck, FileQuestion, Star, Building, Settings, Terminal, DownloadCloud } from 'lucide-react';
+import { X, Search, BookOpen, Video, Wallet, Gift, Trophy, LayoutGrid, Bot, TrendingUp, Users, MessageSquare, Award, Bookmark, User, Bell, LifeBuoy, LogOut, ArrowLeftRight, Heart, Medal, ShoppingBag, Folder, BadgeCheck, Tag, Megaphone, ClipboardCheck, FileQuestion, Star, Building, Settings, Terminal, DownloadCloud } from 'lucide-react';
 import { useRole } from '../context/RoleContext';
 import { cn } from '../lib/utils';
 import { signOut } from 'firebase/auth';
@@ -17,12 +18,13 @@ export function Sidebar({ isOpen, onClose }: { isOpen: boolean, onClose: () => v
             await import("../services/authService").then(m => m.authService.logout());
             navigate('/');
         } catch (e) {
-            console.error("Logout error", e);
+            logger.error("Logout error", e);
         }
     };
 
     const isInstructorRoute = location.pathname.startsWith('/instructor') && !location.pathname.startsWith('/instructor/p/');
     const isInstructorMode = isInstructorRoute || (location.pathname.startsWith('/instructor') && (currentUser?.role === 'expert' || currentUser?.role === 'instructor' || currentUser?.role === 'admin'));
+    const isAmbassadorMode = location.pathname.startsWith('/ambassador');
 
     const sidebarContent = (
         <div className="flex-1 overflow-y-auto hide-scrollbar pb-24">
@@ -54,7 +56,7 @@ export function Sidebar({ isOpen, onClose }: { isOpen: boolean, onClose: () => v
                         </div>
                         <div>
                             <h3 className="font-black text-white uppercase tracking-tight text-lg">{currentUser?.fullName || 'Utilisateur'}</h3>
-                            <p className="text-[10px] text-primary font-bold uppercase tracking-widest">{isInstructorMode ? 'EXPERT NDARA' : 'ÉTUDIANT NDARA'}</p>
+                            <p className="text-[10px] text-primary font-bold uppercase tracking-widest">{isAmbassadorMode ? 'AMBASSADEUR' : isInstructorMode ? 'EXPERT NDARA' : 'ÉTUDIANT NDARA'}</p>
                         </div>
                     </div>
                 </div>
@@ -62,7 +64,31 @@ export function Sidebar({ isOpen, onClose }: { isOpen: boolean, onClose: () => v
 
             {/* Navigation Groups */}
             <div className="px-4 space-y-8">
-                {isInstructorMode ? (
+                                {isAmbassadorMode ? (
+                    <>
+                        <div className="space-y-3">
+                            <p className="px-4 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">CHANGER DE MODE</p>
+                            <button 
+                                onClick={() => { navigate('/student/dashboard'); onClose(); }}
+                                className="w-full h-12 rounded-2xl bg-white/5 flex items-center justify-center gap-3 text-slate-300 font-bold text-xs uppercase tracking-widest hover:bg-white/10 transition"
+                            >
+                                <ArrowLeftRight size={16} />
+                                ÉTUDIANT
+                            </button>
+                        </div>
+                        <div className="space-y-2">
+                            <p className="px-4 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2">• AMBASSADEUR</p>
+                                                        <NavItem icon={LayoutGrid} label="DASHBOARD" to="/ambassador/dashboard" current={location.pathname} onClick={onClose} />
+                            <NavItem icon={Users} label="MES FILLEULS" to="/ambassador/referrals" current={location.pathname} onClick={onClose} />
+                            <NavItem icon={TrendingUp} label="COMMISSIONS" to="/ambassador/commissions" current={location.pathname} onClick={onClose} />
+                            <NavItem icon={Wallet} label="PORTEFEUILLE" to="/ambassador/wallet" current={location.pathname} onClick={onClose} />
+                            <NavItem icon={Gift} label="RÉCOMPENSES" to="/ambassador/rewards" current={location.pathname} onClick={onClose} />
+                            <NavItem icon={Trophy} label="CLASSEMENT" to="/ambassador/leaderboard" current={location.pathname} onClick={onClose} />
+                            <NavItem icon={Target} label="CENTRE MARKETING" to="/ambassador/marketing" badge="NEW" current={location.pathname} onClick={onClose} />
+
+                        </div>
+                    </>
+                ) : isInstructorMode ? (
                     <>
                         <div className="space-y-3">
                             <p className="px-4 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">CHANGER DE MODE</p>
@@ -79,6 +105,7 @@ export function Sidebar({ isOpen, onClose }: { isOpen: boolean, onClose: () => v
                             <p className="px-4 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2">• GESTION</p>
                             <NavItem icon={LayoutGrid} label="COCKPIT DASHBOARD" to="/instructor/dashboard" current={location.pathname} onClick={onClose} />
                             <NavItem icon={BookOpen} label="CATALOGUE FORMATIONS" to="/instructor/courses" current={location.pathname} onClick={onClose} />
+                            <NavItem icon={Video} label="SESSIONS LIVE" to="/instructor/live" current={location.pathname} onClick={onClose} />
                             <NavItem icon={Folder} label="SUPPORTS & RESSOURCES" to="/instructor/resources" current={location.pathname} onClick={onClose} />
                         </div>
 
@@ -122,6 +149,19 @@ export function Sidebar({ isOpen, onClose }: { isOpen: boolean, onClose: () => v
                                 >
                                     <ArrowLeftRight size={16} />
                                     EXPERT
+                                </button>
+                            </div>
+                        ) : null}
+                        
+                        {/* AMBASSADOR MODE */}
+                        {currentUser?.roles?.includes('ambassador') || currentUser?.role === 'ambassador' || role === 'admin' ? (
+                            <div className="space-y-3 mt-4">
+                                <button 
+                                    onClick={() => { navigate('/ambassador'); onClose(); }}
+                                    className="w-full h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center gap-3 text-blue-400 font-bold text-xs uppercase tracking-widest hover:bg-blue-500/20 transition"
+                                >
+                                    <ArrowLeftRight size={16} />
+                                    AMBASSADEUR
                                 </button>
                             </div>
                         ) : null}

@@ -6,6 +6,7 @@ import {
   useLocation,
   useOutlet,
 } from "react-router-dom";
+import { useAuth } from '../../contexts/AuthContext';
 import { useRole } from "../../context/RoleContext";
 import { InstructorNavigation } from "../../components/InstructorNavigation";
 import { Loader2 } from "lucide-react";
@@ -17,6 +18,7 @@ import { InstructorDashboard } from "./InstructorDashboard";
 import { InstructorCourses } from "./InstructorCourses";
 import { InstructorCourseCreate } from "./InstructorCourseCreate";
 import { InstructorCourseEdit } from "./InstructorCourseEdit";
+import { InstructorCoursePreview } from "./InstructorCoursePreview";
 import { InstructorDevoirs } from "./InstructorDevoirs";
 import { InstructorWealth } from "./InstructorWealth";
 import { InstructorAnnouncements } from "./InstructorAnnouncements";
@@ -33,6 +35,8 @@ import { InstructorProfile } from "./InstructorProfile";
 import { InstructorSettings } from "./InstructorSettings";
 import { InstructorStudents } from "./InstructorStudents";
 
+import { PromptCopierFAB } from "../../components/instructor/PromptCopierFAB";
+
 export function InstructorLayout() {
   const { loading, currentUser } = useRole();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -46,7 +50,19 @@ export function InstructorLayout() {
     );
   }
 
-  if (!currentUser) return <Navigate to="/auth" replace />;
+  const { firebaseUser } = useAuth();
+  if (!currentUser) {
+    if (firebaseUser) {
+        return (
+            <div className="flex flex-col items-center justify-center h-screen bg-black text-white p-4 text-center">
+                <h2 className="text-xl font-bold mb-2">Erreur de chargement</h2>
+                <p className="text-slate-400 mb-4">Impossible de charger votre profil instructeur.</p>
+                <button onClick={() => window.location.reload()} className="px-4 py-2 bg-[#10B981] rounded-lg text-black font-bold">Réessayer</button>
+            </div>
+        );
+    }
+    return <Navigate to="/auth" replace />;
+  }
   if (currentUser?.role !== "expert" && currentUser?.role !== "instructor")
     return <Navigate to="/student/dashboard" replace />;
 
@@ -101,6 +117,7 @@ export function InstructorLayout() {
                 <Route path="/" element={<InstructorDashboard />} />
                 <Route path="dashboard" element={<InstructorDashboard />} />
                 <Route path="courses" element={<InstructorCourses />} />
+                <Route path="live" element={<div>Live Sessions Coming Soon</div>} />
                 <Route
                   path="courses/create"
                   element={<InstructorCourseCreate />}
@@ -108,6 +125,10 @@ export function InstructorLayout() {
                 <Route
                   path="courses/edit/:id"
                   element={<InstructorCourseEdit />}
+                />
+                <Route
+                  path="courses/preview/:id"
+                  element={<InstructorCoursePreview />}
                 />
                 <Route path="quiz" element={<InstructorQuiz />} />
                 <Route
@@ -156,6 +177,7 @@ export function InstructorLayout() {
             </motion.div>
           </AnimatePresence>
         </main>
+        <PromptCopierFAB />
         
         {!isFullScreenView && (
           <div className="shrink-0 w-full z-50 md:hidden bg-black/90 backdrop-blur-md border-t border-white/5 pb-[max(0px,env(safe-area-inset-bottom))]">

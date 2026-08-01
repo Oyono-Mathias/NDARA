@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from "react";
+import { LanguageSwitcher } from "../ui/LanguageSwitcher";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 
 export function Navbar() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
   const [isOpen, setIsOpen] = useState(false);

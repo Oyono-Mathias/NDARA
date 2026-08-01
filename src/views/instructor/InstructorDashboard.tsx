@@ -1,3 +1,4 @@
+import { logger } from '../../lib/logger';
 import { useRole } from "../../context/RoleContext";
 import {
   collection,
@@ -47,6 +48,7 @@ export function InstructorDashboard() {
 
   const [pendingSubmissions, setPendingSubmissions] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
 
   const [analytics, setAnalytics] = useState({
     totalRevenue: 0,
@@ -74,8 +76,13 @@ export function InstructorDashboard() {
           );
           totalStudents = totalStudentsSnap.data().count;
         } catch (err) {
-          console.error("Query enrollments failed (totalStudents):", err);
-          throw err;
+          logger.warn("Query enrollments failed (totalStudents), falling back to getDocs:", err);
+          try {
+            const fallbackSnap = await getDocs(query(enrollmentsRef, where("instructorId", "==", instructor.uid)));
+            totalStudents = fallbackSnap.size;
+          } catch(e) {
+            logger.error("Fallback getDocs also failed (totalStudents)", e);
+          }
         }
 
         let successRate = 100;
@@ -92,53 +99,44 @@ export function InstructorDashboard() {
               (completedSnap.data().count / totalStudents) * 100,
             );
           } catch (err) {
-            console.error("Query enrollments failed (successRate):", err);
-            throw err;
+            logger.warn("Query enrollments failed (successRate), falling back to getDocs:", err);
+            try {
+               const fallbackSnap = await getDocs(query(
+                 enrollmentsRef,
+                 where("instructorId", "==", instructor.uid),
+                 where("progress", "==", 100)
+               ));
+               successRate = Math.round((fallbackSnap.size / totalStudents) * 100);
+            } catch(e) {
+               logger.error("Fallback getDocs also failed (successRate)", e);
+            }
           }
         }
 
         // 2. Chiffre d'Affaires Global (Server-side aggregation < 1 read)
-        const paymentsRef = collection(db, "payments");
         let totalRevenue = 0;
         let recentPayments: any[] = [];
         try {
-          const qChartPayments = query(
-            paymentsRef,
-            where("instructorId", "==", instructor.uid),
-            where("status", "==", "Completed"),
-            orderBy("date", "desc"),
-            limit(200),
-          );
+          const txsRef = collection(db, "users", instructor.uid, "transactions");
+          const qChartPayments = query(txsRef);
+          
           const recentPaymentsSnap = await getDocs(qChartPayments);
-          recentPayments = recentPaymentsSnap.docs.map((d) => d.data());
+          const allTxs = recentPaymentsSnap.docs.map((d) => d.data());
+          recentPayments = allTxs.filter((t: any) => t.amount > 0 && (t.type === 'course_sale' || t.type === 'deposit'));
+          
+          recentPayments.sort((a, b) => {
+            const dA = (a.date || a.timestamp)?.toMillis?.() || 0;
+            const dB = (b.date || b.timestamp)?.toMillis?.() || 0;
+            return dB - dA;
+          });
 
-          // Fallback using the fetched documents if aggregation is not supported or skipped
+          // Fallback using the fetched documents
           totalRevenue = recentPayments.reduce(
             (acc, p) => acc + (p.amount || 0),
             0,
           );
-
-          try {
-            const revenueSnap = await getAggregateFromServer(
-              query(
-                paymentsRef,
-                where("instructorId", "==", instructor.uid),
-                where("status", "==", "Completed"),
-              ),
-              { totalRevenue: sum("amount") },
-            );
-            if (revenueSnap.data().totalRevenue) {
-              totalRevenue = revenueSnap.data().totalRevenue;
-            }
-          } catch (aggErr) {
-            console.warn(
-              "Aggregate server failed, using local calculation (fallback):",
-              aggErr,
-            );
-            // totalRevenue is already calculated from recentPayments
-          }
         } catch (err) {
-          console.error("Query payments failed (list + aggregate):", err);
+          logger.error("Query payments failed (list + aggregate):", err);
           // Do not throw, keep totalRevenue = 0
         }
 
@@ -150,7 +148,7 @@ export function InstructorDashboard() {
           const monthRevenue = recentPayments
             .filter((p) =>
               isSameMonth(
-                (p.date as any)?.toDate?.() || new Date(0),
+                (p.date || p.timestamp)?.toDate?.() || new Date(0),
                 monthDate,
               ),
             )
@@ -172,7 +170,7 @@ export function InstructorDashboard() {
             totalExpectedVideos += data.totalVideos || 0;
           });
         } catch (err) {
-          console.error("Query courses failed (structure analytics):", err);
+          logger.error("Query courses failed (structure analytics):", err);
         }
 
         if (isMounted) {
@@ -186,7 +184,10 @@ export function InstructorDashboard() {
           });
         }
       } catch (error) {
-        console.error("Dashboard Analytics Fetch Error:", error);
+        logger.error("Dashboard Analytics Fetch Error:", error);
+        if (isMounted) setHasError(true);
+      } finally {
+        if (isMounted) setIsLoading(false);
       }
     };
 
@@ -198,19 +199,18 @@ export function InstructorDashboard() {
         collection(db, "assignments_submissions"),
         where("instructorId", "==", instructor.uid),
         where("status", "==", "submitted"),
-        orderBy("submittedAt", "desc"),
-        limit(5),
+        /* orderBy and limit removed for missing index */
       ),
       (snap) => {
         if (isMounted) {
           setPendingSubmissions(
-            snap.docs.map((d) => ({ id: d.id, ...d.data() })),
+            snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a,b) => (((b as any).submittedAt?.toMillis?.() || 0) - ((a as any).submittedAt?.toMillis?.() || 0))).slice(0, 5),
           );
           setIsLoading(false);
         }
       },
       (err) => {
-        console.error("Dashboard Realtime Submissions Error:", err);
+        logger.error("Dashboard Realtime Submissions Error:", err);
         if (isMounted) setIsLoading(false);
       },
     );
@@ -220,6 +220,20 @@ export function InstructorDashboard() {
       unsubDevoirs();
     };
   }, [instructor?.uid, db]);
+
+  if (hasError) {
+    return (
+      <div className="flex flex-col h-full bg-[#0f172a]">
+        <TopAppBar title="COCKPIT" />
+        <div className="flex flex-col items-center justify-center flex-1 p-8 text-center text-slate-400">
+          <ClipboardCheck className="h-16 w-16 mb-4 opacity-50" />
+          <h2 className="text-xl font-bold text-white mb-2">Erreur de chargement</h2>
+          <p>Impossible de charger les données du tableau de bord.</p>
+          <button onClick={() => window.location.reload()} className="mt-6 px-6 py-2 bg-primary text-black font-bold rounded-full">Réessayer</button>
+        </div>
+      </div>
+    );
+  }
 
   if (isUserLoading || isLoading) {
     return (
@@ -374,7 +388,7 @@ export function InstructorDashboard() {
           <div className="h-48 w-full -ml-4">
             <ResponsiveContainer
               width="100%"
-              height="100%"
+              height={192}
               
               
             >

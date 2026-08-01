@@ -1,7 +1,9 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 
 export function Hero() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
 
   return (
@@ -21,17 +23,17 @@ export function Hero() {
           <span className="w-2 h-2 bg-emerald rounded-full relative">
             <span className="absolute inset-0 rounded-full border border-emerald animate-pulse-ring"></span>
           </span>
-          Nouveau — La Bourse du Savoir est lancée
+          {t('hero.badge', 'Nouveau — La Bourse du Savoir est lancée')}
         </div>
 
         <h1
           className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black leading-[1.1] tracking-tight mb-6 animate-slide-up"
           style={{ animationDelay: "0.1s" }}
         >
-          L'éducation qui
+          {t('hero.title1', 'L\'éducation qui')}
           <br />
           <span className="bg-gradient-to-r from-emerald-light via-cyan to-emerald bg-clip-text text-transparent bg-[length:200%_200%] animate-gradient-shift">
-            génère des revenus.
+            {t('hero.title2', 'génère des revenus.')}
           </span>
         </h1>
 
