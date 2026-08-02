@@ -1,4 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+const fs = require('fs');
+
+const code = `import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { db } from '../../firebase';
 import { collection, query, where, getDocs, onSnapshot, orderBy, limit, doc, getDoc } from 'firebase/firestore';
@@ -227,7 +229,7 @@ export function AmbassadorCommissions() {
           </button>
           <CSVLink 
             data={exportData} 
-            filename={`ndara_commissions_${format(new Date(), 'yyyyMMdd')}.csv`}
+            filename={\`ndara_commissions_\${format(new Date(), 'yyyyMMdd')}.csv\`}
             id="csv-commissions-btn"
             className="hidden"
           />
@@ -236,13 +238,13 @@ export function AmbassadorCommissions() {
 
       {/* STATS */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
-        <StatCard title="Total Gagné" value={`${walletStats.totalAffiliateRevenue?.toLocaleString() || stats.totalEarned.toLocaleString() || 0} XAF`} icon={<DollarSign className="w-5 h-5 text-emerald-400" />} />
-        <StatCard title="Disponible (Wallet)" value={`${walletStats.availableBalance?.toLocaleString() || 0} XAF`} icon={<DollarSign className="w-5 h-5 text-blue-400" />} />
-        <StatCard title="En Attente" value={`${stats.pending?.toLocaleString()} XAF`} icon={<Clock className="w-5 h-5 text-amber-400" />} />
-        <StatCard title="Validées" value={`${stats.validated?.toLocaleString()} XAF`} icon={<CheckCircle2 className="w-5 h-5 text-emerald-400" />} />
-        <StatCard title="Payées" value={`${stats.paid?.toLocaleString()} XAF`} icon={<DollarSign className="w-5 h-5 text-blue-400" />} />
-        <StatCard title="Revenus Mois" value={`${stats.monthIncome?.toLocaleString()} XAF`} icon={<Calendar className="w-5 h-5 text-purple-400" />} />
-        <StatCard title="Revenus Année" value={`${stats.yearIncome?.toLocaleString()} XAF`} icon={<Calendar className="w-5 h-5 text-indigo-400" />} />
+        <StatCard title="Total Gagné" value={\`\${walletStats.totalAffiliateRevenue?.toLocaleString() || stats.totalEarned.toLocaleString() || 0} XAF\`} icon={<DollarSign className="w-5 h-5 text-emerald-400" />} />
+        <StatCard title="Disponible (Wallet)" value={\`\${walletStats.availableBalance?.toLocaleString() || 0} XAF\`} icon={<DollarSign className="w-5 h-5 text-blue-400" />} />
+        <StatCard title="En Attente" value={\`\${stats.pending?.toLocaleString()} XAF\`} icon={<Clock className="w-5 h-5 text-amber-400" />} />
+        <StatCard title="Validées" value={\`\${stats.validated?.toLocaleString()} XAF\`} icon={<CheckCircle2 className="w-5 h-5 text-emerald-400" />} />
+        <StatCard title="Payées" value={\`\${stats.paid?.toLocaleString()} XAF\`} icon={<DollarSign className="w-5 h-5 text-blue-400" />} />
+        <StatCard title="Revenus Mois" value={\`\${stats.monthIncome?.toLocaleString()} XAF\`} icon={<Calendar className="w-5 h-5 text-purple-400" />} />
+        <StatCard title="Revenus Année" value={\`\${stats.yearIncome?.toLocaleString()} XAF\`} icon={<Calendar className="w-5 h-5 text-indigo-400" />} />
       </div>
 
       {/* FILTERS */}
@@ -312,7 +314,7 @@ export function AmbassadorCommissions() {
                     <td className="p-4">
                       <div className="flex items-center gap-3">
                         <img 
-                          src={comm.user?.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(comm.user?.displayName || 'U')}&background=0D9488&color=fff`}
+                          src={comm.user?.photoURL || \`https://ui-avatars.com/api/?name=\${encodeURIComponent(comm.user?.displayName || 'U')}&background=0D9488&color=fff\`}
                           alt=""
                           className="w-8 h-8 rounded-full object-cover bg-slate-800"
                         />
@@ -362,3 +364,6 @@ function StatCard({ title, value, icon }: { title: string, value: string, icon: 
     </div>
   );
 }
+`;
+
+fs.writeFileSync('src/views/ambassador/AmbassadorCommissions.tsx', code);

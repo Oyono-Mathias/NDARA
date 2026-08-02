@@ -240,6 +240,7 @@ router.post("/refund", isAuthenticated, async (req: AuthRequest, res: Response):
             refundedAt: new Date().toISOString()
         });
 
+
         // Write to ledger
         const ledgerRef = adminDb.collection('users').doc(txData.userId).collection('transactions').doc();
         await ledgerRef.set({
@@ -251,6 +252,15 @@ router.post("/refund", isAuthenticated, async (req: AuthRequest, res: Response):
             description: `Remboursement de la transaction ${txRef} (${reason})`,
             timestamp: new Date().toISOString()
         });
+        
+        // Automatic cancellation of ambassador commission if any
+        try {
+            const { cancelAmbassadorCommission } = await import("../lib/commissionEngine.js");
+            await cancelAmbassadorCommission(txRef);
+        } catch(err) {
+            logger.error("Error cancelling commission on refund", err);
+        }
+
 
         res.json({ success: true, message: "Remboursement effectué." });
     } catch (e: any) {

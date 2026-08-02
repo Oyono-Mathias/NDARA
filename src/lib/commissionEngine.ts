@@ -125,7 +125,15 @@ export async function processAmbassadorCommission(
 
     // We can also send internal notifications or emails here
     const notificationRef = adminDb.collection('notifications').doc();
-    await notificationRef.set({
+    // Try to send email
+      try {
+        const { sendEmail } = await import("./mailTransporter.js");
+        const ambUser = await adminDb.collection('users').doc(ambassadorUid).get();
+        if (ambUser.exists && ambUser.data()?.email) {
+           await sendEmail(ambUser.data()?.email, "Nouvelle commission !", `Félicitations, vous avez reçu une commission de ${commissionAmount} XAF.`);
+        }
+      } catch(e) {}
+      await notificationRef.set({
       userId: ambassadorUid,
       title: "Nouvelle commission !",
       message: `Vous avez reçu une commission de ${amount * (percentage / 100)} XAF.`,
@@ -157,6 +165,26 @@ export async function cancelAmbassadorCommission(transactionId: string) {
       const commissionAmount = data!.commission;
       const oldStatus = data!.status;
 
+      
+      // Notifications
+      const notificationRef = adminDb.collection('notifications').doc();
+      t.set(notificationRef, {
+        userId: ambassadorUid,
+        title: "Commission annulée",
+        message: `Votre commission de ${commissionAmount} XAF a été annulée.`,
+        type: "commission_cancellation",
+        isRead: false,
+        createdAt: FieldValue.serverTimestamp()
+      });
+      // Try to send email
+      try {
+        const { sendEmail } = await import("./mailTransporter.js");
+        const ambUser = await adminDb.collection('users').doc(ambassadorUid).get();
+        if (ambUser.exists && ambUser.data()?.email) {
+           await sendEmail(ambUser.data()?.email, "Commission annulée", `Votre commission de ${commissionAmount} XAF a été annulée.`);
+        }
+      } catch(e) {}
+      
       // 1. Update commission status
       t.update(commissionRef, {
         status: 'cancelled', // can also be 'refunded'

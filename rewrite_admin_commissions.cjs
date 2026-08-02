@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+const fs = require('fs');
+
+const code = `import React, { useState, useEffect } from 'react';
 import { db } from '../../firebase';
 import { doc, getDoc, setDoc, serverTimestamp, collection, query, orderBy, limit, getDocs, where, updateDoc } from 'firebase/firestore';
 import { useToast } from '../../hooks/use-toast';
@@ -74,14 +76,14 @@ export function AdminCommissions() {
   };
 
   const handleAction = async (commission: any, action: 'validate' | 'pay' | 'cancel') => {
-    if (!window.confirm(`Êtes-vous sûr de vouloir ${action === 'validate' ? 'valider' : action === 'pay' ? 'marquer comme payée' : 'annuler'} cette commission ?`)) return;
+    if (!window.confirm(\`Êtes-vous sûr de vouloir \${action === 'validate' ? 'valider' : action === 'pay' ? 'marquer comme payée' : 'annuler'} cette commission ?\`)) return;
     setActionLoading(commission.id);
     try {
       const response = await fetch('/api/ambassador/admin/commission-action', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${await (window as any).firebase.auth().currentUser?.getIdToken()}`
+          'Authorization': \`Bearer \${await (window as any).firebase.auth().currentUser?.getIdToken()}\`
         },
         body: JSON.stringify({ commissionId: commission.id, action })
       });
@@ -136,9 +138,9 @@ export function AdminCommissions() {
             <button
               key={f}
               onClick={() => setFilterStatus(f)}
-              className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-colors whitespace-nowrap ${
+              className={\`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-colors whitespace-nowrap \${
                 filterStatus === f ? "bg-emerald-500/20 text-emerald-400" : "text-slate-500 hover:text-slate-300 hover:bg-slate-800"
-              }`}
+              }\`}
             >
               {f === 'all' ? 'Toutes' : f}
             </button>
@@ -182,7 +184,7 @@ export function AdminCommissions() {
                     <td className="p-4">
                       <div className="flex items-center gap-2">
                         <img 
-                          src={comm.ambassador?.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(comm.ambassador?.displayName || 'U')}&background=0D9488&color=fff`}
+                          src={comm.ambassador?.photoURL || \`https://ui-avatars.com/api/?name=\${encodeURIComponent(comm.ambassador?.displayName || 'U')}&background=0D9488&color=fff\`}
                           alt="" className="w-8 h-8 rounded-full bg-slate-800"
                         />
                         <div>
@@ -200,12 +202,12 @@ export function AdminCommissions() {
                       <p className="text-sm font-black text-emerald-400">+{comm.commission?.toLocaleString()} XAF</p>
                     </td>
                     <td className="p-4 text-center">
-                      <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                      <span className={\`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold \${
                         comm.status === 'validated' ? 'bg-emerald-500/10 text-emerald-500' :
                         comm.status === 'pending' ? 'bg-amber-500/10 text-amber-500' :
                         comm.status === 'paid' ? 'bg-blue-500/10 text-blue-500' :
                         'bg-rose-500/10 text-rose-500'
-                      }`}>
+                      }\`}>
                         {comm.status.toUpperCase()}
                       </span>
                     </td>
@@ -238,3 +240,5 @@ export function AdminCommissions() {
     </div>
   );
 }
+`;
+fs.writeFileSync('src/views/admin/AdminCommissions.tsx', code);
