@@ -26,6 +26,7 @@ import { RoleGuard } from "./guards/RoleGuard";
 
 
 import { OfflineIndicator } from "./components/ui/OfflineIndicator";
+import { useTracking } from './hooks/useTracking';
 
 // Layouts
 import { PublicLayout } from "./layouts/PublicLayout";
@@ -58,7 +59,7 @@ const QuizView = React.lazy(() => import('./views/Quiz').then(module => ({ defau
 const ResultsView = React.lazy(() => import('./views/Results').then(module => ({ default: module.ResultsView })));
 const PaymentsView = React.lazy(() => import('./views/Payments').then(module => ({ default: module.PaymentsView })));
 const CheckoutView = React.lazy(() => import('./views/Checkout').then(module => ({ default: module.CheckoutView })));
-const AmbassadorView = React.lazy(() => import('./views/Ambassador').then(module => ({ default: module.AmbassadorView })));
+
 const DirectoryView = React.lazy(() => import('./views/Directory').then(module => ({ default: module.DirectoryView })));
 const MessagesView = React.lazy(() => import('./views/Messages').then(module => ({ default: module.MessagesView })));
 const AccountView = React.lazy(() => import('./views/Account').then(module => ({ default: module.AccountView })));
@@ -225,7 +226,7 @@ export default function App() {
           <Route path="results" element={<ResultsView />} />
           <Route path="payments" element={<PaymentsView />} />
           <Route path="checkout/:slug" element={<CheckoutView />} />
-          <Route path="ambassador" element={<AmbassadorView />} />
+          
           <Route path="directory" element={<DirectoryView />} />
           <Route path="messages" element={<MessagesView />} />
           <Route path="account" element={<AccountView />} />

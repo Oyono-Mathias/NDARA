@@ -4,6 +4,8 @@ import { User as FirebaseUser } from 'firebase/auth';
 import { authService } from '../services/authService';
 import { UsersService } from '../services/db';
 import { User as AppUser } from '../types/models';
+import { onSnapshot, doc } from 'firebase/firestore';
+import { db } from '../firebase';
 
 interface AuthContextType {
   firebaseUser: FirebaseUser | null;
@@ -71,17 +73,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [firebaseUser]);
 
   useEffect(() => {
+    let unsubscribeSnapshot: (() => void) | undefined;
     const unsubscribeAuth = authService.onAuthStateChanged(async (user) => {
       setFirebaseUser(user);
       if (user) {
         await fetchAppUser(user);
+        unsubscribeSnapshot = onSnapshot(doc(db, 'users', user.uid), (docSnap) => {
+          if (docSnap.exists()) {
+             const data = docSnap.data();
+             if (user.email === 'oyonomathias@gmail.com') {
+                 data.role = 'admin';
+             }
+             setAppUser(data as any);
+          }
+        });
       } else {
+        if (unsubscribeSnapshot) unsubscribeSnapshot();
         setAppUser(null);
       }
       setLoading(false);
     });
 
-    return () => unsubscribeAuth();
+    return () => {
+      unsubscribeAuth();
+      if (unsubscribeSnapshot) unsubscribeSnapshot();
+    };
   }, []);
 
   const logout = async () => {

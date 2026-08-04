@@ -1,18 +1,16 @@
 const fs = require('fs');
-let content = fs.readFileSync('server.ts', 'utf8');
+let code = fs.readFileSync('firestore.rules', 'utf8');
 
-const oldCode = `    } catch (error: any) {
-      console.error("Gemini Error:", error);
-      res.status(503).json({ error: "L'assistant IA Mathias est actuellement très sollicité (haute demande). Veuillez réessayer dans quelques instants." });
+// Replace everything after wallet_history with a clean block
+let lastIndex = code.lastIndexOf('match /wallet_history');
+if (lastIndex !== -1) {
+    let before = code.substring(0, lastIndex);
+    let after = `    match /wallet_history/{id} {
+      allow read: if isAuthenticated() && (resource.data.walletId == request.auth.uid || isAdmin());
+      allow write: if isAdmin();
     }
-  });`;
-
-const newCode = `    } catch (error: any) {
-      console.error("Gemini Error:", error);
-      res.status(503).json({ error: "L'assistant IA Mathias est actuellement très sollicité (haute demande). Veuillez réessayer dans quelques instants." });
-    }
-  });`;
-
-// There is a missing bracket in the fix_syntax.cjs
-content = content.replace(/      const ai = new GoogleGenAI\(\{ apiKey \}\);/, '      const ai = new GoogleGenAI({ apiKey });');
-fs.writeFileSync('server.ts', content);
+  }
+}`;
+    fs.writeFileSync('firestore.rules', before + after);
+    console.log("Fixed for real!");
+}

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useRole } from '../../context/RoleContext';
 import { db } from '../../firebase';
 import { collection, query, where, getDocs, onSnapshot, orderBy, limit, doc, getDoc } from 'firebase/firestore';
 import { useToast } from '../../hooks/use-toast';
@@ -10,7 +11,8 @@ import { fr } from 'date-fns/locale';
 import { CSVLink } from "react-csv";
 
 export function AmbassadorCommissions() {
-  const { firebaseUser, currentUser } = useAuth();
+  const { firebaseUser } = useAuth();
+  const { currentUser } = useRole();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [commissions, setCommissions] = useState<any[]>([]);

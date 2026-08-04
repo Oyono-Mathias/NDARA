@@ -1,3 +1,4 @@
+import { processAmbassadorRewards } from './ambassadorRewardsEngine.js';
 import { adminDb, admin } from "./firebaseAdmin.js";
 const FieldValue = admin.firestore.FieldValue;
 
@@ -31,6 +32,8 @@ export async function processAmbassadorCommission(
     const commissionRef = adminDb.collection('affiliate_transactions').doc(commissionId);
     
     // We will do a transaction to be absolutely safe
+    let percentageOut = 0;
+    let commissionAmountOut = 0;
     await adminDb.runTransaction(async (t) => {
       const commDoc = await t.get(commissionRef);
       if (commDoc.exists) {
@@ -49,6 +52,8 @@ export async function processAmbassadorCommission(
       }
       const rate = percentage / 100;
       const commissionAmount = Math.round(amount * rate);
+      percentageOut = percentage;
+      commissionAmountOut = commissionAmount;
 
       // 5. Create the commission in affiliate_transactions
       const newCommission = {
@@ -130,18 +135,19 @@ export async function processAmbassadorCommission(
         const { sendEmail } = await import("./mailTransporter.js");
         const ambUser = await adminDb.collection('users').doc(ambassadorUid).get();
         if (ambUser.exists && ambUser.data()?.email) {
-           await sendEmail(ambUser.data()?.email, "Nouvelle commission !", `Félicitations, vous avez reçu une commission de ${commissionAmount} XAF.`);
+           await sendEmail(ambUser.data()?.email, "Nouvelle commission !", `Félicitations, vous avez reçu une commission de ${commissionAmountOut} XAF.`);
         }
       } catch(e) {}
       await notificationRef.set({
       userId: ambassadorUid,
       title: "Nouvelle commission !",
-      message: `Vous avez reçu une commission de ${amount * (percentage / 100)} XAF.`,
+      message: `Vous avez reçu une commission de ${commissionAmountOut} XAF.`,
       type: "commission",
       isRead: false,
       createdAt: FieldValue.serverTimestamp()
     });
 
+    await processAmbassadorRewards(ambassadorUid).catch(e => console.error(e));
     return { success: true, commissionId };
   } catch (error: any) {
     console.error("Commission Engine Error:", error);
@@ -154,6 +160,8 @@ export async function cancelAmbassadorCommission(transactionId: string) {
     const commissionId = transactionId;
     const commissionRef = adminDb.collection('affiliate_transactions').doc(commissionId);
     
+    let percentageOut = 0;
+    let commissionAmountOut = 0;
     await adminDb.runTransaction(async (t) => {
       const commDoc = await t.get(commissionRef);
       if (!commDoc.exists) return; // Nothing to cancel
@@ -171,7 +179,7 @@ export async function cancelAmbassadorCommission(transactionId: string) {
       t.set(notificationRef, {
         userId: ambassadorUid,
         title: "Commission annulée",
-        message: `Votre commission de ${commissionAmount} XAF a été annulée.`,
+        message: `Votre commission de ${commissionAmountOut} XAF a été annulée.`,
         type: "commission_cancellation",
         isRead: false,
         createdAt: FieldValue.serverTimestamp()
@@ -181,7 +189,7 @@ export async function cancelAmbassadorCommission(transactionId: string) {
         const { sendEmail } = await import("./mailTransporter.js");
         const ambUser = await adminDb.collection('users').doc(ambassadorUid).get();
         if (ambUser.exists && ambUser.data()?.email) {
-           await sendEmail(ambUser.data()?.email, "Commission annulée", `Votre commission de ${commissionAmount} XAF a été annulée.`);
+           await sendEmail(ambUser.data()?.email, "Commission annulée", `Votre commission de ${commissionAmountOut} XAF a été annulée.`);
         }
       } catch(e) {}
       

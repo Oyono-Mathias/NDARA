@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+const fs = require('fs');
+
+const code = `import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { db } from '../../firebase';
 import { collection, query, where, getDocs, onSnapshot, orderBy, limit } from 'firebase/firestore';
@@ -119,7 +121,7 @@ export function AmbassadorWallet() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${await firebaseUser.getIdToken()}`
+          'Authorization': \`Bearer \${await firebaseUser.getIdToken()}\`
         },
         body: JSON.stringify({ amount: Number(withdrawAmount), paymentMethod: paymentMethod, paymentAccount: paymentDetails })
       });
@@ -200,7 +202,7 @@ export function AmbassadorWallet() {
           </button>
           <CSVLink 
             data={exportData} 
-            filename={`ndara_retraits_${format(new Date(), 'yyyyMMdd')}.csv`}
+            filename={\`ndara_retraits_\${format(new Date(), 'yyyyMMdd')}.csv\`}
             id="csv-wallet-btn"
             className="hidden"
           />
@@ -209,12 +211,12 @@ export function AmbassadorWallet() {
 
       {/* STATS */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
-        <StatCard title="Solde Disponible" value={`${(wallet?.availableBalance || 0).toLocaleString()} XAF`} icon={<Banknote className="w-5 h-5 text-emerald-400" />} />
-        <StatCard title="Solde Bloqué (Retrait)" value={`${(wallet?.pendingWithdrawalBalance || 0).toLocaleString()} XAF`} icon={<Clock className="w-5 h-5 text-amber-400" />} />
-        <StatCard title="Total Gagné" value={`${(wallet?.totalAffiliateRevenue || wallet?.totalEarned || 0).toLocaleString()} XAF`} icon={<Wallet className="w-5 h-5 text-blue-400" />} />
-        <StatCard title="Total Retiré" value={`${(wallet?.totalWithdrawn || 0).toLocaleString()} XAF`} icon={<ArrowDownRight className="w-5 h-5 text-purple-400" />} />
-        <StatCard title="Revenus Mois" value={`${stats.monthIncome?.toLocaleString()} XAF`} icon={<Banknote className="w-5 h-5 text-emerald-400" />} />
-        <StatCard title="Revenus Année" value={`${stats.yearIncome?.toLocaleString()} XAF`} icon={<Banknote className="w-5 h-5 text-emerald-400" />} />
+        <StatCard title="Solde Disponible" value={\`\${(wallet?.availableBalance || 0).toLocaleString()} XAF\`} icon={<Banknote className="w-5 h-5 text-emerald-400" />} />
+        <StatCard title="Solde Bloqué (Retrait)" value={\`\${(wallet?.pendingWithdrawalBalance || 0).toLocaleString()} XAF\`} icon={<Clock className="w-5 h-5 text-amber-400" />} />
+        <StatCard title="Total Gagné" value={\`\${(wallet?.totalAffiliateRevenue || wallet?.totalEarned || 0).toLocaleString()} XAF\`} icon={<Wallet className="w-5 h-5 text-blue-400" />} />
+        <StatCard title="Total Retiré" value={\`\${(wallet?.totalWithdrawn || 0).toLocaleString()} XAF\`} icon={<ArrowDownRight className="w-5 h-5 text-purple-400" />} />
+        <StatCard title="Revenus Mois" value={\`\${stats.monthIncome?.toLocaleString()} XAF\`} icon={<Banknote className="w-5 h-5 text-emerald-400" />} />
+        <StatCard title="Revenus Année" value={\`\${stats.yearIncome?.toLocaleString()} XAF\`} icon={<Banknote className="w-5 h-5 text-emerald-400" />} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -370,3 +372,6 @@ function StatCard({ title, value, icon }: { title: string, value: string, icon: 
     </div>
   );
 }
+`;
+
+fs.writeFileSync('src/views/ambassador/AmbassadorWallet.tsx', code);

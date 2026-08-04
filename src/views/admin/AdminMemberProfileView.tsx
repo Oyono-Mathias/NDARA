@@ -210,7 +210,6 @@ const ActionPromptModal = () => {
       setIsMutating(false);
     }
   };
-
   const handleUpdateProfile = async () => {
     if (!editName) return;
     setIsMutating(true);
@@ -335,7 +334,7 @@ const ActionPromptModal = () => {
     { id: 'license', label: 'Licence Formateur', icon: BookOpen },
     { id: 'market', label: 'Marketplace', icon: Wallet },
     { id: 'p2p', label: 'Marché P2P', icon: Wallet },
-    { id: 'roles', label: 'Rôles', icon: ShieldCheck },
+    
     { id: 'permissions', label: 'Permissions', icon: ToggleRight },
     { id: 'stats', label: 'Statistiques', icon: BarChart2 },
     { id: 'activity', label: 'Historique', icon: Activity },
@@ -604,51 +603,6 @@ const ActionPromptModal = () => {
       }
     } catch(e: unknown) {
       toast({ title: "Erreur", variant: "destructive", description: (e as Error).message });
-    }
-  };
-
-  const handleRolesUpdate = async (role: string, action: 'add' | 'remove') => {
-    try {
-      if (await confirm(`${action === 'add' ? 'Attribuer' : 'Retirer'} le rôle ${role} ?`)) {
-        let currentRoles = member.roles || [member.role].filter(Boolean) || [];
-        if (action === 'add' && !currentRoles.includes(role)) currentRoles.push(role);
-        if (action === 'remove') currentRoles = currentRoles.filter((r: string) => r !== role);
-        await updateDoc(doc(db, 'users', memberId), { roles: currentRoles, role: currentRoles[0] || 'student' });
-        
-        // --- AMBASSADOR LOGIC ---
-        if (role === 'ambassador') {
-          const ambassadorRef = doc(db, 'ambassadors', memberId);
-          if (action === 'add') {
-            const ambSnap = await getDoc(ambassadorRef);
-            if (!ambSnap.exists()) {
-              const code = 'AMB-' + Math.random().toString(36).substr(2, 6).toUpperCase();
-              await setDoc(ambassadorRef, {
-                uid: memberId,
-                referralCode: code,
-                referralLink: `${window.location.origin}/register?ref=${code}`,
-                activatedAt: serverTimestamp(),
-                activatedBy: auth.currentUser?.uid || 'admin',
-                status: 'active',
-                totalReferrals: 0,
-                totalSales: 0,
-                totalCommission: 0,
-                createdAt: serverTimestamp(),
-                updatedAt: serverTimestamp()
-              });
-            } else {
-              await updateDoc(ambassadorRef, { status: 'active', updatedAt: serverTimestamp() });
-            }
-          } else if (action === 'remove') {
-            await updateDoc(ambassadorRef, { status: 'inactive', updatedAt: serverTimestamp() });
-          }
-        }
-        // ------------------------
-
-        await logAudit("UPDATE_ROLES", `${action} rôle: ${role}`);
-        toast({ title: "Rôle mis à jour" });
-      }
-    } catch(e: unknown) {
-      toast({ title: "Erreur", variant: "destructive" });
     }
   };
 
@@ -1278,35 +1232,7 @@ const ActionPromptModal = () => {
 
           
           
-          {activeTab === 'roles' && (
-            <div className="space-y-4">
-              <h3 className="text-xs font-black text-slate-500 tracking-widest uppercase mb-4">Gestion des Rôles</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {['student', 'instructor', 'expert', 'ambassador', 'admin'].map((role) => {
-                  const hasRole = member.roles?.includes(role) || member.role === role;
-                  return (
-                    <div key={role} className="flex items-center justify-between p-4 rounded-xl border border-slate-800/50 bg-slate-800/20">
-                      <div>
-                        <div className="text-sm font-bold text-white capitalize">{role}</div>
-                        <div className="text-xs text-slate-400">{hasRole ? 'Actif' : 'Inactif'}</div>
-                      </div>
-                      <div className="flex gap-2">
-                        {!hasRole ? (
-                          <button onClick={() => handleRolesUpdate(role, 'add')} className="p-2 bg-emerald-500/20 text-emerald-400 rounded-lg hover:bg-emerald-500/30 transition-colors">
-                            <Plus className="w-4 h-4" />
-                          </button>
-                        ) : (
-                          <button onClick={() => handleRolesUpdate(role, 'remove')} className="p-2 bg-rose-500/20 text-rose-400 rounded-lg hover:bg-rose-500/30 transition-colors">
-                            <Minus className="w-4 h-4" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+          
 
           {activeTab === 'permissions' && (
             <div className="space-y-4">
@@ -1454,7 +1380,7 @@ const ActionPromptModal = () => {
                   <div className="grid grid-cols-2 gap-2">
                     <button onClick={() => handleUpdateRole('student')} className={clsx("py-3 rounded-xl text-xs font-bold transition-colors", member.role === 'student' ? "bg-blue-500 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700")}>Student</button>
                     <button onClick={() => handleUpdateRole('instructor')} className={clsx("py-3 rounded-xl text-xs font-bold transition-colors", member.role === 'instructor' ? "bg-purple-500 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700")}>Instructor</button>
-                    <button onClick={() => handleUpdateRole('admin')} className={clsx("py-3 rounded-xl text-xs font-bold transition-colors col-span-2", member.role === 'admin' ? "bg-red-500 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700")}>Admin (Root)</button>
+                                        <button onClick={() => handleUpdateRole('admin')} className={clsx("py-3 rounded-xl text-xs font-bold transition-colors col-span-2", member.role === 'admin' ? "bg-red-500 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700")}>Admin (Root)</button>
                   </div>
                 </div>
                 

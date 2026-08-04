@@ -20,13 +20,13 @@ export function AdminAmbassadorProgram() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const lSnap = await getDocs(query(collection(db, 'ambassador_levels')));
+      const lSnap = await getDocs(query(collection(db, 'affiliate_levels')));
       setLevels(lSnap.docs.map(d => ({ id: d.id, ...d.data() })));
       
-      const bSnap = await getDocs(query(collection(db, 'ambassador_badges')));
+      const bSnap = await getDocs(query(collection(db, 'affiliate_badges')));
       setBadges(bSnap.docs.map(d => ({ id: d.id, ...d.data() })));
       
-      const cSnap = await getDocs(query(collection(db, 'ambassador_challenges')));
+      const cSnap = await getDocs(query(collection(db, 'affiliate_challenges')));
       setChallenges(cSnap.docs.map(d => ({ id: d.id, ...d.data() })));
     } catch(e) {
       console.error(e);
@@ -38,7 +38,7 @@ export function AdminAmbassadorProgram() {
   const handleSaveLevel = async (level: any) => {
     try {
       const id = level.id || level.name.toLowerCase().replace(/[^a-z0-9]/g, '-');
-      await setDoc(doc(db, 'ambassador_levels', id), {
+      await setDoc(doc(db, 'affiliate_levels', id), {
         name: level.name,
         color: level.color || 'gray',
         minSalesCount: Number(level.minSalesCount || 0),
@@ -55,7 +55,7 @@ export function AdminAmbassadorProgram() {
   const handleDeleteLevel = async (id: string) => {
     if (!window.confirm("Supprimer ce niveau ?")) return;
     try {
-      await deleteDoc(doc(db, 'ambassador_levels', id));
+      await deleteDoc(doc(db, 'affiliate_levels', id));
       toast({ title: "Niveau supprimé" });
       loadData();
     } catch(e: any) {
@@ -66,7 +66,7 @@ export function AdminAmbassadorProgram() {
   const handleSaveBadge = async (badge: any) => {
     try {
       const id = badge.id || badge.name.toLowerCase().replace(/[^a-z0-9]/g, '-');
-      await setDoc(doc(db, 'ambassador_badges', id), {
+      await setDoc(doc(db, 'affiliate_badges', id), {
         name: badge.name,
         description: badge.description || '',
         conditionType: badge.conditionType, // 'referrals', 'sales_count', 'earnings'
@@ -106,14 +106,14 @@ export function AdminAmbassadorProgram() {
             <LevelsManager levels={levels} onSave={handleSaveLevel} onDelete={handleDeleteLevel} />
           )}
           {activeTab === 'badges' && (
-            <BadgesManager badges={badges} onSave={handleSaveBadge} onDelete={async (id) => { await deleteDoc(doc(db, 'ambassador_badges', id)); loadData(); }} />
+            <BadgesManager badges={badges} onSave={handleSaveBadge} onDelete={async (id) => { await deleteDoc(doc(db, 'affiliate_badges', id)); loadData(); }} />
           )}
           {activeTab === 'challenges' && (
             <ChallengesManager challenges={challenges} onSave={async (c) => { 
                 const id = c.id || c.name.toLowerCase().replace(/[^a-z0-9]/g, '-');
-                await setDoc(doc(db, 'ambassador_challenges', id), c);
+                await setDoc(doc(db, 'affiliate_challenges', id), c);
                 toast({title:"Défi enregistré"}); loadData();
-             }} onDelete={async (id) => { await deleteDoc(doc(db, 'ambassador_challenges', id)); loadData(); }} />
+             }} onDelete={async (id) => { await deleteDoc(doc(db, 'affiliate_challenges', id)); loadData(); }} />
           )}
         </div>
       )}

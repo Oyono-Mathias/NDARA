@@ -155,15 +155,7 @@ export function InstructorLayout() {
                 <Route path="students" element={<InstructorStudents />} />
                 <Route path="messages" element={<MessagesView />} />
                 <Route path="revenus" element={<InstructorWealth />} />
-                <Route
-                  path="ambassador"
-                  element={
-                    <GenericPlaceholder
-                      title="Ambassadeur Elite"
-                      subtitle="Programme de partenariat Premium"
-                    />
-                  }
-                />
+                <Route path="ambassador" element={<Navigate to="/ambassador/dashboard" replace />} />
                 <Route path="annonces" element={<InstructorAnnouncements />} />
                 <Route path="coupons" element={<InstructorCoupons />} />
                 <Route path="avis" element={<InstructorAvis />} />

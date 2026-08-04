@@ -1,6 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { db } from '../../firebase';
-import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
 import { Trophy, Medal, Star, Flame, Loader2 } from 'lucide-react';
 import clsx from 'clsx';
 import { useAuth } from '../../contexts/AuthContext';
@@ -11,136 +9,163 @@ export function AmbassadorLeaderboard() {
   const { firebaseUser } = useAuth();
   const [loading, setLoading] = useState(true);
   const [leaders, setLeaders] = useState<any[]>([]);
-  const [sortBy, setSortBy] = useState<'totalVolume' | 'totalReferrals'>('totalVolume');
+  const [period, setPeriod] = useState<'today' | 'week' | 'month' | 'year' | 'global'>('global');
   const [exportData, setExportData] = useState<any[]>([]);
 
   useEffect(() => {
     loadLeaderboard();
-  }, [sortBy]);
+  }, [period]);
 
   const loadLeaderboard = async () => {
     setLoading(true);
     try {
-      const q = query(collection(db, 'leaderboard_cache'), orderBy(sortBy, 'desc'), limit(100));
-      const snap = await getDocs(q);
-      const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      setLeaders(docs);
-      setExportData(docs.map((d: any, idx) => ({
+      const response = await fetch(`/api/gamification/leaderboard?period=${period}`);
+      if (!response.ok) throw new Error('Erreur réseau');
+      
+      const data = await response.json();
+      setLeaders(data.leaderboard || []);
+      
+      setExportData((data.leaderboard || []).map((d: any, idx: number) => ({
         "Rang": idx + 1,
         "Ambassadeur": d.displayName,
+        "Pays": d.country,
         "Niveau": d.level,
         "Filleuls": d.totalReferrals,
-        "CA Généré": d.totalVolume
+        "Ventes": d.totalSalesCount,
+        "Chiffre d'affaires": d.totalVolume,
+        "Commissions": d.totalEarnings,
+        "Taux de conversion": `${d.conversionRate}%`
       })));
-    } catch(e) {
+    } catch (e) {
       console.error(e);
     } finally {
       setLoading(false);
     }
   };
 
-  const getRankIcon = (index: number) => {
-    if (index === 0) return <Trophy className="w-6 h-6 text-yellow-400" />;
-    if (index === 1) return <Medal className="w-6 h-6 text-slate-300" />;
-    if (index === 2) return <Medal className="w-6 h-6 text-amber-700" />;
-    return <span className="text-lg font-black text-slate-500">{index + 1}</span>;
+  const getRankIcon = (rank: number) => {
+    switch(rank) {
+      case 1: return <Trophy className="w-6 h-6 text-yellow-400" />;
+      case 2: return <Medal className="w-6 h-6 text-slate-300" />;
+      case 3: return <Medal className="w-6 h-6 text-amber-600" />;
+      default: return <span className="text-slate-500 font-black text-lg">#{rank}</span>;
+    }
   };
 
   return (
-    <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-8 pb-32">
-      <div className="text-center space-y-4">
-        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-purple-500/10 text-purple-500 mb-2">
-          <Flame className="w-8 h-8" />
-        </div>
-        <h1 className="text-3xl md:text-5xl font-black text-white uppercase tracking-tighter">Classement</h1>
-        <p className="text-slate-400 max-w-xl mx-auto">Découvrez les meilleurs ambassadeurs NDARA et grimpez dans le classement pour débloquer des récompenses exclusives.</p>
+    <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-8 pb-32">
+      <div>
+        <h1 className="text-3xl font-black text-white uppercase tracking-tight flex items-center gap-3">
+          <Flame className="text-orange-500 w-8 h-8" />
+          Classement Ambassadeurs
+        </h1>
+        <p className="text-slate-400">Découvrez les meilleurs ambassadeurs NDARA et suivez votre rang.</p>
       </div>
 
-      <div className="flex justify-center gap-4">
-        <button 
-          onClick={() => setSortBy('totalVolume')} 
-          className={clsx("px-6 py-3 rounded-xl font-bold uppercase tracking-widest text-xs transition-all", sortBy === 'totalVolume' ? "bg-purple-500 text-white shadow-[0_0_20px_rgba(168,85,247,0.4)]" : "bg-slate-800 text-slate-400 hover:bg-slate-700")}
-        >
-          Par Chiffre d'Affaires
-        </button>
-        <button 
-          onClick={() => setSortBy('totalReferrals')} 
-          className={clsx("px-6 py-3 rounded-xl font-bold uppercase tracking-widest text-xs transition-all", sortBy === 'totalReferrals' ? "bg-blue-500 text-white shadow-[0_0_20px_rgba(59,130,246,0.4)]" : "bg-slate-800 text-slate-400 hover:bg-slate-700")}
-        >
-          Par Filleuls
-        </button>
-      </div>
-
-      <div className="flex justify-end gap-3">
-        <CSVLink 
-          data={exportData} 
-          filename={`ndara_classement.csv`}
-          className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-lg transition-colors flex items-center gap-2 text-xs"
-        >
-          <Download className="w-4 h-4" /> CSV / Excel
-        </CSVLink>
-        <button onClick={() => window.print()} className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-lg transition-colors flex items-center gap-2 text-xs">
-          <FileText className="w-4 h-4" /> PDF / Imprimer
-        </button>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-[#111827] border border-[#1E293B] p-4 rounded-2xl">
+         <div className="flex flex-wrap gap-2">
+            {[
+              { id: 'today', label: "Aujourd'hui" },
+              { id: 'week', label: "Cette semaine" },
+              { id: 'month', label: "Ce mois" },
+              { id: 'year', label: "Cette année" },
+              { id: 'global', label: "Global" }
+            ].map(f => (
+               <button
+                  key={f.id}
+                  onClick={() => setPeriod(f.id as any)}
+                  className={clsx(
+                      "px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-colors",
+                      period === f.id ? "bg-pink-500 text-white" : "bg-slate-900 text-slate-400 hover:bg-slate-800"
+                  )}
+               >
+                  {f.label}
+               </button>
+            ))}
+         </div>
+         
+         <CSVLink 
+            data={exportData} 
+            filename={`ndara_classement_${period}.csv`}
+            className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl transition-colors flex items-center gap-2 text-xs uppercase tracking-widest shrink-0"
+         >
+            <Download className="w-4 h-4" /> Exporter CSV
+         </CSVLink>
       </div>
 
       <div className="bg-[#111827] border border-[#1E293B] rounded-3xl overflow-hidden">
         {loading ? (
-          <div className="flex justify-center p-20"><Loader2 className="w-10 h-10 animate-spin text-purple-500" /></div>
-        ) : leaders.length === 0 ? (
-          <div className="text-center p-20 text-slate-500">Aucune donnée de classement pour le moment.</div>
+            <div className="flex justify-center p-20"><Loader2 className="w-10 h-10 animate-spin text-pink-500" /></div>
         ) : (
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-900/50 border-b border-slate-800">
-                <th className="p-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center w-16">Rang</th>
-                <th className="p-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Ambassadeur</th>
-                <th className="p-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Niveau</th>
-                <th className="p-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Filleuls</th>
-                <th className="p-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">CA Généré</th>
-              </tr>
-            </thead>
-            <tbody>
-              {leaders.map((l, idx) => {
-                const isMe = l.uid === firebaseUser?.uid;
-                return (
-                  <tr key={l.id} className={clsx("border-b border-slate-800/50 transition-colors", isMe ? "bg-purple-500/10 hover:bg-purple-500/20" : "hover:bg-slate-800/30")}>
-                    <td className="p-4 text-center">
-                      <div className="flex justify-center items-center w-8 h-8 mx-auto">
-                        {getRankIcon(idx)}
-                      </div>
-                    </td>
-                    <td className="p-4">
-                      <div className="flex items-center gap-3">
-                        <img 
-                          src={l.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(l.displayName || 'U')}&background=A855F7&color=fff`} 
-                          alt="" 
-                          className={clsx("w-10 h-10 rounded-full object-cover", idx < 3 ? "border-2 border-yellow-500" : "bg-slate-800")}
-                        />
-                        <div>
-                          <p className={clsx("font-bold text-sm", isMe ? "text-purple-400" : "text-white")}>{l.displayName} {isMe && "(Moi)"}</p>
-                          <p className="text-[10px] text-slate-500">{l.totalSalesCount || 0} ventes</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="p-4 text-center">
-                      <span className="px-2 py-1 bg-slate-800 rounded-lg text-[10px] font-black text-slate-300 uppercase tracking-widest">
-                        {l.level || 'Bronze'}
-                      </span>
-                    </td>
-                    <td className="p-4 text-center text-sm font-bold text-slate-300">
-                      {l.totalReferrals || 0}
-                    </td>
-                    <td className="p-4 text-right">
-                      <span className="text-sm font-black text-emerald-400">
-                        {l.totalVolume?.toLocaleString()} XAF
-                      </span>
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse min-w-[800px]">
+                <thead>
+                  <tr className="bg-slate-900/50 border-b border-slate-800">
+                    <th className="p-4 text-[10px] font-black text-slate-500 uppercase tracking-widest w-16 text-center">Rang</th>
+                    <th className="p-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Ambassadeur</th>
+                    <th className="p-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Filleuls</th>
+                    <th className="p-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Ventes</th>
+                    <th className="p-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">Volume (XAF)</th>
+                    <th className="p-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">Gains (XAF)</th>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                </thead>
+                <tbody>
+                  {leaders.length === 0 ? (
+                      <tr><td colSpan={6} className="p-12 text-center text-slate-500">Aucune donnée pour cette période.</td></tr>
+                  ) : (
+                      leaders.map((leader, index) => {
+                        const rank = index + 1;
+                        const isMe = leader.id === firebaseUser?.uid;
+                        
+                        return (
+                          <tr 
+                            key={leader.id} 
+                            className={clsx(
+                                "border-b border-slate-800/50 transition-colors",
+                                isMe ? "bg-pink-500/10 hover:bg-pink-500/20" : "hover:bg-slate-800/30"
+                            )}
+                          >
+                            <td className="p-4 flex justify-center items-center h-[72px]">
+                                {getRankIcon(rank)}
+                            </td>
+                            <td className="p-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center overflow-hidden shrink-0">
+                                        {leader.photoURL ? (
+                                            <img src={leader.photoURL} alt={leader.displayName} className="w-full h-full object-cover" />
+                                        ) : (
+                                            <Star className="w-5 h-5 text-slate-500" />
+                                        )}
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-bold text-white flex items-center gap-2">
+                                            {leader.displayName}
+                                            {isMe && <span className="bg-pink-500 text-white text-[9px] px-1.5 py-0.5 rounded uppercase tracking-wider">Moi</span>}
+                                        </p>
+                                        <p className="text-[10px] text-slate-400 uppercase tracking-widest">{leader.country} • Niv {leader.level}</p>
+                                    </div>
+                                </div>
+                            </td>
+                            <td className="p-4 text-center">
+                                <p className="text-lg font-black text-white">{leader.totalReferrals}</p>
+                                <p className="text-[10px] text-slate-500 uppercase">{leader.conversionRate}% Conv.</p>
+                            </td>
+                            <td className="p-4 text-center">
+                                <p className="text-lg font-black text-white">{leader.totalSalesCount}</p>
+                            </td>
+                            <td className="p-4 text-right">
+                                <p className="text-lg font-black text-white">{leader.totalVolume?.toLocaleString()}</p>
+                            </td>
+                            <td className="p-4 text-right">
+                                <p className="text-lg font-black text-emerald-400">+{leader.totalEarnings?.toLocaleString()}</p>
+                            </td>
+                          </tr>
+                        );
+                      })
+                  )}
+                </tbody>
+              </table>
+            </div>
         )}
       </div>
     </div>

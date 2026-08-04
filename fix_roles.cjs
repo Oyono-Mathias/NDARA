@@ -1,55 +1,80 @@
 const fs = require('fs');
-let content = fs.readFileSync('src/views/admin/AdminMemberProfileView.tsx', 'utf-8');
+let code = fs.readFileSync('src/views/admin/AdminMemberProfileView.tsx', 'utf8');
 
-// Add 'roles' to TabId type
-content = content.replace(
-  /type TabId = 'info' \| 'formations' \| 'quizzes' \| 'certificats' \| 'wallet' \| 'license' \| 'market' \| 'p2p' \| 'permissions' \| 'stats' \| 'activity';/,
-  "type TabId = 'info' | 'formations' | 'quizzes' | 'certificats' | 'wallet' | 'license' | 'market' | 'p2p' | 'permissions' | 'stats' | 'activity' | 'roles';"
+// 1. Remove the entire "roles" tab from the UI
+code = code.replace(
+  /\{\s*activeTab === 'roles' && \([\s\S]*?\}\s*\)\s*\}/,
+  ""
 );
 
-// Add 'roles' to tabs array
-content = content.replace(
-  /\{ id: 'permissions', label: 'Permissions', icon: ToggleRight \},/,
-  `{ id: 'roles', label: 'Rôles', icon: ShieldCheck },
-    { id: 'permissions', label: 'Permissions', icon: ToggleRight },`
+// 2. Remove the "roles" tab selector
+code = code.replace(
+  /\{ id: 'roles', label: 'Rôles', icon: ShieldCheck \},/,
+  ""
 );
 
-// Add roles UI
-const rolesUI = `
-          {activeTab === 'roles' && (
-            <div className="space-y-4">
-              <h3 className="text-xs font-black text-slate-500 tracking-widest uppercase mb-4">Gestion des Rôles</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {['student', 'instructor', 'expert', 'ambassador', 'admin'].map((role) => {
-                  const hasRole = member.roles?.includes(role) || member.role === role;
-                  return (
-                    <div key={role} className="flex items-center justify-between p-4 rounded-xl border border-slate-800/50 bg-slate-800/20">
-                      <div>
-                        <div className="text-sm font-bold text-white capitalize">{role}</div>
-                        <div className="text-xs text-slate-400">{hasRole ? 'Actif' : 'Inactif'}</div>
-                      </div>
-                      <div className="flex gap-2">
-                        {!hasRole ? (
-                          <button onClick={() => handleRolesUpdate(role, 'add')} className="p-2 bg-emerald-500/20 text-emerald-400 rounded-lg hover:bg-emerald-500/30 transition-colors">
-                            <Plus className="w-4 h-4" />
-                          </button>
-                        ) : (
-                          <button onClick={() => handleRolesUpdate(role, 'remove')} className="p-2 bg-rose-500/20 text-rose-400 rounded-lg hover:bg-rose-500/30 transition-colors">
-                            <Minus className="w-4 h-4" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-`;
-
-content = content.replace(
-  /\{activeTab === 'permissions' && \(/,
-  rolesUI + "\n          {activeTab === 'permissions' && ("
+// 3. Remove handleRolesUpdate function
+code = code.replace(
+  /const handleRolesUpdate = async \([\s\S]*?\}\s*catch\(e: unknown\) \{\s*toast\(\{ title: "Erreur", variant: "destructive", description: \(e as Error\)\.message \}\);\s*\}\s*\};\s*/,
+  ""
 );
 
-fs.writeFileSync('src/views/admin/AdminMemberProfileView.tsx', content);
+// 4. Update handleUpdateRole to include Ambassador logic
+const handleUpdateRoleReplacement = `const handleUpdateRole = async (newRole: string) => {
+    setIsMutating(true);
+    try {
+      await updateDoc(doc(db, 'users', memberId), { role: newRole });
+      
+      // --- AMBASSADOR LOGIC ---
+      const ambassadorRef = doc(db, 'ambassadors', memberId);
+      if (newRole === 'ambassador') {
+        const ambSnap = await getDoc(ambassadorRef);
+        if (!ambSnap.exists()) {
+          const code = 'AMB-' + Math.random().toString(36).substr(2, 6).toUpperCase();
+          await setDoc(ambassadorRef, {
+            uid: memberId,
+            referralCode: code,
+            referralLink: \`\${window.location.origin}/register?ref=\${code}\`,
+            activatedAt: serverTimestamp(),
+            activatedBy: auth.currentUser?.uid || 'admin',
+            status: 'active',
+            totalReferrals: 0,
+            totalSales: 0,
+            totalCommission: 0,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+          });
+        } else {
+          await updateDoc(ambassadorRef, { status: 'active', updatedAt: serverTimestamp() });
+        }
+      } else {
+        // If they are no longer an ambassador, we could optionally deactivate them
+        const ambSnap = await getDoc(ambassadorRef);
+        if (ambSnap.exists()) {
+            await updateDoc(ambassadorRef, { status: 'inactive', updatedAt: serverTimestamp() });
+        }
+      }
+      // ------------------------
+
+      await logAudit("CHANGE_ROLE", \`Role changed to \${newRole}\`);
+      toast({ title: "Rôle mis à jour avec succès" });
+    } catch (error) {
+      toast({ title: "Erreur lors de la mise à jour du rôle", variant: "destructive" });
+    } finally {
+      setIsMutating(false);
+    }
+  };`;
+
+code = code.replace(
+  /const handleUpdateRole = async \(newRole: string\) => \{[\s\S]*?\}\s*\};\s*const handleUpdateProfile/,
+  handleUpdateRoleReplacement + "\n  const handleUpdateProfile"
+);
+
+// 5. Add Ambassador button to the Admin tab
+code = code.replace(
+  /<button onClick=\{\(\) => handleUpdateRole\('instructor'\)\} className=\{clsx\("py-3 rounded-xl text-xs font-bold transition-colors", member\.role === 'instructor' \? "bg-purple-500 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700"\)\}>Instructor<\/button>/,
+  `<button onClick={() => handleUpdateRole('instructor')} className={clsx("py-3 rounded-xl text-xs font-bold transition-colors", member.role === 'instructor' ? "bg-purple-500 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700")}>Instructor</button>
+                    <button onClick={() => handleUpdateRole('ambassador')} className={clsx("py-3 rounded-xl text-xs font-bold transition-colors", member.role === 'ambassador' ? "bg-emerald-500 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700")}>Ambassador</button>`
+);
+
+fs.writeFileSync('src/views/admin/AdminMemberProfileView.tsx', code);

@@ -19,6 +19,8 @@ dotenv.config({ path: '.env.example' }); // Fallback to .env.example if missing 
 
 import uploadRoutes from "./src/routes/uploadRoutes.js";
 import paymentRoutes from "./src/routes/paymentRoutes.js";
+import withdrawalRoutes from "./src/routes/withdrawalRoutes.js";
+import gamificationRoutes from "./src/routes/gamificationRoutes.js";
 import walletRoutes from "./src/routes/walletRoutes.js";
 import digitalProductsRoutes from "./src/routes/digitalProductsRoutes.js";
 import { isAuthenticated, requireRole, requireOwnershipOrAdmin } from "./src/middlewares/authMiddleware.js";
@@ -163,6 +165,8 @@ app.use((req, res, next) => {
   console.log("uploadRoutes type:", typeof uploadRoutes, uploadRoutes);
   app.use("/api/storage", uploadRoutes);
   app.use("/api/payment", paymentRoutes);
+  app.use("/api/gamification", gamificationRoutes);
+  app.use("/api/withdrawals", withdrawalRoutes);
   app.use("/api/wallet", walletRoutes);
   app.use("/api/digital", digitalProductsRoutes);
 

@@ -1,7 +1,7 @@
 import { logger } from '../lib/logger';
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { X, Search, BookOpen, Video, Wallet, Gift, Trophy, LayoutGrid, Bot, TrendingUp, Users, MessageSquare, Award, Bookmark, User, Bell, LifeBuoy, LogOut, ArrowLeftRight, Heart, Medal, ShoppingBag, Folder, BadgeCheck, Tag, Megaphone, ClipboardCheck, FileQuestion, Star, Building, Settings, Terminal, DownloadCloud } from 'lucide-react';
+import { X, Search, BookOpen, Video, Wallet, Gift, Trophy, LayoutGrid, Bot, Target, TrendingUp, Users, MessageSquare, Award, Bookmark, User, Bell, LifeBuoy, LogOut, ArrowLeftRight, Heart, Medal, ShoppingBag, Folder, BadgeCheck, Tag, Megaphone, ClipboardCheck, FileQuestion, Star, Building, Settings, Terminal, DownloadCloud } from 'lucide-react';
 import { useRole } from '../context/RoleContext';
 import { cn } from '../lib/utils';
 import { signOut } from 'firebase/auth';
@@ -111,7 +111,7 @@ export function Sidebar({ isOpen, onClose }: { isOpen: boolean, onClose: () => v
 
                         <div className="space-y-2">
                             <p className="px-4 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2">• CROISSANCE</p>
-                            <NavItem icon={BadgeCheck} label="AMBASSADEUR ELITE" to="/instructor/ambassador" current={location.pathname} onClick={onClose} />
+                            <NavItem icon={BadgeCheck} label="AMBASSADEUR ELITE" to="/ambassador/dashboard" current={location.pathname} onClick={onClose} />
                             <NavItem icon={Tag} label="COUPONS & MARKETING" to="/instructor/coupons" current={location.pathname} onClick={onClose} />
                             <NavItem icon={Megaphone} label="RADAR ANNONCES" to="/instructor/annonces" current={location.pathname} onClick={onClose} />
                         </div>
@@ -154,7 +154,7 @@ export function Sidebar({ isOpen, onClose }: { isOpen: boolean, onClose: () => v
                         ) : null}
                         
                         {/* AMBASSADOR MODE */}
-                        {currentUser?.roles?.includes('ambassador') || currentUser?.role === 'ambassador' || role === 'admin' ? (
+                        {currentUser ? (
                             <div className="space-y-3 mt-4">
                                 <button 
                                     onClick={() => { navigate('/ambassador'); onClose(); }}
@@ -185,7 +185,7 @@ export function Sidebar({ isOpen, onClose }: { isOpen: boolean, onClose: () => v
                             <p className="px-4 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2">RÉSEAU COMMUNAUTAIRE</p>
                             <NavItem icon={Terminal} label="LABO SANDBOX" to="/student/sandbox" badge="BETA" current={location.pathname} onClick={onClose} />
                             <NavItem icon={Users} label="COMMUNAUTÉS (SQUADS)" to="/student/squads" badge="NEW" current={location.pathname} onClick={onClose} />
-                            <NavItem icon={TrendingUp} label="AMBASSADEUR" to="/student/ambassador" current={location.pathname} onClick={onClose} />
+                            <NavItem icon={TrendingUp} label="AMBASSADEUR" to="/ambassador/dashboard" current={location.pathname} onClick={onClose} />
                             <NavItem icon={Users} label="ANNUAIRE NDARA" to="/student/directory" current={location.pathname} onClick={onClose} />
                             <NavItem icon={MessageSquare} label="MESSAGES" to="/student/messages" current={location.pathname} onClick={onClose} />
                         </div>

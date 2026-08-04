@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '../../firebase';
 import { Sidebar } from '../../components/Sidebar';
 import { useAuth } from '../../contexts/AuthContext';
 import { useRole } from "../../context/RoleContext";
@@ -19,7 +21,41 @@ export function AmbassadorLayout() {
   const { firebaseUser, loading: authLoading } = useAuth();
   const { currentUser, loading: roleLoading } = useRole();
 
-  if (authLoading || roleLoading) {
+  const [isInitializing, setIsInitializing] = useState(true);
+
+  useEffect(() => {
+    async function checkAndInitAmbassador() {
+      if (!firebaseUser) return;
+      try {
+        const ambRef = doc(db, 'ambassadors', firebaseUser.uid);
+        const ambSnap = await getDoc(ambRef);
+        
+        if (!ambSnap.exists()) {
+          const code = 'AMB-' + Math.random().toString(36).substr(2, 6).toUpperCase();
+          await setDoc(ambRef, {
+            uid: firebaseUser.uid,
+            referralCode: code,
+            referralLink: `${window.location.origin}/register?ref=${code}`,
+            activatedAt: serverTimestamp(),
+            activatedBy: firebaseUser.uid,
+            status: 'active',
+            totalReferrals: 0,
+            totalSales: 0,
+            totalCommission: 0,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+          });
+        }
+      } catch (err) {
+        console.error('Failed to init ambassador doc', err);
+      } finally {
+        setIsInitializing(false);
+      }
+    }
+    checkAndInitAmbassador();
+  }, [firebaseUser]);
+
+  if (authLoading || roleLoading || isInitializing) {
     return (
       <div className="flex h-screen bg-[#0B0F19] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
@@ -29,18 +65,6 @@ export function AmbassadorLayout() {
 
   if (!firebaseUser || !currentUser) {
     return <Navigate to="/" replace />;
-  }
-
-  const isAmbassador = currentUser.roles?.includes('ambassador') || currentUser.role === 'ambassador' || currentUser.role === 'admin';
-
-  if (!isAmbassador) {
-    return (
-      <div className="flex flex-col items-center justify-center h-screen bg-[#0B0F19] text-white p-4 text-center">
-        <h2 className="text-xl font-bold mb-2">Accès refusé</h2>
-        <p className="text-slate-400 mb-4">Vous n'avez pas le rôle Ambassadeur.</p>
-        <button onClick={() => window.location.href = '/student/dashboard'} className="px-4 py-2 bg-blue-500 rounded-lg text-white font-bold">Retour</button>
-      </div>
-    );
   }
 
   return (

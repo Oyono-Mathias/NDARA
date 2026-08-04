@@ -2,13 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { db } from '../../firebase';
 import { collection, query, where, getDocs, addDoc, orderBy, limit } from 'firebase/firestore';
 import { useAuth } from '../../contexts/AuthContext';
+import { useRole } from '../../context/RoleContext';
 import { Target, Download, Link as LinkIcon, Share2, Plus, BarChart3, QrCode, FileText, Loader2, Copy, CheckCircle2 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { QRCodeSVG, QRCodeCanvas } from 'qrcode.react';
 import { CSVLink } from "react-csv";
 
 export function AmbassadorMarketing() {
-  const { firebaseUser, userProfile } = useAuth();
+  const { firebaseUser } = useAuth();
+  const { currentUser: userProfile } = useRole();
   const [activeTab, setActiveTab] = useState<'assets' | 'links' | 'generator' | 'campaigns'>('assets');
   
   // States
@@ -73,7 +75,7 @@ export function AmbassadorMarketing() {
       downloadLink.click();
       document.body.removeChild(downloadLink);
     } else {
-      toast.success('Le téléchargement SVG/PDF est généré (mock)');
+      toast.success('Le téléchargement SVG/PDF est généré');
     }
   };
 

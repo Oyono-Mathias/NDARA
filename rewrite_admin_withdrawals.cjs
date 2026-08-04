@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+const fs = require('fs');
+
+const code = `import React, { useState, useEffect } from 'react';
 import { db } from '../../firebase';
 import { collection, query, orderBy, getDocs, where } from 'firebase/firestore';
 import { useToast } from '../../hooks/use-toast';
@@ -26,7 +28,7 @@ export function AdminWithdrawals() {
         q = query(q, where('status', '==', filter));
       }
       const snap = await getDocs(q);
-      const docs = snap.docs.map(d => ({ id: d.id, ...d.data() } as any));
+      const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
 
       // Fetch user data
       const userIds = [...new Set(docs.map(d => d.userId))];
@@ -67,7 +69,7 @@ export function AdminWithdrawals() {
         if (p === null) return;
         reason = p;
     } else {
-        if (!window.confirm(`Êtes-vous sûr de vouloir ${action === 'approve' ? 'approuver' : 'marquer payé'} ce retrait ?`)) return;
+        if (!window.confirm(\`Êtes-vous sûr de vouloir \${action === 'approve' ? 'approuver' : 'marquer payé'} ce retrait ?\`)) return;
     }
     
     setProcessingId(id);
@@ -76,14 +78,14 @@ export function AdminWithdrawals() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${await (window as any).firebase.auth().currentUser?.getIdToken()}`
+          'Authorization': \`Bearer \${await (window as any).firebase.auth().currentUser?.getIdToken()}\`
         },
         body: JSON.stringify({ requestId: id, action, reason })
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
       
-      toast({ title: "Action réussie", description: `Le statut a été mis à jour.` });
+      toast({ title: "Action réussie", description: \`Le statut a été mis à jour.\` });
       loadRequests();
     } catch(e: any) {
       toast({ title: "Erreur", description: e.message, variant: "destructive" });
@@ -128,9 +130,9 @@ export function AdminWithdrawals() {
             <button
               key={f}
               onClick={() => setFilter(f)}
-              className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-colors whitespace-nowrap ${
+              className={\`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-colors whitespace-nowrap \${
                 filter === f ? 'bg-purple-500/20 text-purple-400' : 'text-slate-500 hover:text-slate-300'
-              }`}
+              }\`}
             >
               {f === 'all' ? 'Tous' : f === 'pending' ? 'En attente' : f === 'approved' ? 'Approuvés' : f === 'paid' ? 'Payés' : 'Rejetés'}
             </button>
@@ -174,7 +176,7 @@ export function AdminWithdrawals() {
                     <td className="p-4">
                       <div className="flex items-center gap-3">
                         <img 
-                          src={req.user?.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(req.user?.displayName || 'U')}&background=A855F7&color=fff`}
+                          src={req.user?.photoURL || \`https://ui-avatars.com/api/?name=\${encodeURIComponent(req.user?.displayName || 'U')}&background=A855F7&color=fff\`}
                           alt=""
                           className="w-8 h-8 rounded-full object-cover bg-slate-800"
                         />
@@ -239,3 +241,6 @@ export function AdminWithdrawals() {
     </div>
   );
 }
+`;
+
+fs.writeFileSync('src/views/admin/AdminWithdrawals.tsx', code);
