@@ -80,7 +80,7 @@ async function runFunctionalTest() {
   console.log("Simulating purchase by User B...");
   
   // The webhook or whatever calls processAmbassadorCommission
-  const res = await processAmbassadorCommission(userAId, 50000, userBId, 'course_123', 'tx_abc123', 'course');
+  const res = await processAmbassadorCommission(userBId, 50000, 'tx_abc123', 'course_123', 'course');
   console.log("Commission result:", res);
 
   // Check stats for A again

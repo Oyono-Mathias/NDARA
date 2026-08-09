@@ -323,15 +323,15 @@ export async function purchaseCourseWithEscrow(
         ambassadorId: referrerId,
         buyerId: studentId,
         courseId: courseId,
-        instructorId: courseData.instructorId || '',
+        instructorId: sellerId || '',
         orderId: Math.random().toString(36).substr(2, 9).toUpperCase(),
         courseTitle: courseTitle,
         amount: finalPrice,
-        commissionRate: config.affiliateRate,
+        commissionRate: 0.10,
         commissionAmount: affiliateAmount,
-        platformAmount: finalPrice - finalSellerAmount - affiliateAmount,
+        platformAmount: platformAmount,
         status: 'pending',
-        createdAt: serverDb.collection('users').firestore.FieldValue.serverTimestamp() || creationTime
+        createdAt: FieldValue.serverTimestamp()
       });
       // ----------------------------------------
     }

@@ -1826,7 +1826,7 @@ Tu ne dois pas donner la réponse brute immédiatement, mais guider les étudian
     }
     
     try {
-      const { adminDb, adminAuth, admin } = await import("./src/lib/firebaseAdmin.js");
+      const { adminDb, admin } = await import("./src/lib/firebaseAdmin.js");
       const FieldValue = admin.firestore.FieldValue;
       const usersSnap = await adminDb.collection("users").get();
       
