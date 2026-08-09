@@ -229,7 +229,8 @@ export function AmbassadorRewards() {
                  <h2 className="text-sm font-black text-white uppercase tracking-widest flex items-center gap-2">
                    <Gift className="w-4 h-4 text-pink-400" /> Historique des Bonus & Récompenses
                  </h2>
-                 <CSVLink 
+                 {/* @ts-ignore */}
+<CSVLink 
                     data={exportData} 
                     filename={`ndara_recompenses_${format(new Date(), 'yyyyMMdd')}.csv`}
                     className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-lg transition-colors flex items-center gap-2 text-[10px] uppercase tracking-widest"

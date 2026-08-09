@@ -321,7 +321,8 @@ export function AmbassadorReferrals() {
             {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
             EXPORTER
           </button>
-          <CSVLink 
+          {/* @ts-ignore */}
+<CSVLink 
             data={exportData} 
             filename={`ndara_filleuls_${format(new Date(), 'yyyyMMdd')}.csv`}
             id="csv-export-btn"

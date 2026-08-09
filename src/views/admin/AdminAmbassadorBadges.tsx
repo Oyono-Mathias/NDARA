@@ -4,9 +4,19 @@ import { collection, query, getDocs, doc, setDoc, deleteDoc } from 'firebase/fir
 import { useToast } from '../../hooks/use-toast';
 import { Trophy, Medal, Target, Plus, Edit, Trash2, Loader2 } from 'lucide-react';
 
-export function AdminAmbassadorProgram() {
+export function AdminAmbassadorBadges() {
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState<'levels' | 'badges' | 'challenges'>('levels');
+  const [activeTab, setActiveTab] = useState<'levels' | 'badges' | 'challenges' | 'settings'>('levels');
+  const [commSettings, setCommSettings] = useState<any>({
+    courseCommission: 10,
+    ebookCommission: 10,
+    certificationCommission: 10,
+    instructorLicenseCommission: 10,
+    expertLicenseCommission: 10,
+    marketplaceCommission: 10,
+    premiumSubscriptionCommission: 10,
+    p2pCommission: 10
+  });
   const [loading, setLoading] = useState(true);
   
   const [levels, setLevels] = useState<any[]>([]);
@@ -20,6 +30,11 @@ export function AdminAmbassadorProgram() {
   const loadData = async () => {
     setLoading(true);
     try {
+      const setSnap = await getDocs(query(collection(db, 'commission_settings')));
+      const defaults = setSnap.docs.find(d => d.id === 'default');
+      if (defaults) {
+         setCommSettings(defaults.data());
+      }
       const lSnap = await getDocs(query(collection(db, 'affiliate_levels')));
       setLevels(lSnap.docs.map(d => ({ id: d.id, ...d.data() })));
       
@@ -85,7 +100,7 @@ export function AdminAmbassadorProgram() {
       <div>
         <h1 className="text-3xl font-black text-white uppercase tracking-tight flex items-center gap-3">
           <Trophy className="text-yellow-500 w-8 h-8" />
-          Programme Ambassadeur
+          Badges & Niveaux
         </h1>
         <p className="text-slate-400">Gérez les niveaux, badges et défis du programme d'affiliation.</p>
       </div>
@@ -94,6 +109,7 @@ export function AdminAmbassadorProgram() {
         <button onClick={() => setActiveTab('levels')} className={`px-4 py-2 font-bold uppercase tracking-widest text-sm rounded-lg ${activeTab === 'levels' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:text-white'}`}>Niveaux</button>
         <button onClick={() => setActiveTab('badges')} className={`px-4 py-2 font-bold uppercase tracking-widest text-sm rounded-lg ${activeTab === 'badges' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:text-white'}`}>Badges</button>
         <button onClick={() => setActiveTab('challenges')} className={`px-4 py-2 font-bold uppercase tracking-widest text-sm rounded-lg ${activeTab === 'challenges' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:text-white'}`}>Défis</button>
+        <button onClick={() => setActiveTab('settings')} className={`px-4 py-2 font-bold uppercase tracking-widest text-sm rounded-lg ${activeTab === 'settings' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:text-white'}`}>Paramètres</button>
       </div>
 
       {loading ? (

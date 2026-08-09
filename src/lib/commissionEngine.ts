@@ -7,7 +7,7 @@ export async function processAmbassadorCommission(
   amount: number,
   transactionId: string,
   itemId: string,
-  source: 'course' | 'license' | 'marketplace'
+  source: 'course' | 'ebook' | 'certification' | 'instructor_license' | 'expert_license' | 'marketplace' | 'premium_subscription' | 'p2p'
 ) {
   try {
     // 1. Find if buyer was referred
@@ -46,9 +46,15 @@ export async function processAmbassadorCommission(
       let percentage = 10; // Default 10%
       if (settingsSnap.exists) {
         const set = settingsSnap.data();
-        if (source === 'course' && set?.referralCommission) percentage = set.referralCommission;
-        if (source === 'license' && set?.instructorLicenseCommission) percentage = set.instructorLicenseCommission;
-        if (source === 'marketplace' && set?.marketplaceCommission) percentage = set.marketplaceCommission;
+        if (source === 'course' && set?.courseCommission) percentage = set.courseCommission;
+        else if (source === 'ebook' && set?.ebookCommission) percentage = set.ebookCommission;
+        else if (source === 'certification' && set?.certificationCommission) percentage = set.certificationCommission;
+        else if (source === 'instructor_license' && set?.instructorLicenseCommission) percentage = set.instructorLicenseCommission;
+        else if (source === 'expert_license' && set?.expertLicenseCommission) percentage = set.expertLicenseCommission;
+        else if (source === 'marketplace' && set?.marketplaceCommission) percentage = set.marketplaceCommission;
+        else if (source === 'premium_subscription' && set?.premiumSubscriptionCommission) percentage = set.premiumSubscriptionCommission;
+        else if (source === 'p2p' && set?.p2pCommission) percentage = set.p2pCommission;
+        else if (source === 'course' && set?.referralCommission) percentage = set.referralCommission;
       }
       const rate = percentage / 100;
       const commissionAmount = Math.round(amount * rate);

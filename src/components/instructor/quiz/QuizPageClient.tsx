@@ -15,7 +15,7 @@ import { db } from "../../../firebase";
 import { useRole } from "../../../context/RoleContext";
 import {
   Plus,
-  ListCheck,
+  ListChecks,
   Edit2,
   Trash2,
   Eye,
@@ -115,7 +115,7 @@ export function QuizPageClient() {
       <div className="flex justify-between items-center bg-[#1e293b] p-6 rounded-[2.5rem] border border-white/5 shadow-2xl">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center">
-            <ListCheck className="h-6 w-6 text-primary" />
+            <ListChecks className="h-6 w-6 text-primary" />
           </div>
           <div>
             <h2 className="text-xl font-black text-white uppercase tracking-tight">
@@ -137,7 +137,7 @@ export function QuizPageClient() {
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
         {quizzes.length === 0 ? (
           <div className="col-span-full p-12 text-center bg-[#1e293b]/40 rounded-[2rem] border border-dashed border-white/10">
-            <ListCheck className="mx-auto h-12 w-12 text-slate-500 opacity-50 mb-4" />
+            <ListChecks className="mx-auto h-12 w-12 text-slate-500 opacity-50 mb-4" />
             <p className="text-slate-400 font-bold uppercase tracking-widest text-xs mb-2">
               Aucun quiz existant
             </p>

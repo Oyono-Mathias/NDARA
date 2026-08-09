@@ -8,7 +8,7 @@ import {
     Loader2, 
     Mic,
     Leaf,
-    ChartLine,
+    LineChart,
     Coins,
     Cpu,
     Code,
@@ -25,7 +25,7 @@ import { Filter } from 'lucide-react';
 
 const CATEGORIES = [
     { name: "AgriTech", icon: Leaf },
-    { name: "FinTech", icon: ChartLine },
+    { name: "FinTech", icon: LineChart },
     { name: "Trading", icon: Coins },
     { name: "Mécatronique", icon: Cpu },
     { name: "Dév Web", icon: Code }

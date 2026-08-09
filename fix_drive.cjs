@@ -1,20 +1,11 @@
 const fs = require('fs');
-const path = require('path');
-const file = path.join(__dirname, 'src', 'views', 'instructor', 'InstructorCourseCreate.tsx');
+let code = fs.readFileSync('server.ts', 'utf8');
 
-let code = fs.readFileSync(file, 'utf8');
+// Fix strings
+code = code.replace(/'--' \+ boundary \+ '\\r\n'/g, "'--' + boundary + '\\r\\n'");
+code = code.replace(/'Content-Type: application\/json; charset=UTF-8\\r\n\\r\n'/g, "'Content-Type: application/json; charset=UTF-8\\r\\n\\r\\n'");
+code = code.replace(/JSON\.stringify\(metadata\) \+ '\\r\n'/g, "JSON.stringify(metadata) + '\\r\\n'");
+code = code.replace(/'Content-Type: ' \+ mimeType \+ '\\r\n\\r\n'/g, "'Content-Type: ' + mimeType + '\\r\\n\\r\\n'");
+code = code.replace(/content \+ '\\r\n'/g, "content + '\\r\\n'");
 
-const regex = /const handleDriveVideoPicked = async \(accessToken: string, fileId: string, fileName: string\) => \{[\s\S]*?const updateStatus = \(list: any\[\]\) => list\.map\(item => item\.name === fileName \? \{ \.\.\.item, status: "Échec" \} : item\);\s+setVideos\(updateStatus\);\s+\}\s+\};\s+/;
-
-const match = code.match(regex);
-if (match) {
-    code = code.replace(match[0], ''); // Remove from inside handleFileUpload
-    code = code.replace(
-        "const executeUpload = async",
-        match[0] + "\n  const executeUpload = async"
-    );
-    fs.writeFileSync(file, code);
-    console.log("Fixed handleDriveVideoPicked");
-} else {
-    console.log("Could not find handleDriveVideoPicked");
-}
+fs.writeFileSync('server.ts', code);

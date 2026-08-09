@@ -4,7 +4,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import { authService } from '../../services/authService';
 import { getFirebaseErrorMessage } from '../../utils/firebaseErrors';
 import { Loader2, Mail, Lock, User, AlertCircle, ArrowRight, CheckCircle2, XCircle } from 'lucide-react';
-import { auth } from '../../firebase';
+import { auth, db } from '../../firebase';
+import { collection, query, where, getDocs, limit, runTransaction, doc, getDoc, serverTimestamp, increment } from 'firebase/firestore';
 
 
 export function RegisterView() {
@@ -36,16 +37,21 @@ export function RegisterView() {
     setValidatingRef(true);
     setRefError('');
     try {
-      const response = await fetch(`/api/ambassador/validate?code=${encodeURIComponent(code)}`);
-      const data = await response.json();
-      if (response.ok && data.valid) {
+      const q = query(collection(db, "ambassadors"), where("referralCode", "==", code), where("status", "==", "active"), limit(1));
+      const snapshot = await getDocs(q);
+      
+      if (!snapshot.empty) {
+        const ambData = snapshot.docs[0].data();
+        const userSnap = await getDoc(doc(db, "users", ambData.uid));
+        
         setRefValid(true);
-        setAmbassadorName(data.ambassadorName);
+        setAmbassadorName(userSnap.data()?.displayName || 'Ambassadeur');
       } else {
         setRefValid(false);
-        setRefError(data.error || "Code invalide");
+        setRefError("Code invalide ou expiré");
       }
     } catch (err) {
+      console.error(err);
       setRefValid(false);
       setRefError("Erreur de validation");
     } finally {
@@ -66,18 +72,47 @@ export function RegisterView() {
       // Process referral
       if (refCode && refValid) {
         try {
-          // Attendre un peu que Firebase mette à jour currentUser
           await new Promise(resolve => setTimeout(resolve, 500));
           const user = auth.currentUser;
           if (user) {
-            const token = await user.getIdToken();
-            await fetch('/api/ambassador/process-referral', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-              },
-              body: JSON.stringify({ code: refCode, camp: localStorage.getItem('ndara_camp') || undefined })
+            await runTransaction(db, async (transaction) => {
+               const newUserId = user.uid;
+               const userRef = doc(db, "users", newUserId);
+               const userDoc = await transaction.get(userRef);
+               
+               if (userDoc.exists() && userDoc.data()?.referredBy) {
+                   throw new Error("Cet utilisateur a déjà été parrainé");
+               }
+               
+               const ambQuery = query(collection(db, "ambassadors"), where("referralCode", "==", refCode), where("status", "==", "active"), limit(1));
+               const ambDocs = await getDocs(ambQuery); // getDocs outside transaction is fine for this use case
+               if (ambDocs.empty) throw new Error("Code invalide");
+               
+               const ambDoc = ambDocs.docs[0];
+               const ambData = ambDoc.data();
+               const ambRef = doc(db, "ambassadors", ambData.uid); // use specific ref for transaction
+               
+               if (ambData.uid === newUserId) throw new Error("Auto-parrainage interdit");
+               
+               const referralRef = doc(collection(db, "referrals"));
+               transaction.set(referralRef, {
+                 ambassadorUid: ambData.uid,
+                 referralUid: newUserId,
+                 referralCode: refCode,
+                 createdAt: serverTimestamp(),
+                 status: 'active'
+               });
+               
+               transaction.set(userRef, {
+                 referredBy: ambData.uid,
+                 referralCode: refCode,
+                 referredAt: serverTimestamp()
+               }, { merge: true });
+               
+               transaction.update(ambRef, {
+                 totalReferrals: increment(1),
+                 updatedAt: serverTimestamp()
+               });
             });
           }
         } catch (refErr) {

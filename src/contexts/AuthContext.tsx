@@ -49,6 +49,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         userDoc.role = 'admin';
       }
       setAppUser(userDoc);
+
+            // Track login & auto-create ambassador
+      try {
+        const token = await user.getIdToken();
+        await fetch('/api/user/track', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+      } catch (err) {
+        console.error("Failed to track login", err);
+      }
+
     } catch (error: any) {
       console.warn("Fallback auth user used due to error", error);
       

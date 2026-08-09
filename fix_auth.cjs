@@ -1,40 +1,10 @@
 const fs = require('fs');
+let code = fs.readFileSync('server.ts', 'utf8');
+code = code.replace(/const { adminDb, adminAuth, admin }/g, "const { adminDb, admin } =");
+code = code.replace(/authUser = await adminAuth.getUser\(uid\);/g, "authUser = await admin.auth().getUser(uid);");
+fs.writeFileSync('server.ts', code);
 
-let authContext = fs.readFileSync('src/contexts/AuthContext.tsx', 'utf8');
-
-if (!authContext.includes("import { onSnapshot, doc } from 'firebase/firestore';")) {
-  authContext = authContext.replace("import { User as AppUser }", "import { User as AppUser } from '../types/models';\nimport { onSnapshot, doc } from 'firebase/firestore';\nimport { db } from '../firebase';");
-  
-  authContext = authContext.replace(
-    /useEffect\(\(\) => \{\n\s*const unsubscribeAuth = authService.onAuthStateChanged\(async \(user\) => \{([\s\S]*?)return \(\) => unsubscribeAuth\(\);\n\s*\}, \[\]\);/g,
-    `useEffect(() => {
-    let unsubscribeSnapshot: (() => void) | undefined;
-    const unsubscribeAuth = authService.onAuthStateChanged(async (user) => {
-      setFirebaseUser(user);
-      if (user) {
-        await fetchAppUser(user);
-        unsubscribeSnapshot = onSnapshot(doc(db, 'users', user.uid), (docSnap) => {
-          if (docSnap.exists()) {
-             const data = docSnap.data();
-             if (user.email === 'oyonomathias@gmail.com') {
-                 data.role = 'admin';
-             }
-             setAppUser(data as any);
-          }
-        });
-      } else {
-        if (unsubscribeSnapshot) unsubscribeSnapshot();
-        setAppUser(null);
-      }
-      setLoading(false);
-    });
-
-    return () => {
-      unsubscribeAuth();
-      if (unsubscribeSnapshot) unsubscribeSnapshot();
-    };
-  }, []);`
-  );
-  
-  fs.writeFileSync('src/contexts/AuthContext.tsx', authContext);
-}
+let code2 = fs.readFileSync('run_migration_local.ts', 'utf8');
+code2 = code2.replace(/import { adminDb, adminAuth, admin }/g, 'import { adminDb, admin }');
+code2 = code2.replace(/authUser = await adminAuth.getUser\(uid\);/g, "authUser = await admin.auth().getUser(uid);");
+fs.writeFileSync('run_migration_local.ts', code2);

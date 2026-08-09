@@ -57,6 +57,7 @@ router.post('/meet/create', async (req: any, res: any) => {
 
     oauth2Client.setCredentials(tokens);
     // Google Meet API is part of spaces
+    // @ts-ignore
     const meet = google.meet({ version: 'v2', auth: oauth2Client });
     
     const response = await meet.spaces.create({

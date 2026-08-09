@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useRole } from "../../context/RoleContext";
 import { db } from '../../firebase';
-import { doc, getDoc, collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs, orderBy, limit, onSnapshot } from 'firebase/firestore';
 import { useToast } from '../../hooks/use-toast';
 import { Loader2, Copy, CheckCircle2, TrendingUp, Users, DollarSign, Share2, Trophy, Medal, Star, Target, Gift } from 'lucide-react';
 import { logger } from '../../lib/logger';
@@ -24,69 +24,59 @@ export function AmbassadorDashboard() {
   const [chartData, setChartData] = useState<any[]>([]);
   const [recentRewards, setRecentRewards] = useState<any[]>([]);
 
+  
   useEffect(() => {
-    const fetchAmbassadorData = async () => {
-      if (!firebaseUser) return;
-      try {
-        setLoading(true);
-        const docRef = doc(db, 'ambassadors', firebaseUser.uid);
-        const docSnap = await getDoc(docRef);
-        
-        if (docSnap.exists()) {
-          setAmbassadorData(docSnap.data());
-        }
+    if (!firebaseUser) return;
+    setLoading(true);
 
-        // Fetch Gamification Stats
-        const statRef = doc(db, 'affiliate_statistics', firebaseUser.uid);
-        const statSnap = await getDoc(statRef);
-        const userStats = statSnap.exists() ? statSnap.data() : {
-            level: 'bronze', totalSalesCount: 0, totalSalesVolume: 0, totalReferrals: 0, badges: [], challenges: []
-        };
-        setStats(userStats);
+    const unsubAmbassador = onSnapshot(doc(db, 'ambassadors', firebaseUser.uid), (docSnap) => {
+      if (docSnap.exists()) setAmbassadorData(docSnap.data());
+    });
 
-        // Fetch Rank
-        const ldbSnap = await getDocs(query(collection(db, 'affiliate_leaderboard'), orderBy('totalVolume', 'desc')));
-        const rankIndex = ldbSnap.docs.findIndex(d => d.id === firebaseUser.uid);
-        setRank(rankIndex !== -1 ? rankIndex + 1 : null);
+    const unsubStats = onSnapshot(doc(db, 'affiliate_statistics', firebaseUser.uid), (statSnap) => {
+      setStats(statSnap.exists() ? statSnap.data() : {
+        level: 'bronze', totalSalesCount: 0, totalSalesVolume: 0, totalReferrals: 0, badges: [], challenges: []
+      });
+    });
 
-        // Fetch Recent Rewards
-        const rSnap = await getDocs(query(collection(db, 'affiliate_rewards'), where('userId', '==', firebaseUser.uid), orderBy('date', 'desc'), limit(5)));
-        setRecentRewards(rSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+    const unsubLeaderboard = onSnapshot(query(collection(db, 'ambassadors'), orderBy('totalSales', 'desc')), (snap) => {
+      const rankIndex = snap.docs.findIndex(d => d.id === firebaseUser.uid);
+      setRank(rankIndex !== -1 ? rankIndex + 1 : null);
+    });
 
-        // Generate Chart Data (mock history based on stats for visualization if no real historical data exists)
-        // In a real app we would query affiliate_transactions.
-        const txSnap = await getDocs(query(collection(db, 'affiliate_transactions'), where('ambassadorUid', '==', firebaseUser.uid), orderBy('createdAt', 'asc')));
-        
-        let cumulative = 0;
-        const cData: any[] = [];
-        txSnap.docs.forEach(d => {
-            const tx = d.data();
-            if (tx.type === 'commission' && ['validated', 'paid', 'pending'].includes(tx.status)) {
-                cumulative += (tx.commission || 0);
-                const date = tx.createdAt?.toDate ? tx.createdAt.toDate() : new Date();
-                cData.push({
-                    date: format(date, 'MMM dd', { locale: fr }),
-                    gains: cumulative
-                });
-            }
-        });
-        
-        // If empty, put dummy data for UI display
-        if (cData.length === 0) {
-            const d = new Date();
-            cData.push({ date: format(d, 'MMM dd', { locale: fr }), gains: 0 });
-        }
+    const unsubRewards = onSnapshot(query(collection(db, 'affiliate_rewards'), where('userId', '==', firebaseUser.uid), orderBy('date', 'desc'), limit(5)), (snap) => {
+      setRecentRewards(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
 
-        setChartData(cData);
+    const unsubTx = onSnapshot(query(collection(db, 'affiliate_transactions'), where('ambassadorUid', '==', firebaseUser.uid), orderBy('createdAt', 'asc')), (snap) => {
+      const txs = snap.docs.map(d => d.data());
+      
+      const grouped = txs.reduce((acc: any, tx: any) => {
+          if (!tx.createdAt) return acc;
+          const d = tx.createdAt.toDate ? tx.createdAt.toDate() : new Date(tx.createdAt);
+          const dateStr = format(d, 'dd MMM', { locale: fr });
+          if (!acc[dateStr]) acc[dateStr] = 0;
+          acc[dateStr] += (tx.commission || 0);
+          return acc;
+      }, {});
 
-      } catch (err: any) {
-        logger.error("Erreur chargement dashboard", err);
-      } finally {
-        setLoading(false);
-      }
+      const chart = Object.keys(grouped).map(date => ({
+          date,
+          gains: grouped[date]
+      }));
+      setChartData(chart);
+      setLoading(false);
+    });
+
+    return () => {
+      unsubAmbassador();
+      unsubStats();
+      unsubLeaderboard();
+      unsubRewards();
+      unsubTx();
     };
-    fetchAmbassadorData();
   }, [firebaseUser]);
+
 
   const copyToClipboard = () => {
     if (ambassadorData?.referralLink) {

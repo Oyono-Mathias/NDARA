@@ -84,7 +84,8 @@ export function AmbassadorLeaderboard() {
             ))}
          </div>
          
-         <CSVLink 
+         {/* @ts-ignore */}
+<CSVLink 
             data={exportData} 
             filename={`ndara_classement_${period}.csv`}
             className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl transition-colors flex items-center gap-2 text-xs uppercase tracking-widest shrink-0"

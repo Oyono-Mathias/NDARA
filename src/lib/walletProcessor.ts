@@ -291,6 +291,8 @@ export async function purchaseCourseWithEscrow(
       pendingBalance: finalSellerPending
     });
     
+    const creationTime = new Date();
+    const releaseTime = new Date(creationTime.getTime() + (14 * 24 * 60 * 60 * 1000));
     if (referrerRef && referrerSnap) {
       const referrerData = referrerSnap.data();
       const finalReferrerAffiliatePending = (referrerData.pendingAffiliateBalance || 0) + affiliateAmount;
@@ -303,10 +305,36 @@ export async function purchaseCourseWithEscrow(
         pendingAffiliateBalance: finalReferrerAffiliatePending,
         affiliateStats: affStats
       });
+
+      // ---- AMBASSADOR REAL-TIME UPDATES ----
+      const ambRef = serverDb.collection('ambassadors').doc(referrerId);
+      const ambSnap = await transaction.get(ambRef);
+      if (ambSnap.exists) {
+        transaction.update(ambRef, {
+          totalSales: (ambSnap.data().totalSales || 0) + 1,
+          totalRevenue: (ambSnap.data().totalRevenue || 0) + finalPrice,
+          totalCommission: (ambSnap.data().totalCommission || 0) + affiliateAmount,
+          pendingBalance: (ambSnap.data().pendingBalance || 0) + affiliateAmount
+        });
+      }
+
+      const affTxRef = serverDb.collection('affiliate_transactions').doc();
+      transaction.set(affTxRef, {
+        ambassadorId: referrerId,
+        buyerId: studentId,
+        courseId: courseId,
+        instructorId: courseData.instructorId || '',
+        orderId: Math.random().toString(36).substr(2, 9).toUpperCase(),
+        courseTitle: courseTitle,
+        amount: finalPrice,
+        commissionRate: config.affiliateRate,
+        commissionAmount: affiliateAmount,
+        platformAmount: finalPrice - finalSellerAmount - affiliateAmount,
+        status: 'pending',
+        createdAt: serverDb.collection('users').firestore.FieldValue.serverTimestamp() || creationTime
+      });
+      // ----------------------------------------
     }
-    
-    const creationTime = new Date();
-    const releaseTime = new Date(creationTime.getTime() + (14 * 24 * 60 * 60 * 1000));
     
     const studentTx: WalletTransaction = {
       id: studentTxRef.id,

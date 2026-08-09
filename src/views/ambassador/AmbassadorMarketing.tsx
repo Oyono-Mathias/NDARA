@@ -16,6 +16,8 @@ export function AmbassadorMarketing() {
   // States
   const [assets, setAssets] = useState<any[]>([]);
   const [courses, setCourses] = useState<any[]>([]);
+  const [ebooks, setEbooks] = useState<any[]>([]);
+  const [certifications, setCertifications] = useState<any[]>([]);
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -35,13 +37,17 @@ export function AmbassadorMarketing() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [aSnap, cSnap, campSnap] = await Promise.all([
+      const [aSnap, cSnap, marketSnap, certSnap, campSnap] = await Promise.all([
         getDocs(query(collection(db, 'marketing_assets'), where('isActive', '==', true))),
         getDocs(query(collection(db, 'courses'), where('isPublished', '==', true))),
+        getDocs(query(collection(db, 'market_items'), where('status', '==', 'approved'))),
+        getDocs(query(collection(db, 'certifications'))),
         getDocs(query(collection(db, 'ambassador_campaigns'), where('ambassadorId', '==', firebaseUser!.uid), orderBy('createdAt', 'desc')))
       ]);
       setAssets(aSnap.docs.map(d => ({ id: d.id, ...d.data() })));
       setCourses(cSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+      setEbooks(marketSnap.docs.map(d => ({ id: d.id, ...(d.data() as any) })).filter((i: any) => i.type === 'ebook'));
+      setCertifications(certSnap.docs.map(d => ({ id: d.id, ...d.data() })));
       setCampaigns(campSnap.docs.map(d => ({ id: d.id, ...d.data() })));
     } catch (e) {
       console.error(e);
@@ -317,7 +323,8 @@ export function AmbassadorMarketing() {
             <div className="p-6 border-b border-slate-800 flex justify-between items-center">
               <h2 className="text-sm font-black text-white uppercase tracking-widest">Performances</h2>
               <div className="flex gap-2">
-                <CSVLink data={campaigns} filename="ndara_campagnes.csv" className="px-4 py-2 bg-slate-800 text-white text-xs font-bold rounded-lg hover:bg-slate-700 flex items-center gap-2"><Download className="w-4 h-4"/> CSV / Excel</CSVLink>
+                {/* @ts-ignore */}
+<CSVLink data={campaigns} filename="ndara_campagnes.csv" className="px-4 py-2 bg-slate-800 text-white text-xs font-bold rounded-lg hover:bg-slate-700 flex items-center gap-2"><Download className="w-4 h-4"/> CSV / Excel</CSVLink>
                 <button onClick={() => window.print()} className="px-4 py-2 bg-slate-800 text-white text-xs font-bold rounded-lg hover:bg-slate-700 flex items-center gap-2"><FileText className="w-4 h-4"/> PDF / Imprimer</button>
               </div>
             </div>

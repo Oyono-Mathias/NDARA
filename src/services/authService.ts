@@ -53,8 +53,9 @@ class AuthService {
     
     // Mettre à jour le profil Firebase
     await updateProfile(user, { displayName });
+    const now = new Date();
     
-    let referredBy = undefined;
+    let referredBy = localStorage.getItem('referredBy') || undefined;
 
     // Créer le document utilisateur dans Firestore
     await UsersService.create({

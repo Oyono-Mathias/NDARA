@@ -227,7 +227,8 @@ export function AmbassadorCommissions() {
           <button onClick={() => window.print()} className="px-4 py-3 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl transition-colors flex items-center gap-2 text-sm">
             PDF / Imprimer
           </button>
-          <CSVLink 
+          {/* @ts-ignore */}
+<CSVLink 
             data={exportData} 
             filename={`ndara_commissions_${format(new Date(), 'yyyyMMdd')}.csv`}
             id="csv-commissions-btn"

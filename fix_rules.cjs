@@ -1,16 +1,11 @@
 const fs = require('fs');
 let code = fs.readFileSync('firestore.rules', 'utf8');
 
-// Replace the incorrect structure
-code = code.replace(/    match \/short_links\/\{id\} \{\s+allow read: if true;\s+allow write: if isAuthenticated\(\) && \(resource\.data\.userId == request\.auth\.uid \|\| request\.resource\.data\.userId == request\.auth\.uid \|\| isAdmin\(\)\);\s+\}\s+\}\s+\}/g, 
-`    match /short_links/{id} {
-       allow read: if true;
-       allow write: if isAuthenticated() && (resource.data.userId == request.auth.uid || request.resource.data.userId == request.auth.uid || isAdmin());
-     }`);
-     
-// Then remove the trailing braces if any
-code = code.replace(/  \}\n\}$/g, '');
+const missingRules = `
+    match /login_history/{id} { allow read: if isAdmin(); allow create: if true; allow update, delete: if isAdmin(); }
+    match /affiliate_clicks/{id} { allow read: if isAdmin() || (isAuthenticated() && resource.data.ambassadorId == request.auth.uid); allow create: if true; allow update, delete: if isAdmin(); }
+    match /affiliate_registrations/{id} { allow read: if isAdmin() || (isAuthenticated() && resource.data.ambassadorId == request.auth.uid); allow create: if true; allow update, delete: if isAdmin(); }
+`;
 
-code += "\n  }\n}\n";
-
+code = code.replace("  }\n}", missingRules + "  }\n}");
 fs.writeFileSync('firestore.rules', code);

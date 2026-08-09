@@ -15,6 +15,7 @@ import {
   useLocation,
 } from "react-router-dom";
 
+import { ReferralTracker } from './components/ReferralTracker';
 import { Toaster } from "sonner";
 import { AuthLayout } from "./layouts/AuthLayout";
 import { ConfirmProvider } from "./components/ui/ConfirmDialog";
@@ -101,7 +102,15 @@ const AdminMarketControl = React.lazy(() => import('./views/admin/AdminMarketCon
 const AdminInstructors = React.lazy(() => import('./views/admin/AdminInstructors').then(module => ({ default: module.AdminInstructors })));
 const AdminCommissions = React.lazy(() => import('./views/admin/AdminCommissions').then(module => ({ default: module.AdminCommissions })));
 const AdminWithdrawals = React.lazy(() => import('./views/admin/AdminWithdrawals').then(module => ({ default: module.AdminWithdrawals })));
-const AdminAmbassadorProgram = React.lazy(() => import('./views/admin/AdminAmbassadorProgram').then(module => ({ default: module.AdminAmbassadorProgram })));
+const AdminAmbassadorBadges = React.lazy(() => import('./views/admin/AdminAmbassadorBadges').then(m => ({ default: m.AdminAmbassadorBadges })));
+const AdminAmbassadorDashboard = React.lazy(() => import('./views/admin/AdminAmbassadorDashboard').then(m => ({ default: m.AdminAmbassadorDashboard })));
+const AdminAmbassadorSettings = React.lazy(() => import('./views/admin/AdminAmbassadorSettings').then(m => ({ default: m.AdminAmbassadorSettings })));
+const AdminAmbassadorRewards = React.lazy(() => import('./views/admin/AdminAmbassadorRewards').then(m => ({ default: m.AdminAmbassadorRewards })));
+const AdminAmbassadorLeaderboard = React.lazy(() => import('./views/admin/AdminAmbassadorLeaderboard').then(m => ({ default: m.AdminAmbassadorLeaderboard })));
+const AdminAmbassadorsList = React.lazy(() => import('./views/admin/AdminAmbassadorsList').then(m => ({ default: m.AdminAmbassadorsList })));
+const AdminAmbassadorProfile = React.lazy(() => import('./views/admin/AdminAmbassadorProfile').then(m => ({ default: m.AdminAmbassadorProfile })));
+const AdminAmbassadorHistory = React.lazy(() => import('./views/admin/AdminAmbassadorHistory').then(m => ({ default: m.AdminAmbassadorHistory })));
+const AdminMarketingAssets = React.lazy(() => import('./views/admin/AdminMarketingAssets').then(module => ({ default: module.AdminMarketingAssets })));
 
 
 // Admin Views
@@ -278,7 +287,22 @@ export default function App() {
           <Route path="settings" element={<AdminSettings />} />
           <Route path="commissions" element={<AdminCommissions />} />
           <Route path="withdrawals" element={<AdminWithdrawals />} />
-          <Route path="ambassador-program" element={<AdminAmbassadorProgram />} />
+          
+          <Route path="ambassador/dashboard" element={<AdminAmbassadorDashboard />} />
+          <Route path="ambassador/settings" element={<AdminAmbassadorSettings />} />
+          <Route path="ambassador/commissions" element={<AdminCommissions />} />
+          <Route path="ambassador/withdrawals" element={<AdminWithdrawals />} />
+          <Route path="ambassador/badges" element={<AdminAmbassadorBadges />} />
+          <Route path="ambassador/rewards" element={<AdminAmbassadorRewards />} />
+          <Route path="ambassador/leaderboard" element={<AdminAmbassadorLeaderboard />} />
+          <Route path="ambassador/marketing" element={<AdminMarketingAssets />} />
+          
+          <Route path="ambassador/list" element={<AdminAmbassadorsList />} />
+          <Route path="ambassador/profile/:uid" element={<AdminAmbassadorProfile />} />
+          <Route path="ambassador/history" element={<AdminAmbassadorHistory />} />
+
+
+          <Route path="marketing-assets" element={<AdminMarketingAssets />} />
           <Route path="roles" element={<AdminSecurity />} />
           <Route path="audit" element={<AdminSecurity />} />
           <Route path="*" element={<Navigate to="/admin" replace />} />

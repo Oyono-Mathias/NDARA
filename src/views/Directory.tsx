@@ -10,7 +10,7 @@ import {
     Mic, 
     Globe,
     Leaf,
-    ChartLine,
+    LineChart,
     Coins,
     Cpu,
     Code
@@ -20,7 +20,7 @@ import { db } from '../firebase';
 
 const CATEGORIES = [
     { id: 'all', name: "Tous", icon: Users },
-    { id: 'FinTech', name: "FinTech", icon: ChartLine, color: 'text-blue-400 bg-blue-400/10' },
+    { id: 'FinTech', name: "FinTech", icon: LineChart, color: 'text-blue-400 bg-blue-400/10' },
     { id: 'AgriTech', name: "AgriTech", icon: Leaf, color: 'text-emerald-400 bg-emerald-400/10' },
     { id: 'Trading', name: "Trading", icon: Coins, color: 'text-orange-400 bg-orange-400/10' },
     { id: 'Mécatronique', name: "MécaTech", icon: Cpu, color: 'text-purple-400 bg-purple-400/10' },

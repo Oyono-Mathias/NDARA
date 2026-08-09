@@ -21,7 +21,7 @@ import {
   ClipboardCheck,
   History,
   Wallet,
-  ChartLine,
+  LineChart,
   Percent,
   Video,
   Megaphone,
@@ -270,7 +270,7 @@ export function InstructorDashboard() {
               <div className="relative z-10">
                 <div className="flex items-center gap-2 mb-2">
                   <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
-                    <ChartLine className="text-white h-4 w-4" />
+                    <LineChart className="text-white h-4 w-4" />
                   </div>
                   <span className="text-emerald-100 text-[10px] font-black uppercase tracking-[0.2em]">
                     Solde Disponible

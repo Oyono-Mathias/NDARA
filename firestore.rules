@@ -51,14 +51,11 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
-    match /referrals/{id} {
-      allow read: if isAdmin() || (isAuthenticated() && resource.data.ambassadorUid == request.auth.uid);
-      allow write: if isAdmin();
-    }
+    match /referrals/{id} { allow read: if isAdmin() || (isAuthenticated() && resource.data.ambassadorUid == request.auth.uid); allow write: if isAdmin() || (isAuthenticated() && request.resource.data.referralUid == request.auth.uid); }
 
     match /users/{userId} {
       allow read: if true;
-      allow create: if isAuthenticated() && request.auth.uid == userId && !request.resource.data.keys().hasAny(['referredBy', 'referralCode', 'referredAt']);
+      allow create: if isAuthenticated() && request.auth.uid == userId;
       allow update: if isAdmin() || (isAuthenticated() && request.auth.uid == userId && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['referredBy', 'referralCode', 'referredAt'])));
       allow delete: if isAdmin();
       
@@ -218,7 +215,13 @@ service cloud.firestore {
     match /market_ebooks/{id} { allow read: if true; allow write: if isAdmin() || isOwner(request.resource.data.instructorId); }
     match /payout_requests/{id} { allow read: if isAuthenticated() && (resource.data.instructorId == request.auth.uid || isAdmin()); allow create: if isAuthenticated() && request.resource.data.instructorId == request.auth.uid; allow update, delete: if isAdmin(); }
     match /purchases/{id} { allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin()); allow write: if isAdmin(); }
-    match /ambassadors/{id} { allow read: if isAdmin() || (isAuthenticated() && request.auth.uid == id); allow write: if isAdmin(); }
+        
+    match /ambassadors/{id} {
+      allow read: if true;
+      allow create: if isAdmin();
+      allow update: if isAdmin() || (isAuthenticated() && request.auth.uid == id && !request.resource.data.diff(resource.data).affectedKeys().hasAny(["totalClicks", "totalRegistrations", "totalSales", "totalRevenue", "totalCommission", "availableBalance", "pendingBalance", "withdrawnAmount", "level", "badge", "status"]));
+      allow delete: if isAdmin();
+    }
     match /question_bank/{id} { allow read: if isAuthenticated() && (isAdmin() || request.auth.uid == resource.data.instructorId); allow create: if isAuthenticated() && (isAdmin() || request.auth.uid == request.resource.data.instructorId); allow update, delete: if isAuthenticated() && (isAdmin() || request.auth.uid == resource.data.instructorId); }
     match /user_history/{id} { allow read: if isAuthenticated() && resource.data.userId == request.auth.uid; allow write: if isAuthenticated() && request.resource.data.userId == request.auth.uid; }
     match /user_wishlist/{id} { allow read, write: if isAuthenticated(); }
@@ -320,12 +323,16 @@ service cloud.firestore {
     }
     match /affiliate_leaderboard/{id} { allow read: if true; allow write: if isAdmin(); }
     match /affiliate_transactions/{id} {
-      allow read: if isAuthenticated() && (resource.data.ambassadorUid == request.auth.uid || isAdmin());
+      allow read: if isAuthenticated() && (resource.data.ambassadorUid == request.auth.uid || resource.data.ambassadorId == request.auth.uid || isAdmin());
       allow write: if isAdmin();
     }
         match /wallet_history/{id} {
       allow read: if isAuthenticated() && (resource.data.walletId == request.auth.uid || isAdmin());
       allow write: if isAdmin();
     }
+
+    match /login_history/{id} { allow read: if isAdmin(); allow write: if isAdmin(); }
+    match /affiliate_clicks/{id} { allow read: if isAdmin() || (isAuthenticated() && resource.data.ambassadorId == request.auth.uid); allow write: if isAdmin(); }
+    match /affiliate_registrations/{id} { allow read: if isAdmin() || (isAuthenticated() && resource.data.ambassadorId == request.auth.uid); allow write: if isAdmin(); }
   }
 }

@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { db } from '../../firebase';
-import { collection, query, where, getDocs, onSnapshot, orderBy, limit } from 'firebase/firestore';
+import { collection, query, where, getDocs, onSnapshot, orderBy, limit, doc } from 'firebase/firestore';
 import { useToast } from '../../hooks/use-toast';
-import { Loader2, Wallet, ArrowDownRight, Clock, CheckCircle2, Search, Download, CreditCard, Banknote, AlertCircle, XCircle } from 'lucide-react';
+import { Loader2, Wallet, DollarSign, ArrowDownRight, Clock, CheckCircle2, Search, Download, CreditCard, Banknote, AlertCircle, XCircle } from 'lucide-react';
 import clsx from 'clsx';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -28,14 +28,15 @@ export function AmbassadorWallet() {
   const [exportData, setExportData] = useState<any[]>([]);
   const [exporting, setExporting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [activeTab, setActiveTab] = useState<'wallet' | 'history'>('wallet');
+  const [historyEvents, setHistoryEvents] = useState<any[]>([]);
 
   useEffect(() => {
     if (!firebaseUser) return;
     
-    const unsubWallet = onSnapshot(collection(db, 'wallets'), (snapshot) => {
-       const wDoc = snapshot.docs.find(d => d.id === firebaseUser.uid);
-       if (wDoc) {
-          setWallet(wDoc.data());
+    const unsubWallet = onSnapshot(doc(db, 'wallets', firebaseUser.uid), (docSnap) => {
+       if (docSnap.exists()) {
+          setWallet(docSnap.data());
        }
     });
     
@@ -85,7 +86,7 @@ export function AmbassadorWallet() {
     try {
       const q = query(
         collection(db, 'withdraw_requests'),
-        where('userId', '==', firebaseUser?.uid),
+        where('ambassadorUid', '==', firebaseUser?.uid),
         orderBy('createdAt', 'desc')
       );
       
@@ -198,7 +199,8 @@ export function AmbassadorWallet() {
             {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
             EXPORTER
           </button>
-          <CSVLink 
+          {/* @ts-ignore */}
+<CSVLink 
             data={exportData} 
             filename={`ndara_retraits_${format(new Date(), 'yyyyMMdd')}.csv`}
             id="csv-wallet-btn"

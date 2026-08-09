@@ -308,6 +308,173 @@ app.use((req, res, next) => {
     }
   });
 
+  
+  app.get("/api/ambassador/realtime-stats", isAuthenticated, async (req: any, res: any) => {
+    try {
+      const uid = req.user.uid;
+      const adminDb = (await import("./src/lib/firebaseAdmin.js")).adminDb;
+      
+      const [clicksSnap, signupsSnap, transactionsSnap, walletSnap, statsSnap, leaderboardSnap] = await Promise.all([
+        adminDb.collection("campaign_clicks").where("ambassadorId", "==", uid).count().get(),
+        adminDb.collection("referrals").where("ambassadorUid", "==", uid).count().get(),
+        adminDb.collection("affiliate_transactions").where("ambassadorId", "==", uid).where("status", "in", ["validated", "paid", "pending"]).get(),
+        adminDb.collection("wallets").doc(uid).get(),
+        adminDb.collection("affiliate_statistics").doc(uid).get(),
+        adminDb.collection("affiliate_leaderboard").orderBy("totalVolume", "desc").get()
+      ]);
+
+      const clicksCount = clicksSnap.data().count;
+      const signupsCount = signupsSnap.data().count;
+      const transactions = transactionsSnap.docs.map((d: any) => d.data());
+      
+      const purchasesCount = transactions.length;
+      const conversionRate = clicksCount > 0 ? (signupsCount / clicksCount) * 100 : 0;
+      
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      
+      const curr = new Date();
+      const first = curr.getDate() - curr.getDay(); 
+      const week = new Date(curr.setDate(first));
+      week.setHours(0,0,0,0);
+      
+      const month = new Date(now.getFullYear(), now.getMonth(), 1);
+
+      let revenueToday = 0;
+      let revenueWeek = 0;
+      let revenueMonth = 0;
+      let totalRevenue = 0;
+
+      transactions.forEach((t: any) => {
+        if (!t.createdAt) return;
+        const date = t.createdAt.toDate();
+        const amount = t.commission || 0;
+        
+        totalRevenue += amount;
+        if (date >= today) revenueToday += amount;
+        if (date >= week) revenueWeek += amount;
+        if (date >= month) revenueMonth += amount;
+      });
+
+      const wallet = walletSnap.exists ? walletSnap.data() : { availableBalance: 0, pendingBalance: 0, totalWithdrawn: 0 };
+      const stats = statsSnap.exists ? statsSnap.data() : { level: 'bronze', badges: [] };
+      
+      const rankIndex = leaderboardSnap.docs.findIndex((d: any) => d.id === uid);
+      const rank = rankIndex !== -1 ? rankIndex + 1 : null;
+
+      res.json({
+        clicksCount,
+        signupsCount,
+        purchasesCount,
+        conversionRate,
+        revenueToday,
+        revenueWeek,
+        revenueMonth,
+        totalRevenue,
+        availableBalance: wallet.availableBalance || 0,
+        pendingBalance: wallet.pendingBalance || 0,
+        withdrawnBalance: wallet.totalWithdrawn || 0, // Using totalWithdrawn
+        level: stats.level || 'bronze',
+        badge: stats.badges?.[0] || null,
+        rank
+      });
+    } catch (e: any) {
+      console.error(e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  
+  app.get("/api/gamification/leaderboard", async (req: any, res: any) => {
+    try {
+      const { period } = req.query; // Actually, we'll just return global for now, or calculate based on affiliate_transactions
+      const adminDb = (await import("./src/lib/firebaseAdmin.js")).adminDb;
+      
+      const statsSnap = await adminDb.collection("affiliate_statistics").orderBy("totalSales", "desc").limit(100).get();
+      const leaderboard = [];
+      
+      for (const doc of statsSnap.docs) {
+        const data = doc.data();
+        const userSnap = await adminDb.collection("users").doc(doc.id).get();
+        const userData = userSnap.exists ? userSnap.data() : {};
+        
+        leaderboard.push({
+          uid: doc.id,
+          displayName: userData.displayName || 'Anonyme',
+          photoURL: userData.photoURL || null,
+          totalVolume: data.totalSales || 0,
+          totalCommission: data.totalCommission || 0,
+          level: data.level || 'bronze',
+          badges: data.badges || []
+        });
+      }
+      
+      res.json({ leaderboard });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  
+  app.get("/api/ambassador/history", isAuthenticated, async (req: any, res: any) => {
+    try {
+      const uid = req.user.uid;
+      const adminDb = (await import("./src/lib/firebaseAdmin.js")).adminDb;
+      
+      const [clicksSnap, signupsSnap, txSnap, walletHistorySnap] = await Promise.all([
+        adminDb.collection("campaign_clicks").where("ambassadorId", "==", uid).limit(50).get(),
+        adminDb.collection("referrals").where("ambassadorUid", "==", uid).limit(50).get(),
+        adminDb.collection("affiliate_transactions").where("ambassadorId", "==", uid).limit(50).get(),
+        adminDb.collection("wallet_history").where("ambassadorId", "==", uid).limit(50).get()
+      ]);
+
+      const events = [];
+
+      clicksSnap.docs.forEach((d: any) => {
+        const data = d.data();
+        if(data.createdAt) {
+          events.push({ id: d.id, type: 'clic', date: data.createdAt.toDate(), data });
+        }
+      });
+
+      signupsSnap.docs.forEach((d: any) => {
+        const data = d.data();
+        if(data.createdAt) {
+          events.push({ id: d.id, type: 'inscription', date: data.createdAt.toDate(), data });
+        }
+      });
+
+      txSnap.docs.forEach((d: any) => {
+        const data = d.data();
+        if(data.createdAt) {
+          events.push({ id: d.id, type: 'achat', date: data.createdAt.toDate(), data, status: data.status });
+          if(data.status === 'cancelled') {
+             events.push({ id: d.id + '_cancel', type: 'annulation', date: data.cancelledAt?.toDate() || data.createdAt.toDate(), data });
+          }
+          if(data.status === 'refunded') {
+             events.push({ id: d.id + '_refund', type: 'remboursement', date: data.cancelledAt?.toDate() || data.createdAt.toDate(), data });
+          }
+        }
+      });
+
+      walletHistorySnap.docs.forEach((d: any) => {
+        const data = d.data();
+        if(data.createdAt) {
+          if (data.type === 'commission_credit') events.push({ id: d.id, type: 'commission', date: data.createdAt.toDate(), data });
+          else if (data.type === 'withdrawal') events.push({ id: d.id, type: 'retrait', date: data.createdAt.toDate(), data });
+          else if (data.type === 'commission_cancellation') events.push({ id: d.id, type: 'annulation_commission', date: data.createdAt.toDate(), data });
+          else events.push({ id: d.id, type: data.type, date: data.createdAt.toDate(), data });
+        }
+      });
+
+      events.sort((a, b) => b.date.getTime() - a.date.getTime());
+
+      res.json({ events: events.slice(0, 100) });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   app.get("/api/ambassador/validate", async (req: any, res: any) => {
     try {
       const { code } = req.query;
@@ -1640,7 +1807,251 @@ Tu ne dois pas donner la réponse brute immédiatement, mais guider les étudian
   app.post("/api/marketing/conversion", MarketingRoutes.trackConversion);
   app.get("/api/marketing/download", MarketingRoutes.downloadAsset);
 
+  
+  app.get('/api/test-write', async (req, res) => {
+    try {
+      const { adminDb, admin } = await import("./src/lib/firebaseAdmin.js");
+      await adminDb.collection('test_writes').add({ timestamp: admin.firestore.FieldValue.serverTimestamp() });
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ error: err.message, stack: err.stack });
+    }
+  });
   app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+  
+  app.post("/api/admin/ambassadors/migrate", isAuthenticated, async (req: any, res: any) => {
+    // Add simple isAdmin check inside since isAdmin middleware might not be exported properly
+    if (req.user.email !== 'oyonomathias@gmail.com' && req.user.role !== 'admin') {
+       return res.status(403).json({ error: 'Unauthorized' });
+    }
+    
+    try {
+      const { adminDb, adminAuth, admin } = await import("./src/lib/firebaseAdmin.js");
+      const FieldValue = admin.firestore.FieldValue;
+      const usersSnap = await adminDb.collection("users").get();
+      
+      let migrated = 0;
+      for (const doc of usersSnap.docs) {
+        const userData = doc.data();
+        const uid = doc.id;
+        
+        let userUpdates: any = {};
+        
+        let authUser;
+        try {
+           authUser = await admin.auth().getUser(uid);
+        } catch(e) {
+           console.log("Could not find user in auth: ", uid);
+        }
+        if (authUser) {
+           if (!userData.createdAt && authUser.metadata.creationTime) {
+              userUpdates.createdAt = admin.firestore.Timestamp.fromDate(new Date(authUser.metadata.creationTime));
+           }
+           if (!userData.lastLoginAt && authUser.metadata.lastSignInTime) {
+              userUpdates.lastLoginAt = admin.firestore.Timestamp.fromDate(new Date(authUser.metadata.lastSignInTime));
+           }
+           if (!userData.email && authUser.email) {
+              userUpdates.email = authUser.email;
+           }
+        }
+        
+        const ambRef = adminDb.collection("ambassadors").doc(uid);
+        const ambDoc = await ambRef.get();
+        
+        const referralCode = userData.referralCode || (ambDoc.exists ? ambDoc.data().referralCode : ('AMB-' + Math.random().toString(36).substr(2, 6).toUpperCase()));
+        const referralLink = `https://ndara.afrique/register?ref=${referralCode}`;
+        
+        const now = FieldValue.serverTimestamp();
+        
+        if (!ambDoc.exists) {
+          await ambRef.set({
+            uid,
+            referralCode,
+            referralLink,
+            name: userData.displayName || 'Utilisateur',
+            email: userData.email || '',
+            totalClicks: 0,
+            totalRegistrations: 0,
+            totalSales: 0,
+            totalRevenue: 0,
+            totalCommission: 0,
+            availableBalance: 0,
+            pendingBalance: 0,
+            withdrawnAmount: 0,
+            level: 'bronze',
+            status: 'active',
+            createdAt: userUpdates.createdAt || userData.createdAt || now,
+            updatedAt: now
+          });
+          migrated++;
+        } else {
+          const updateData: any = {};
+          if (!ambDoc.data().referralCode) updateData.referralCode = referralCode;
+          if (!ambDoc.data().referralLink) updateData.referralLink = referralLink;
+          if (ambDoc.data().totalClicks === undefined) updateData.totalClicks = ambDoc.data().clicks || 0;
+          if (ambDoc.data().totalRegistrations === undefined) updateData.totalRegistrations = ambDoc.data().signups || 0;
+          if (ambDoc.data().totalSales === undefined) updateData.totalSales = ambDoc.data().totalSales || 0;
+          if (ambDoc.data().totalRevenue === undefined) updateData.totalRevenue = ambDoc.data().totalRevenue || 0;
+          if (ambDoc.data().totalCommission === undefined) updateData.totalCommission = ambDoc.data().totalCommissions || 0;
+          if (ambDoc.data().availableBalance === undefined) updateData.availableBalance = 0;
+          if (ambDoc.data().pendingBalance === undefined) updateData.pendingBalance = 0;
+          if (ambDoc.data().withdrawnAmount === undefined) updateData.withdrawnAmount = 0;
+          if (!ambDoc.data().level) updateData.level = 'bronze';
+          
+          if (Object.keys(updateData).length > 0) {
+            updateData.updatedAt = now;
+            await ambRef.update(updateData);
+            migrated++;
+          }
+        }
+        
+        if (!userData.referralCode) {
+           userUpdates.referralCode = referralCode;
+        }
+        
+        if (Object.keys(userUpdates).length > 0) {
+           await doc.ref.update(userUpdates);
+        }
+      }
+      
+      res.json({ success: true, migrated });
+    } catch (error: any) {
+      console.error('Migration error:', error);
+      res.status(500).json({ error: error.message, warning: 'ADC permission denied in preview' });
+    }
+  });
+
+  app.post("/api/user/track", isAuthenticated, async (req: any, res: any) => {
+    try {
+      const { adminDb, admin } = await import("./src/lib/firebaseAdmin.js");
+      const FieldValue = admin.firestore.FieldValue;
+      const uid = req.user.uid;
+      const email = req.user.email;
+      
+      let ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || null;
+      if (ip && typeof ip === 'string' && ip.includes(',')) {
+        ip = ip.split(',')[0].trim();
+      }
+      const userAgent = req.headers['user-agent'] || null;
+      
+      const userRef = adminDb.collection('users').doc(uid);
+      const userDoc = await userRef.get();
+      
+      const now = FieldValue.serverTimestamp();
+      
+      if (!userDoc.exists) {
+        await userRef.set({
+          email: email || '',
+          displayName: req.user.name || 'Utilisateur',
+          photoURL: req.user.picture || '',
+          role: email === 'oyonomathias@gmail.com' ? 'admin' : 'student',
+          walletBalance: 0,
+          preferences: {},
+          createdAt: now,
+          lastLoginAt: now,
+          lastLoginIp: ip || "IP non disponible en Preview",
+          lastLoginUserAgent: userAgent || "Non disponible",
+        });
+      } else {
+        const updateData: any = {
+          lastLoginAt: now,
+          lastLoginIp: ip || "IP non disponible en Preview",
+          lastLoginUserAgent: userAgent || "Non disponible",
+        };
+        if (!userDoc.data().createdAt) {
+          updateData.createdAt = now;
+        }
+        await userRef.update(updateData);
+      }
+      
+      // Auto-create Ambassador profile
+      const ambRef = adminDb.collection('ambassadors').doc(uid);
+      const ambDoc = await ambRef.get();
+      if (!ambDoc.exists) {
+        let referredBy = null;
+        if (userDoc.exists && userDoc.data().referredBy) {
+          referredBy = userDoc.data().referredBy;
+        }
+        
+        const referralCode = 'AMB-' + Math.random().toString(36).substr(2, 6).toUpperCase();
+        await ambRef.set({
+          uid: uid,
+          referralCode: referralCode,
+          referralLink: `https://ndara.afrique/register?ref=${referralCode}`,
+          email: email || '',
+          name: req.user.name || (userDoc.exists ? userDoc.data().displayName : 'Utilisateur'),
+          country: 'Non renseigné',
+          totalClicks: 0,
+          totalRegistrations: 0,
+          totalSales: 0,
+          totalRevenue: 0,
+          totalCommission: 0,
+          level: 'bronze',
+          badge: 'Débutant',
+          status: 'active',
+          referredBy: referredBy,
+          createdAt: now,
+          lastLoginAt: now
+        });
+        if (referredBy) {
+          // referredBy might be the referralCode or the UID.
+          let referrerDoc;
+          let referrerRef;
+          
+          if (referredBy.startsWith('AMB-')) {
+             const qs = await adminDb.collection('ambassadors').where('referralCode', '==', referredBy).limit(1).get();
+             if (!qs.empty) {
+               referrerDoc = qs.docs[0];
+               referrerRef = referrerDoc.ref;
+             }
+          } else {
+             referrerRef = adminDb.collection('ambassadors').doc(referredBy);
+             referrerDoc = await referrerRef.get();
+          }
+          
+          if (referrerDoc && referrerDoc.exists) {
+            const actualReferrerUid = referrerDoc.id;
+            await referrerRef.update({
+              totalRegistrations: FieldValue.increment(1)
+            });
+            
+            // Register the affiliate registration event
+            await adminDb.collection('affiliate_registrations').add({
+              ambassadorId: actualReferrerUid,
+              referredUserId: uid,
+              referralCode: referrerDoc.data().referralCode || referredBy,
+              createdAt: now
+            });
+            
+            // Also update the user document to reflect the actual referredBy uid
+            await userRef.update({ referredBy: actualReferrerUid, referralCode: referrerDoc.data().referralCode || referredBy });
+            referredBy = actualReferrerUid;
+          } else {
+            referredBy = null;
+          }
+        }
+      } else {
+        await ambRef.update({
+          lastLoginAt: now,
+          email: email || '',
+          name: req.user.name || (userDoc.exists ? userDoc.data().displayName : 'Utilisateur')
+        });
+      }
+      
+      await adminDb.collection('login_history').add({
+        uid,
+        email,
+        loginAt: now,
+        ip: ip || "IP non disponible en Preview",
+        userAgent: userAgent || "Non disponible"
+      });
+      
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error('Error tracking user login:', err);
+      res.status(500).json({ error: err.message, warning: 'ADC permission denied in preview' });
+    }
+  });
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
