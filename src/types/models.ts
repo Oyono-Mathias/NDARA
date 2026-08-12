@@ -1,4 +1,4 @@
-export type UserRole = 'student' | 'instructor' | 'admin' | 'superadmin';
+export type UserRole = 'student' | 'ambassador' | 'instructor' | 'moderator' | 'admin' | 'superadmin';
 
 export interface BaseModel {
   id: string;
@@ -299,9 +299,16 @@ export interface Favorite extends BaseModel {
 export interface Ambassador extends BaseModel {
   userId: string;
   referralCode: string;
-  totalReferrals: number;
-  totalEarnings: number;
-  tier: 'bronze' | 'silver' | 'gold' | 'platinum';
+  referralLink?: string;
+  totalClicks: number;
+  totalRegistrations: number;
+  totalSales: number;
+  totalRevenue: number;
+  totalCommission: number;
+  availableBalance: number;
+  pendingBalance: number;
+  paidCommission: number;
+  tier?: 'bronze' | 'silver' | 'gold' | 'platinum';
 }
 
 export interface LeaderboardEntry extends BaseModel {

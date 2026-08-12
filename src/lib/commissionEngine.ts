@@ -11,11 +11,11 @@ export async function processAmbassadorCommission(
 ) {
   try {
     // 1. Find if buyer was referred
-    const referralsSnap = await adminDb.collection('referrals').where('referredUid', '==', buyerId).limit(1).get();
+    const referralsSnap = await adminDb.collection('affiliate_registrations').where('referredUserId', '==', buyerId).limit(1).get();
     if (referralsSnap.empty) return { success: false, reason: "No referral found" };
     
     const referralData = referralsSnap.docs[0].data();
-    const ambassadorUid = referralData.ambassadorUid;
+    const ambassadorUid = referralData.ambassadorId;
     
     if (!ambassadorUid) return { success: false, reason: "No ambassador uid" };
 

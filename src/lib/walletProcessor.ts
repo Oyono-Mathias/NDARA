@@ -229,6 +229,8 @@ export async function purchaseCourseWithEscrow(
       throw new Error('Vous êtes déjà inscrit à cette formation.');
     }
 
+    const configRef = serverDb.collection('config').doc('affiliate_rewards_config');
+    const configSnap = await transaction.get(configRef);
     const courseSnap = await transaction.get(courseRef);
     let actualPrice = clientPrice;
     if (courseSnap.exists) {
@@ -259,12 +261,21 @@ export async function purchaseCourseWithEscrow(
     
     let referrerRef = null;
     let referrerSnap = null;
+    let ambRef = null;
+    let ambSnap = null;
+    
+    let commissionRate = 0;
     
     if (referrerId && referrerId !== sellerId && referrerId !== studentId) {
       referrerRef = serverDb.collection('users').doc(referrerId);
       referrerSnap = await transaction.get(referrerRef);
-      if (referrerSnap.exists) {
-        affiliateAmount = Math.round(finalPrice * 0.10);
+      ambRef = serverDb.collection('ambassadors').doc(referrerId);
+      ambSnap = await transaction.get(ambRef);
+      
+      const configData = configSnap.exists ? configSnap.data() : { active: true, courseCommission: 20 };
+      if (referrerSnap.exists && configData.active !== false) {
+        commissionRate = configData.courseCommission ? configData.courseCommission / 100 : 0.20;
+        affiliateAmount = Math.round(finalPrice * commissionRate);
         platformAmount = platformAmount - affiliateAmount; 
       }
     }
@@ -293,23 +304,19 @@ export async function purchaseCourseWithEscrow(
     
     const creationTime = new Date();
     const releaseTime = new Date(creationTime.getTime() + (14 * 24 * 60 * 60 * 1000));
-    if (referrerRef && referrerSnap) {
+    if (referrerRef && referrerSnap && referrerSnap.exists && affiliateAmount > 0) {
       const referrerData = referrerSnap.data();
-      const finalReferrerAffiliatePending = (referrerData.pendingAffiliateBalance || 0) + affiliateAmount;
       
       const affStats = referrerData.affiliateStats || { clicks: 0, registrations: 0, sales: 0, earnings: 0 };
       affStats.sales = (affStats.sales || 0) + 1;
       affStats.earnings = (affStats.earnings || 0) + affiliateAmount;
       
       transaction.update(referrerRef, {
-        pendingAffiliateBalance: finalReferrerAffiliatePending,
-        affiliateStats: affStats
+        affiliateStats: affStats,
+        pendingAffiliateBalance: (referrerData.pendingAffiliateBalance || 0) + affiliateAmount
       });
 
-      // ---- AMBASSADOR REAL-TIME UPDATES ----
-      const ambRef = serverDb.collection('ambassadors').doc(referrerId);
-      const ambSnap = await transaction.get(ambRef);
-      if (ambSnap.exists) {
+      if (ambRef && ambSnap && ambSnap.exists) {
         transaction.update(ambRef, {
           totalSales: (ambSnap.data().totalSales || 0) + 1,
           totalRevenue: (ambSnap.data().totalRevenue || 0) + finalPrice,
@@ -318,22 +325,40 @@ export async function purchaseCourseWithEscrow(
         });
       }
 
-      const affTxRef = serverDb.collection('affiliate_transactions').doc();
+      const uniqueTxId = purchaseId ? `${purchaseId}_affiliate` : `tx_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+      const affTxRef = serverDb.collection('affiliate_transactions').doc(uniqueTxId);
+      
       transaction.set(affTxRef, {
         ambassadorId: referrerId,
-        buyerId: studentId,
+        referredUserId: studentId,
+        buyerId: studentId, 
+        purchaseId: purchaseId || studentTxRef.id,
         courseId: courseId,
         instructorId: sellerId || '',
-        orderId: Math.random().toString(36).substr(2, 9).toUpperCase(),
+        orderId: purchaseId || Math.random().toString(36).substr(2, 9).toUpperCase(),
         courseTitle: courseTitle,
         amount: finalPrice,
-        commissionRate: 0.10,
+        commissionRate: commissionRate,
         commissionAmount: affiliateAmount,
-        platformAmount: platformAmount,
-        status: 'pending',
-        createdAt: FieldValue.serverTimestamp()
+        currency: 'XAF',
+        status: 'pending', // Phase 7 requirement
+        createdAt: FieldValue.serverTimestamp(),
+        availableAt: releaseTime.toISOString()
       });
-      // ----------------------------------------
+      
+      const refTxRef = purchaseId ? serverDb.collection('users').doc(referrerId).collection('transactions').doc(`${purchaseId}_affiliate_payout`) : serverDb.collection('users').doc(referrerId).collection('transactions').doc();
+      const refTx: WalletTransaction = {
+        id: refTxRef.id,
+        userId: referrerId,
+        type: 'affiliate_payout',
+        amount: affiliateAmount,
+        status: 'pending',
+        timestamp: creationTime.toISOString(),
+        releaseAt: releaseTime.toISOString(),
+        description: `Commission affiliation: ${courseTitle}`,
+        relatedUserId: studentId
+      };
+      transaction.set(refTxRef, refTx);
     }
     
     const studentTx: WalletTransaction = {
@@ -363,22 +388,7 @@ export async function purchaseCourseWithEscrow(
     };
     transaction.set(sellerTxRef, sellerTx);
     
-    if (referrerId && referrerRef && referrerSnap) {
-      const referrerTxRef = purchaseId ? serverDb.collection('users').doc(referrerId).collection('transactions').doc(`${purchaseId}_affiliate`) : serverDb.collection('users').doc(referrerId).collection('transactions').doc();
-      const referrerTx: WalletTransaction = {
-        id: referrerTxRef.id,
-        userId: referrerId,
-        type: 'affiliate_payout',
-        amount: affiliateAmount,
-        status: 'pending',
-        timestamp: creationTime.toISOString(),
-        description: `Commission 10% parrainage étudiant (${studentData.fullName || studentData.displayName || 'Étudiant'}) - ${courseTitle}`,
-        relatedUserId: studentId,
-        releaseAt: releaseTime.toISOString(),
-        courseId
-      };
-      transaction.set(referrerTxRef, referrerTx);
-    }
+    // Phase 6: We DO NOT insert the affiliate_payout into the wallet yet.
 
     const platformTxRef = purchaseId ? serverDb.collection('platform_revenue').doc(purchaseId) : serverDb.collection('platform_revenue').doc();
     transaction.set(platformTxRef, {
@@ -769,5 +779,106 @@ export async function purchaseBourseLicense(
       licenseId: licenseRef.id,
       transactionId: buyerTxRef.id
     };
+  });
+}
+
+export async function reversePurchase(purchaseId: string) {
+  return await serverDb.runTransaction(async (transaction) => {
+    // READS
+    const purchasesQuery = serverDb.collectionGroup('transactions')
+        .where('type', '==', 'purchase')
+        .where('id', '==', purchaseId);
+        
+    const purchaseSnap = await purchasesQuery.get();
+    if (purchaseSnap.empty) throw new Error('Achat introuvable.');
+    const purchaseTx = purchaseSnap.docs[0];
+    const studentId = purchaseTx.data().userId;
+    const finalPrice = Math.abs(purchaseTx.data().amount);
+    
+    const studentRef = serverDb.collection('users').doc(studentId);
+    const studentSnap = await transaction.get(studentRef);
+    if (!studentSnap.exists) throw new Error('Student non trouvé');
+
+    const refundTxRef = serverDb.collection('users').doc(studentId).collection('transactions').doc(`${purchaseId}_refund`);
+    const existingRefund = await transaction.get(refundTxRef);
+    if (existingRefund.exists) throw new Error('Remboursement déjà effectué.');
+
+    const affTxRef = serverDb.collection('affiliate_transactions').doc(`${purchaseId}_affiliate`);
+    const affTxSnap = await transaction.get(affTxRef);
+    
+    let ambRef = null;
+    let ambUserRef = null;
+    let ambSnap = null;
+    let ambUserSnap = null;
+    let ambassadorId = null;
+    let commissionAmount = 0;
+    let affData = null;
+
+    if (affTxSnap.exists) {
+      affData = affTxSnap.data();
+      ambassadorId = affData.ambassadorId;
+      commissionAmount = affData.commissionAmount || 0;
+      
+      ambRef = serverDb.collection('ambassadors').doc(ambassadorId);
+      ambUserRef = serverDb.collection('users').doc(ambassadorId);
+      ambSnap = await transaction.get(ambRef);
+      ambUserSnap = await transaction.get(ambUserRef);
+    }
+
+    // WRITES
+    transaction.update(studentRef, {
+      balance: (studentSnap.data().balance || 0) + finalPrice
+    });
+    
+    transaction.set(refundTxRef, {
+      id: refundTxRef.id,
+      userId: studentId,
+      type: 'refund',
+      amount: finalPrice,
+      status: 'completed',
+      timestamp: new Date().toISOString(),
+      description: 'Remboursement de la commande',
+      relatedPurchaseId: purchaseId
+    });
+
+    if (affTxSnap.exists && affData) {
+      if (affData.status === 'reversed') {
+        throw new Error('Commission déjà inversée.');
+      }
+      
+      transaction.update(affTxRef, {
+        status: 'reversed',
+        reversedAt: new Date().toISOString()
+      });
+      
+      if (ambUserSnap && ambUserSnap.exists) {
+        transaction.update(ambUserRef, {
+          pendingAffiliateBalance: Math.max(0, (ambUserSnap.data().pendingAffiliateBalance || 0) - commissionAmount)
+        });
+      }
+      
+      if (ambSnap && ambSnap.exists) {
+        transaction.update(ambRef, {
+           totalSales: Math.max(0, (ambSnap.data().totalSales || 0) - 1),
+           totalRevenue: Math.max(0, (ambSnap.data().totalRevenue || 0) - finalPrice),
+           totalCommission: Math.max(0, (ambSnap.data().totalCommission || 0) - commissionAmount),
+           pendingBalance: Math.max(0, (ambSnap.data().pendingBalance || 0) - commissionAmount)
+        });
+      }
+      
+      const reversalTxRef = serverDb.collection('users').doc(ambassadorId).collection('transactions').doc(`${purchaseId}_affiliate_reversal`);
+      transaction.set(reversalTxRef, {
+        id: reversalTxRef.id,
+        userId: ambassadorId,
+        type: 'affiliate_reversal',
+        amount: -commissionAmount,
+        status: 'completed',
+        timestamp: new Date().toISOString(),
+        description: 'Annulation commission suite à remboursement',
+        relatedPurchaseId: purchaseId
+      });
+    }
+    
+    return { success: true };
   });
 }

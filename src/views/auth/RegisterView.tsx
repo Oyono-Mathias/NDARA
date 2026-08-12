@@ -5,14 +5,14 @@ import { authService } from '../../services/authService';
 import { getFirebaseErrorMessage } from '../../utils/firebaseErrors';
 import { Loader2, Mail, Lock, User, AlertCircle, ArrowRight, CheckCircle2, XCircle } from 'lucide-react';
 import { auth, db } from '../../firebase';
-import { collection, query, where, getDocs, limit, runTransaction, doc, getDoc, serverTimestamp, increment } from 'firebase/firestore';
+import { collection, query, where, getDocs, limit, runTransaction, doc, getDoc, serverTimestamp, increment , setDoc } from 'firebase/firestore';
 
 
 export function RegisterView() {
   const navigate = useNavigate();
   const { reloadUser } = useAuth();
   const [searchParams] = useSearchParams();
-  const refCode = searchParams.get('ref');
+  const refCode = searchParams.get('ref') || localStorage.getItem('referredBy');
   
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
@@ -37,15 +37,15 @@ export function RegisterView() {
     setValidatingRef(true);
     setRefError('');
     try {
-      const q = query(collection(db, "ambassadors"), where("referralCode", "==", code), where("status", "==", "active"), limit(1));
+      const q = query(collection(db, "ambassadors"), where("referralCode", "==", code), limit(1));
       const snapshot = await getDocs(q);
       
       if (!snapshot.empty) {
         const ambData = snapshot.docs[0].data();
-        const userSnap = await getDoc(doc(db, "users", ambData.uid));
         
         setRefValid(true);
-        setAmbassadorName(userSnap.data()?.displayName || 'Ambassadeur');
+        setAmbassadorName(ambData.name || 'Ambassadeur');
+
       } else {
         setRefValid(false);
         setRefError("Code invalide ou expiré");
@@ -68,59 +68,27 @@ export function RegisterView() {
 
     try {
       await authService.register(email, password, displayName, 'student');
+      const user = authService.getCurrentUser();
       
-      // Process referral
-      if (refCode && refValid) {
-        try {
-          await new Promise(resolve => setTimeout(resolve, 500));
-          const user = auth.currentUser;
-          if (user) {
-            await runTransaction(db, async (transaction) => {
-               const newUserId = user.uid;
-               const userRef = doc(db, "users", newUserId);
-               const userDoc = await transaction.get(userRef);
-               
-               if (userDoc.exists() && userDoc.data()?.referredBy) {
-                   throw new Error("Cet utilisateur a déjà été parrainé");
-               }
-               
-               const ambQuery = query(collection(db, "ambassadors"), where("referralCode", "==", refCode), where("status", "==", "active"), limit(1));
-               const ambDocs = await getDocs(ambQuery); // getDocs outside transaction is fine for this use case
-               if (ambDocs.empty) throw new Error("Code invalide");
-               
-               const ambDoc = ambDocs.docs[0];
-               const ambData = ambDoc.data();
-               const ambRef = doc(db, "ambassadors", ambData.uid); // use specific ref for transaction
-               
-               if (ambData.uid === newUserId) throw new Error("Auto-parrainage interdit");
-               
-               const referralRef = doc(collection(db, "referrals"));
-               transaction.set(referralRef, {
-                 ambassadorUid: ambData.uid,
-                 referralUid: newUserId,
-                 referralCode: refCode,
-                 createdAt: serverTimestamp(),
-                 status: 'active'
-               });
-               
-               transaction.set(userRef, {
-                 referredBy: ambData.uid,
-                 referralCode: refCode,
-                 referredAt: serverTimestamp()
-               }, { merge: true });
-               
-               transaction.update(ambRef, {
-                 totalReferrals: increment(1),
-                 updatedAt: serverTimestamp()
-               });
-            });
-          }
-        } catch (refErr) {
-          console.error("Erreur process referral", refErr);
+      if (user) {
+        const token = await user.getIdToken();
+        const response = await fetch('/api/auth/complete-registration', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ refCode: (refCode && refValid) ? refCode : undefined })
+        });
+        
+        if (!response.ok) {
+           const errData = await response.json().catch(() => ({}));
+           throw new Error(errData.error || 'Erreur lors de la création du profil');
         }
       }
 
       await reloadUser();
+      localStorage.removeItem('referredBy');
       navigate('/auth/verify-email');
     } catch (err: any) {
       setError(getFirebaseErrorMessage(err));

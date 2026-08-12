@@ -53,8 +53,8 @@ export function AmbassadorReferrals() {
 
     // Listen for new referrals
     const q = query(
-      collection(db, 'referrals'),
-      where('ambassadorUid', '==', firebaseUser.uid),
+      collection(db, 'affiliate_registrations'),
+      where('ambassadorId', '==', firebaseUser.uid),
       orderBy('createdAt', 'desc'),
       limit(1)
     );
@@ -83,11 +83,11 @@ export function AmbassadorReferrals() {
   const fetchStats = async () => {
     if (!firebaseUser) return;
     try {
-      const refCol = collection(db, 'referrals');
+      const refCol = collection(db, 'affiliate_registrations');
       
-      const totalQ = query(refCol, where('ambassadorUid', '==', firebaseUser.uid));
-      const activeQ = query(refCol, where('ambassadorUid', '==', firebaseUser.uid), where('status', '==', 'active'));
-      const inactiveQ = query(refCol, where('ambassadorUid', '==', firebaseUser.uid), where('status', '==', 'inactive'));
+      const totalQ = query(refCol, where('ambassadorId', '==', firebaseUser.uid));
+      const activeQ = query(refCol, where('ambassadorId', '==', firebaseUser.uid), where('status', '==', 'active'));
+      const inactiveQ = query(refCol, where('ambassadorId', '==', firebaseUser.uid), where('status', '==', 'inactive'));
       
       const [totalSnap, activeSnap, inactiveSnap] = await Promise.all([
         getCountFromServer(totalQ),
@@ -100,8 +100,8 @@ export function AmbassadorReferrals() {
       const startOfW = startOfWeek(new Date());
       const startOfM = startOfMonth(new Date());
       
-      const thisWeekQ = query(refCol, where('ambassadorUid', '==', firebaseUser.uid), where('createdAt', '>=', Timestamp.fromDate(startOfW)));
-      const thisMonthQ = query(refCol, where('ambassadorUid', '==', firebaseUser.uid), where('createdAt', '>=', Timestamp.fromDate(startOfM)));
+      const thisWeekQ = query(refCol, where('ambassadorId', '==', firebaseUser.uid), where('createdAt', '>=', Timestamp.fromDate(startOfW)));
+      const thisMonthQ = query(refCol, where('ambassadorId', '==', firebaseUser.uid), where('createdAt', '>=', Timestamp.fromDate(startOfM)));
       
       const [weekSnap, monthSnap] = await Promise.all([
         getCountFromServer(thisWeekQ),
@@ -109,7 +109,7 @@ export function AmbassadorReferrals() {
       ]);
 
       // Last signup
-      const lastQ = query(refCol, where('ambassadorUid', '==', firebaseUser.uid), orderBy('createdAt', 'desc'), limit(1));
+      const lastQ = query(refCol, where('ambassadorId', '==', firebaseUser.uid), orderBy('createdAt', 'desc'), limit(1));
       const lastDocSnap = await getDocs(lastQ);
       let lastSignup = null;
       if (!lastDocSnap.empty) {
@@ -141,7 +141,7 @@ export function AmbassadorReferrals() {
 
     try {
       let qList: any[] = [
-        where('ambassadorUid', '==', firebaseUser.uid)
+        where('ambassadorId', '==', firebaseUser.uid)
       ];
 
       if (filter === 'active') qList.push(where('status', '==', 'active'));
@@ -151,14 +151,14 @@ export function AmbassadorReferrals() {
       if (filter === 'this_year') qList.push(where('createdAt', '>=', Timestamp.fromDate(startOfYear(new Date()))));
 
       let q = query(
-        collection(db, 'referrals'),
+        collection(db, 'affiliate_registrations'),
         ...qList,
         orderBy(sortField, sortDirection),
         limit(pageSize)
       );
 
       if (!isFirstPage && lastVisible) {
-        q = query(collection(db, 'referrals'), ...qList, orderBy(sortField, sortDirection), startAfter(lastVisible), limit(pageSize));
+        q = query(collection(db, 'affiliate_registrations'), ...qList, orderBy(sortField, sortDirection), startAfter(lastVisible), limit(pageSize));
       }
 
       const snap = await getDocs(q);
@@ -229,7 +229,7 @@ export function AmbassadorReferrals() {
     setExporting(true);
     try {
       // Fetch all referrals for export
-      const q = query(collection(db, 'referrals'), where('ambassadorUid', '==', firebaseUser?.uid));
+      const q = query(collection(db, 'affiliate_registrations'), where('ambassadorId', '==', firebaseUser?.uid));
       const snap = await getDocs(q);
       const docs = snap.docs.map(d => d.data());
       

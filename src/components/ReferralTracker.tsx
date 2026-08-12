@@ -17,7 +17,7 @@ export function ReferralTracker() {
         localStorage.setItem('referredBy', refCode);
 
         // Track click on the backend
-        fetch('/api/ambassador/click', {
+        fetch('/api/affiliate/click', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'

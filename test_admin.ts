@@ -1,5 +1,6 @@
+import { adminDb } from './src/lib/firebaseAdmin';
+
 async function test() {
-    const { adminDb } = await import('./src/lib/firebaseAdmin.js');
     try {
         const snapshot = await adminDb.collection('users').limit(1).get();
         console.log("Success:", snapshot.size);

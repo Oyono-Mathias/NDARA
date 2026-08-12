@@ -37,7 +37,7 @@ export function AdminAmbassadorDashboard() {
         const d = doc.data();
         if (d.status === 'validated' || d.status === 'paid' || d.status === 'pending') {
           salesCount++;
-          totalComm += (d.commission || 0); // Assuming amount is the commission amount. If commission is separate, we'd use d.commission.
+          totalComm += (d.amount || 0); // Phase 6: We show Chiffre d'affaires généré, not commission amount yet.
           // Let's check what affiliate_transactions stores. The prompt mentions "Commissions = somme réelle des commissions validées".
           // Usually affiliate_transactions has 'amount' or 'commission'.
         }
@@ -59,10 +59,10 @@ export function AdminAmbassadorDashboard() {
     });
     
     // Clics = collection affiliate_clicks (or similar). Let's sum clicks from ambassadors collection for now if they have a 'clicks' field, or just query a clicks collection.
-    const unsubClicks = onSnapshot(collection(db, 'users'), (snap) => {
+    const unsubClicks = onSnapshot(collection(db, 'ambassadors'), (snap) => {
       let totalClicks = 0;
       snap.forEach(doc => {
-         totalClicks += (doc.data().clicks || 0);
+         totalClicks += (doc.data().totalClicks || 0);
       });
       setStats(s => ({ ...s, clicks: totalClicks }));
     });
@@ -147,7 +147,7 @@ export function AdminAmbassadorDashboard() {
 
         <div className="bg-slate-800/50 p-6 rounded-2xl border border-slate-700/50 flex flex-col justify-center">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-slate-400 font-medium">Commissions (validées)</span>
+            <span className="text-slate-400 font-medium">CA (Affiliation)</span>
             <Wallet className="w-5 h-5 text-emerald-400" />
           </div>
           <span className="text-3xl font-black text-white">{stats.commissions.toLocaleString('fr-FR')} FCFA</span>

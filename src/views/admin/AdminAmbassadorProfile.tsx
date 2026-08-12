@@ -328,7 +328,7 @@ export function AdminAmbassadorProfile() {
             {referrals.slice(0, 5).map(ref => (
               <div key={ref.id} className="flex justify-between items-center p-3 bg-slate-900 rounded-lg border border-slate-700/50">
                 <div>
-                  <p className="text-sm font-medium text-white">Utilisateur {ref.referredUserId.slice(0, 6)}...</p>
+                  <p className="text-sm font-medium text-white">{ref.userName || ref.userEmail || "Utilisateur"}</p>
                   <p className="text-xs text-slate-400">{ref.createdAt?.toDate ? format(ref.createdAt.toDate(), 'dd/MM/yyyy HH:mm') : '-'}</p>
                 </div>
                 <span className="text-xs text-emerald-400 font-bold bg-emerald-500/10 px-2 py-1 rounded">Vérifié</span>
@@ -340,26 +340,43 @@ export function AdminAmbassadorProfile() {
           </div>
         </div>
 
-        {/* LISTE DES VENTES */}
-        <div className="bg-slate-800/50 p-6 rounded-2xl border border-slate-700/50">
-          <h3 className="text-lg font-bold text-white mb-6">Dernières Ventes</h3>
-          <div className="space-y-3">
-            {transactions.slice(0, 5).map(tx => (
-              <div key={tx.id} className="flex justify-between items-center p-3 bg-slate-900 rounded-lg border border-slate-700/50">
-                <div>
-                  <p className="text-sm font-medium text-white truncate max-w-[200px]">{tx.courseTitle}</p>
-                  <p className="text-xs text-slate-400">{tx.createdAt?.toDate ? format(tx.createdAt.toDate(), 'dd/MM/yyyy') : '-'}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm font-bold text-emerald-400">+{tx.commissionAmount?.toLocaleString('fr-FR')} FCFA</p>
-                  <p className="text-xs text-slate-400">sur {tx.amount?.toLocaleString('fr-FR')} FCFA</p>
-                </div>
-              </div>
-            ))}
-            {transactions.length === 0 && (
-              <p className="text-slate-400 text-sm text-center py-4">Aucune vente</p>
-            )}
-          </div>
+        {/* LISTE DES VENTES (PHASE 6) */}
+        <div className="bg-slate-800/50 p-6 rounded-2xl border border-slate-700/50 lg:col-span-2 overflow-x-auto">
+          <h3 className="text-lg font-bold text-white mb-6">Historique des Ventes</h3>
+          {transactions.length === 0 ? (
+              <p className="text-slate-400 text-sm py-4">Aucune vente</p>
+          ) : (
+            <table className="w-full text-left text-sm text-slate-300">
+                <thead className="text-xs uppercase bg-slate-900 text-slate-400">
+                    <tr>
+                        <th className="px-4 py-3 rounded-tl-lg">Date</th>
+                        <th className="px-4 py-3">Formation</th>
+                        <th className="px-4 py-3">Acheteur (UID)</th>
+                        <th className="px-4 py-3">Formateur (UID)</th>
+                        <th className="px-4 py-3">Montant</th>
+                        <th className="px-4 py-3">Achat ID</th>
+                        <th className="px-4 py-3 rounded-tr-lg">Statut</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {transactions.map(tx => (
+                        <tr key={tx.id} className="border-b border-slate-700/50 hover:bg-slate-800/30">
+                            <td className="px-4 py-3">{tx.createdAt?.toDate ? format(tx.createdAt.toDate(), 'dd/MM/yyyy HH:mm') : '-'}</td>
+                            <td className="px-4 py-3 font-medium text-white truncate max-w-[200px]" title={tx.courseId}>{tx.courseTitle}</td>
+                            <td className="px-4 py-3 text-slate-400 font-mono text-xs">{tx.referredUserId || tx.buyerId}</td>
+                            <td className="px-4 py-3 text-slate-400 font-mono text-xs">{tx.instructorId}</td>
+                            <td className="px-4 py-3 font-bold text-pink-400">{tx.amount?.toLocaleString('fr-FR')} {tx.currency || 'FCFA'}</td>
+                            <td className="px-4 py-3 text-slate-400 font-mono text-xs">{tx.purchaseId}</td>
+                            <td className="px-4 py-3">
+                                <span className={`px-2 py-1 text-xs font-bold rounded-full ${tx.status === 'validated' ? 'bg-green-500/10 text-green-400' : tx.status === 'cancelled' ? 'bg-red-500/10 text-red-400' : tx.status === 'refunded' ? 'bg-orange-500/10 text-orange-400' : 'bg-yellow-500/10 text-yellow-400'}`}>
+                                    {tx.status || 'pending'}
+                                </span>
+                            </td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+          )}
         </div>
       </div>
     </div>

@@ -822,7 +822,9 @@ const ActionPromptModal = () => {
               <InfoItem label="Ville" value={member.city || '-'} />
               <InfoItem label="UID Firebase" value={member.id} isCode />
               <InfoItem label="Créé le" value={member.createdAt?.toDate ? member.createdAt.toDate().toLocaleDateString('fr-FR', { dateStyle: 'long' }) : '-'} />
-              <InfoItem label="Dernière connexion" value={member.lastLogin?.toDate ? member.lastLogin.toDate().toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' }) : '-'} />
+              <InfoItem label="Code Ambassadeur" value={member.referralCode || '-'} />
+              <InfoItem label="Parrainé par" value={member.referredBy || '-'} />
+              <InfoItem label="Dernière connexion" value={member.lastLoginAt?.toDate ? member.lastLoginAt.toDate().toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' }) : '-'} />
               
               <div className="mt-6 border border-slate-800 rounded-xl p-4 bg-slate-800/20">
                 <div className="flex items-center gap-3 mb-2">
@@ -1175,7 +1177,9 @@ const ActionPromptModal = () => {
                 <h3 className="text-xs font-black text-slate-500 tracking-widest uppercase mb-4">Informations de Connexion</h3>
                 <div className="p-4 border border-slate-800/50 rounded-xl bg-slate-800/20 grid grid-cols-1 md:grid-cols-2 gap-4">
                   <InfoItem label="Première connexion" value={member.createdAt?.toDate ? member.createdAt.toDate().toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' }) : '-'} />
-                  <InfoItem label="Dernière connexion" value={member.lastLogin?.toDate ? member.lastLogin.toDate().toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' }) : '-'} />
+              <InfoItem label="Code Ambassadeur" value={member.referralCode || '-'} />
+              <InfoItem label="Parrainé par" value={member.referredBy || '-'} />
+                  <InfoItem label="Dernière connexion" value={member.lastLoginAt?.toDate ? member.lastLoginAt.toDate().toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' }) : '-'} />
                   <InfoItem label="Dernière activité" value={member.lastActivity?.toDate ? member.lastActivity.toDate().toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' }) : '-'} />
                   <InfoItem label="Total des connexions" value={member.loginCount?.toString() || '0'} />
                   <InfoItem label="Sessions actives" value={member.activeSessions?.toString() || '0'} />

@@ -23,6 +23,8 @@ export function AmbassadorDashboard() {
   const [rank, setRank] = useState<number | null>(null);
   const [chartData, setChartData] = useState<any[]>([]);
   const [recentRewards, setRecentRewards] = useState<any[]>([]);
+  const [referrals, setReferrals] = useState<any[]>([]);
+  const [sales, setSales] = useState<any[]>([]);
 
   
   useEffect(() => {
@@ -48,15 +50,21 @@ export function AmbassadorDashboard() {
       setRecentRewards(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     });
 
-    const unsubTx = onSnapshot(query(collection(db, 'affiliate_transactions'), where('ambassadorUid', '==', firebaseUser.uid), orderBy('createdAt', 'asc')), (snap) => {
-      const txs = snap.docs.map(d => d.data());
+    const unsubReferrals = onSnapshot(query(collection(db, 'affiliate_registrations'), where('ambassadorUid', '==', firebaseUser.uid), orderBy('createdAt', 'desc')), (snap) => {
+      setReferrals(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+
+    const unsubTx = onSnapshot(query(collection(db, 'affiliate_transactions'), where('ambassadorId', '==', firebaseUser.uid), orderBy('createdAt', 'desc')), (snap) => {
+      const txs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      setSales(txs);
       
-      const grouped = txs.reduce((acc: any, tx: any) => {
+      // Chart data still needs asc for time series, we'll reverse for chart if needed, or group
+      const grouped = [...txs].reverse().reduce((acc: any, tx: any) => {
           if (!tx.createdAt) return acc;
           const d = tx.createdAt.toDate ? tx.createdAt.toDate() : new Date(tx.createdAt);
           const dateStr = format(d, 'dd MMM', { locale: fr });
           if (!acc[dateStr]) acc[dateStr] = 0;
-          acc[dateStr] += (tx.commission || 0);
+          acc[dateStr] += (tx.amount || 0);
           return acc;
       }, {});
 
@@ -73,6 +81,7 @@ export function AmbassadorDashboard() {
       unsubStats();
       unsubLeaderboard();
       unsubRewards();
+      unsubReferrals();
       unsubTx();
     };
   }, [firebaseUser]);
@@ -121,36 +130,27 @@ export function AmbassadorDashboard() {
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-slate-800/20 border border-slate-700 rounded-2xl p-6">
-          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Revenus</p>
-          <p className="text-2xl lg:text-3xl font-black text-white">{(stats.totalAffiliateRevenue || ambassadorData.totalCommission || 0).toLocaleString()}</p>
-          <p className="text-xs text-slate-400">XAF Générés</p>
+          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Clics</p>
+          <p className="text-2xl lg:text-3xl font-black text-white">{ambassadorData.clicks || stats.totalClicks || 0}</p>
+          <p className="text-xs text-slate-400">Total clics</p>
         </div>
         
-        <div className="bg-slate-800/20 border border-slate-700 rounded-2xl p-6 relative overflow-hidden">
-          <div className="absolute -right-4 -bottom-4 opacity-10">
-              <Trophy className="w-24 h-24 text-yellow-500" />
-          </div>
-          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 relative z-10">Classement</p>
-          <p className="text-2xl lg:text-3xl font-black text-white relative z-10">{rank ? `#${rank}` : '-'}</p>
-          <p className="text-xs text-slate-400 relative z-10">Global</p>
+        <div className="bg-slate-800/20 border border-slate-700 rounded-2xl p-6">
+          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Inscriptions</p>
+          <p className="text-2xl lg:text-3xl font-black text-white">{ambassadorData.totalRegistrations || 0}</p>
+          <p className="text-xs text-slate-400">Total filleuls</p>
         </div>
 
-        <div className="bg-slate-800/20 border border-slate-700 rounded-2xl p-6 relative overflow-hidden">
-          <div className="absolute -right-4 -bottom-4 opacity-10">
-              <Medal className="w-24 h-24 text-pink-500" />
-          </div>
-          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 relative z-10">Niveau</p>
-          <p className="text-2xl lg:text-3xl font-black text-white relative z-10 uppercase">{stats.level || 'Bronze'}</p>
-          <Link to="/ambassador/rewards" className="text-[10px] text-pink-400 font-bold hover:underline relative z-10">Voir progression</Link>
+        <div className="bg-slate-800/20 border border-slate-700 rounded-2xl p-6">
+          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Ventes</p>
+          <p className="text-2xl lg:text-3xl font-black text-white">{ambassadorData.totalSales || 0}</p>
+          <p className="text-xs text-slate-400">Ventes générées</p>
         </div>
 
-        <div className="bg-slate-800/20 border border-slate-700 rounded-2xl p-6 relative overflow-hidden">
-          <div className="absolute -right-4 -bottom-4 opacity-10">
-              <Star className="w-24 h-24 text-amber-500" />
-          </div>
-          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 relative z-10">Badges</p>
-          <p className="text-2xl lg:text-3xl font-black text-white relative z-10">{(stats.badges || []).length}</p>
-          <p className="text-xs text-slate-400 relative z-10">Débloqués</p>
+        <div className="bg-slate-800/20 border border-slate-700 rounded-2xl p-6">
+          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Revenus Générés</p>
+          <p className="text-2xl lg:text-3xl font-black text-white">{(ambassadorData.totalRevenue || 0).toLocaleString()}</p>
+          <p className="text-xs text-slate-400">FCFA</p>
         </div>
       </div>
 
@@ -199,16 +199,58 @@ export function AmbassadorDashboard() {
 
               <div className="grid grid-cols-2 gap-4">
                   <div className="bg-[#111827] border border-[#1E293B] rounded-2xl p-4 flex flex-col items-center text-center gap-2">
-                      <Target className="w-6 h-6 text-blue-400" />
-                      <p className="text-xl font-black text-white">{(stats.challenges || []).length}</p>
-                      <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Objectifs Atteints</p>
+                      
+                      <Users className="w-6 h-6 text-blue-400" />
+                      <p className="text-xl font-black text-white">{ambassadorData.totalRegistrations || 0}</p>
+                      <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Inscriptions</p>
+
                   </div>
                   <div className="bg-[#111827] border border-[#1E293B] rounded-2xl p-4 flex flex-col items-center text-center gap-2">
-                      <Gift className="w-6 h-6 text-emerald-400" />
-                      <p className="text-xl font-black text-white">{recentRewards.length}</p>
-                      <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Bonus Récents</p>
+                      
+                      <TrendingUp className="w-6 h-6 text-emerald-400" />
+                      <p className="text-xl font-black text-white">{ambassadorData.totalClicks || 0}</p>
+                      <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Clics Totaux</p>
+
                   </div>
               </div>
+          </div>
+      </div>
+
+            {/* Mes Filleuls */}
+      <div className="bg-[#111827] border border-[#1E293B] rounded-3xl p-6">
+          <div className="flex justify-between items-center mb-6">
+              <h2 className="text-sm font-black text-white uppercase tracking-widest flex items-center gap-2">
+                 <Users className="w-4 h-4 text-emerald-400" />
+                 Mes Filleuls <span className="bg-emerald-500/10 text-emerald-400 py-0.5 px-2 rounded-full ml-2">{referrals.length}</span>
+              </h2>
+          </div>
+          <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                  <thead>
+                      <tr className="border-b border-slate-800">
+                          <th className="pb-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Date d'inscription</th>
+                          <th className="pb-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Nom</th>
+                          <th className="pb-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Statut</th>
+                      </tr>
+                  </thead>
+                  <tbody>
+                      {referrals.length === 0 ? (
+                          <tr><td colSpan={3} className="py-8 text-center text-slate-500 text-sm">Aucun filleul pour le moment. Partagez votre lien !</td></tr>
+                      ) : (
+                          referrals.map(r => (
+                              <tr key={r.id} className="border-b border-slate-800/50 last:border-0 hover:bg-slate-800/20 transition-colors">
+                                  <td className="py-4 text-xs text-slate-400">{r.createdAt?.toDate ? format(r.createdAt.toDate(), 'dd MMM yyyy', { locale: fr }) : '-'}</td>
+                                  <td className="py-4 text-sm font-bold text-white capitalize">{r.userName || 'Utilisateur'}</td>
+                                  <td className="py-4">
+                                     <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-full ${r.status === 'completed' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-slate-500/10 text-slate-400'}`}>
+                                        {r.status || 'Inscrit'}
+                                     </span>
+                                  </td>
+                              </tr>
+                          ))
+                      )}
+                  </tbody>
+              </table>
           </div>
       </div>
 

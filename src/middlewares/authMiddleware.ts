@@ -1,6 +1,6 @@
 import { logger } from '../lib/logger';
 import { Request, Response, NextFunction } from "express";
-import { admin } from "../lib/firebaseAdmin.js";
+import { adminAuth, adminDb } from "../lib/firebaseAdmin.js";
 
 // Ensure auth is correctly typed
 export interface AuthRequest extends Request {
@@ -15,43 +15,25 @@ export const isAuthenticated = async (req: AuthRequest, res: Response, next: Nex
   
   const idToken = authHeader.split("Bearer ")[1];
   try {
-    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    const decodedToken = await adminAuth.verifyIdToken(idToken);
     
-    // Attempt to enrich with Firestore user data to ensure we have the role
+    // Attempt to enrich with Firestore user data using adminDb
     try {
-      // Because `adminDb` lacks a service account in AI Studio, we use the user's idToken to fetch their own role from REST.
-      const fs = await import("fs");
-      const path = await import("path");
-      let projectId = "";
-      let databaseId = "";
-      try {
-        const configStr = fs.readFileSync(path.join(process.cwd(), "firebase-applet-config.json"), "utf-8");
-        const config = JSON.parse(configStr);
-        projectId = config.projectId;
-        databaseId = config.firestoreDatabaseId;
-      } catch (e) { console.warn("Ignored error", e); }
-
-      if (projectId && databaseId) {
-        const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${databaseId}/documents/users/${decodedToken.uid}`;
-        const response = await fetch(url, { headers: { Authorization: `Bearer ${idToken}` } });
-        if (response.ok) {
-          const data = await response.json();
-          if (data.fields && data.fields.role && data.fields.role.stringValue) {
-            decodedToken.role = data.fields.role.stringValue;
-          } else {
-            decodedToken.role = "student";
-          }
-        }
+      const userDoc = await adminDb.collection('users').doc(decodedToken.uid).get();
+      if (userDoc.exists) {
+        decodedToken.role = userDoc.data()?.role || "student";
+      } else {
+        decodedToken.role = "student";
       }
     } catch (e) {
-      logger.error("Failed to load user document for role enrichment via REST:", e);
+      logger.error("Failed to load user document for role enrichment via adminDb:", e);
     }
 
     req.user = decodedToken;
     next();
   } catch (error) {
     logger.error("Auth middleware error:", error);
-    res.status(403).json({ error: "Unauthorized access" });
+    res.status(403).json({ error: "Unauthorized access: " + error.message });
   }
 };
 

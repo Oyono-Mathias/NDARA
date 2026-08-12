@@ -1,3 +1,4 @@
+import "dotenv/config";
 import express from "express";
 import { startCronJobs } from "./src/jobs/cronTasks";
 
@@ -172,7 +173,7 @@ app.use((req, res, next) => {
 
   // API routes
   app.get("/api/health", (req, res) => {
-    res.json({ status: "ok", app: "Ndara Afrique" });
+    res.json({ status: "ok", app: "Ndara Afrique", hasServiceAccount: !!process.env.FIREBASE_SERVICE_ACCOUNT });
   });
 
 
@@ -202,6 +203,7 @@ app.use((req, res, next) => {
             const data = commDoc.data();
             const ambassadorUid = data.ambassadorId;
             const amount = data.commission;
+            const uid = data.referredUserId || data.studentId || '';
             
             if (action === 'validate' && data.status === 'pending') {
                 t.update(commissionRef, { status: 'validated', validatedAt: FieldValue.serverTimestamp() });
@@ -242,6 +244,8 @@ app.use((req, res, next) => {
                 t.set(walletHistoryRef, {
                     walletId: ambassadorUid,
                     ambassadorId: ambassadorUid,
+                ambassadorUid: ambassadorUid,
+                referralUid: uid,
                     type: 'commission_validated',
                     amount: amount,
                     currency: 'XAF',
@@ -289,6 +293,8 @@ app.use((req, res, next) => {
                 t.set(walletHistoryRef, {
                     walletId: ambassadorUid,
                     ambassadorId: ambassadorUid,
+                ambassadorUid: ambassadorUid,
+                referralUid: uid,
                     type: 'commission_paid',
                     amount: -amount,
                     currency: 'XAF',
@@ -1921,135 +1927,404 @@ Tu ne dois pas donner la réponse brute immédiatement, mais guider les étudian
     }
   });
 
-  app.post("/api/user/track", isAuthenticated, async (req: any, res: any) => {
+  
+  
+  app.post("/api/test/complete-registration", async (req: any, res: any) => {
     try {
-      const { adminDb, admin } = await import("./src/lib/firebaseAdmin.js");
-      const FieldValue = admin.firestore.FieldValue;
-      const uid = req.user.uid;
-      const email = req.user.email;
+      const uid = req.body.uid;
+      const refCode = req.body.refCode;
       
-      let ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || null;
-      if (ip && typeof ip === 'string' && ip.includes(',')) {
-        ip = ip.split(',')[0].trim();
-      }
-      const userAgent = req.headers['user-agent'] || null;
+      const { adminDb, admin } = await import('./src/lib/firebaseAdmin.js');
       
-      const userRef = adminDb.collection('users').doc(uid);
-      const userDoc = await userRef.get();
-      
-      const now = FieldValue.serverTimestamp();
-      
-      if (!userDoc.exists) {
-        await userRef.set({
-          email: email || '',
-          displayName: req.user.name || 'Utilisateur',
-          photoURL: req.user.picture || '',
-          role: email === 'oyonomathias@gmail.com' ? 'admin' : 'student',
-          walletBalance: 0,
-          preferences: {},
-          createdAt: now,
-          lastLoginAt: now,
-          lastLoginIp: ip || "IP non disponible en Preview",
-          lastLoginUserAgent: userAgent || "Non disponible",
-        });
-      } else {
-        const updateData: any = {
-          lastLoginAt: now,
-          lastLoginIp: ip || "IP non disponible en Preview",
-          lastLoginUserAgent: userAgent || "Non disponible",
-        };
-        if (!userDoc.data().createdAt) {
-          updateData.createdAt = now;
-        }
-        await userRef.update(updateData);
-      }
-      
-      // Auto-create Ambassador profile
-      const ambRef = adminDb.collection('ambassadors').doc(uid);
-      const ambDoc = await ambRef.get();
-      if (!ambDoc.exists) {
-        let referredBy = null;
-        if (userDoc.exists && userDoc.data().referredBy) {
-          referredBy = userDoc.data().referredBy;
+      await adminDb.runTransaction(async (transaction) => {
+        const userRef = adminDb.collection('users').doc(uid);
+        const myAmbRef = adminDb.collection('ambassadors').doc(uid);
+        
+        // 1. ALL READS FIRST
+        const userDoc = await transaction.get(userRef);
+        const myAmbDoc = await transaction.get(myAmbRef);
+        
+        let assignedReferrer = null;
+        let ambassadorDocRef = null;
+
+        if (refCode) {
+            const ambQuery = adminDb.collection('ambassadors').where('referralCode', '==', refCode).limit(1);
+            const ambSnapshot = await transaction.get(ambQuery);
+            if (!ambSnapshot.empty) {
+                ambassadorDocRef = ambSnapshot.docs[0].ref;
+                assignedReferrer = ambSnapshot.docs[0].data().userId;
+            }
         }
         
-        const referralCode = 'AMB-' + Math.random().toString(36).substr(2, 6).toUpperCase();
-        await ambRef.set({
-          uid: uid,
-          referralCode: referralCode,
-          referralLink: `https://ndara.afrique/register?ref=${referralCode}`,
-          email: email || '',
-          name: req.user.name || (userDoc.exists ? userDoc.data().displayName : 'Utilisateur'),
-          country: 'Non renseigné',
-          totalClicks: 0,
-          totalRegistrations: 0,
-          totalSales: 0,
-          totalRevenue: 0,
-          totalCommission: 0,
-          level: 'bronze',
-          badge: 'Débutant',
-          status: 'active',
-          referredBy: referredBy,
-          createdAt: now,
-          lastLoginAt: now
-        });
-        if (referredBy) {
-          // referredBy might be the referralCode or the UID.
-          let referrerDoc;
-          let referrerRef;
-          
-          if (referredBy.startsWith('AMB-')) {
-             const qs = await adminDb.collection('ambassadors').where('referralCode', '==', referredBy).limit(1).get();
-             if (!qs.empty) {
-               referrerDoc = qs.docs[0];
-               referrerRef = referrerDoc.ref;
-             }
-          } else {
-             referrerRef = adminDb.collection('ambassadors').doc(referredBy);
-             referrerDoc = await referrerRef.get();
-          }
-          
-          if (referrerDoc && referrerDoc.exists) {
-            const actualReferrerUid = referrerDoc.id;
-            await referrerRef.update({
-              totalRegistrations: FieldValue.increment(1)
-            });
+        // 2. ALL WRITES AFTER READS
+        if (!userDoc.exists) {
+            const newUser = {
+                uid,
+                email: req.body.email || '',
+                displayName: 'Test User',
+                photoURL: '',
+                role: 'student',
+                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                lastLoginAt: admin.firestore.FieldValue.serverTimestamp(),
+                referredBy: assignedReferrer,
+                referralCodeUsed: refCode || null,
+                walletBalance: 0,
+                preferences: {}
+            };
+            transaction.set(userRef, newUser);
             
-            // Register the affiliate registration event
-            await adminDb.collection('affiliate_registrations').add({
-              ambassadorId: actualReferrerUid,
-              referredUserId: uid,
-              referralCode: referrerDoc.data().referralCode || referredBy,
-              createdAt: now
-            });
-            
-            // Also update the user document to reflect the actual referredBy uid
-            await userRef.update({ referredBy: actualReferrerUid, referralCode: referrerDoc.data().referralCode || referredBy });
-            referredBy = actualReferrerUid;
-          } else {
-            referredBy = null;
-          }
+            if (assignedReferrer && ambassadorDocRef) {
+                transaction.update(ambassadorDocRef, {
+                    totalRegistrations: admin.firestore.FieldValue.increment(1),
+                    updatedAt: admin.firestore.FieldValue.serverTimestamp()
+                });
+                
+                const regRef = adminDb.collection('affiliate_registrations').doc();
+                transaction.set(regRef, {
+                    ambassadorId: assignedReferrer,
+                    ambassadorUid: assignedReferrer,
+                    referralCode: refCode,
+                    userId: uid,
+                    userEmail: req.body.email || '',
+                    userName: 'Test User',
+                    status: 'completed',
+                    createdAt: admin.firestore.FieldValue.serverTimestamp()
+                });
+            }
         }
-      } else {
-        await ambRef.update({
-          lastLoginAt: now,
-          email: email || '',
-          name: req.user.name || (userDoc.exists ? userDoc.data().displayName : 'Utilisateur')
-        });
-      }
-      
-      await adminDb.collection('login_history').add({
-        uid,
-        email,
-        loginAt: now,
-        ip: ip || "IP non disponible en Preview",
-        userAgent: userAgent || "Non disponible"
+        
+        if (!myAmbDoc.exists) {
+            const newCode = 'AMB-' + uid.substring(uid.length - 8).toUpperCase();
+            const newAmbassador = {
+                userId: uid,
+                referralCode: newCode,
+                totalClicks: 0,
+                totalRegistrations: 0,
+                totalSales: 0,
+                totalRevenue: 0,
+                totalCommission: 0,
+                availableBalance: 0,
+                pendingBalance: 0,
+                paidCommission: 0,
+                tier: 'bronze',
+                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                updatedAt: admin.firestore.FieldValue.serverTimestamp()
+            };
+            transaction.set(myAmbRef, newAmbassador);
+        }
       });
       
       res.json({ success: true });
-    } catch (err: any) {
-      console.error('Error tracking user login:', err);
-      res.status(500).json({ error: err.message, warning: 'ADC permission denied in preview' });
+    } catch (error: any) {
+      console.error("Error in test route", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/auth/complete-registration", isAuthenticated, async (req: any, res: any) => {
+    try {
+      const uid = req.user.uid;
+      const refCode = req.body.refCode;
+      
+      const { adminDb, admin } = await import('./src/lib/firebaseAdmin.js');
+      
+      await adminDb.runTransaction(async (transaction) => {
+        const userRef = adminDb.collection('users').doc(uid);
+        const myAmbRef = adminDb.collection('ambassadors').doc(uid);
+        
+        // 1. ALL READS FIRST
+        const userDoc = await transaction.get(userRef);
+        const myAmbDoc = await transaction.get(myAmbRef);
+        
+        let assignedReferrer = null;
+        let ambassadorDocRef = null;
+        let actualRefCodeUsed = null;
+
+        // Ensure user doesn't already have a referrer
+        if (refCode && (!userDoc.exists || !userDoc.data().referredBy)) {
+            const ambQuery = adminDb.collection('ambassadors').where('referralCode', '==', refCode).limit(1);
+            const ambSnapshot = await transaction.get(ambQuery);
+            if (!ambSnapshot.empty) {
+                ambassadorDocRef = ambSnapshot.docs[0].ref;
+                assignedReferrer = ambSnapshot.docs[0].data().userId;
+                actualRefCodeUsed = refCode;
+            }
+        }
+        
+        // 2. ALL WRITES AFTER READS
+        if (!userDoc.exists) {
+            const authUser = req.user;
+            const newUser = {
+                uid,
+                email: authUser.email || '',
+                displayName: authUser.name || 'Utilisateur',
+                photoURL: authUser.picture || '',
+                role: 'student',
+                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                lastLoginAt: admin.firestore.FieldValue.serverTimestamp(),
+                referredBy: assignedReferrer,
+                referralCodeUsed: actualRefCodeUsed,
+                walletBalance: 0,
+                preferences: {}
+            };
+            transaction.set(userRef, newUser);
+            
+            if (assignedReferrer && ambassadorDocRef) {
+                transaction.update(ambassadorDocRef, {
+                    totalRegistrations: admin.firestore.FieldValue.increment(1),
+                    updatedAt: admin.firestore.FieldValue.serverTimestamp()
+                });
+                
+                const regRef = adminDb.collection('affiliate_registrations').doc();
+                transaction.set(regRef, {
+                    ambassadorId: assignedReferrer,
+                    ambassadorUid: assignedReferrer,
+                    referralCode: actualRefCodeUsed,
+                    userId: uid,
+                    userEmail: authUser.email || '',
+                    userName: authUser.name || 'Utilisateur',
+                    status: 'completed',
+                    createdAt: admin.firestore.FieldValue.serverTimestamp()
+                });
+                
+                // Create a real notification for the ambassador
+                const notifRef = adminDb.collection('notifications').doc();
+                transaction.set(notifRef, {
+                    userId: assignedReferrer,
+                    title: 'Nouvelle inscription !',
+                    message: `Un nouvel utilisateur (${authUser.name || 'Utilisateur'}) vient de s'inscrire avec votre lien.`,
+                    type: 'success',
+                    read: false,
+                    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                    link: '/ambassador/dashboard'
+                });
+            }
+        } else if (!userDoc.data().referredBy && assignedReferrer && ambassadorDocRef) {
+            // Case where user doc exists but had no referrer, and now provides one
+            transaction.update(userRef, {
+                referredBy: assignedReferrer,
+                referralCodeUsed: actualRefCodeUsed,
+                updatedAt: admin.firestore.FieldValue.serverTimestamp()
+            });
+
+            transaction.update(ambassadorDocRef, {
+                totalRegistrations: admin.firestore.FieldValue.increment(1),
+                updatedAt: admin.firestore.FieldValue.serverTimestamp()
+            });
+            
+            const authUser = req.user;
+            const regRef = adminDb.collection('affiliate_registrations').doc();
+            transaction.set(regRef, {
+                ambassadorId: assignedReferrer,
+                ambassadorUid: assignedReferrer,
+                referralCode: actualRefCodeUsed,
+                userId: uid,
+                userEmail: userDoc.data().email || authUser.email || '',
+                userName: userDoc.data().displayName || authUser.name || 'Utilisateur',
+                status: 'completed',
+                createdAt: admin.firestore.FieldValue.serverTimestamp()
+            });
+            
+            // Create a real notification for the ambassador
+            const notifRef = adminDb.collection('notifications').doc();
+            transaction.set(notifRef, {
+                userId: assignedReferrer,
+                title: 'Nouvelle inscription !',
+                message: `Un nouvel utilisateur (${userDoc.data().displayName || authUser.name || 'Utilisateur'}) vient de s'inscrire avec votre lien.`,
+                type: 'success',
+                read: false,
+                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                link: '/ambassador/dashboard'
+            });
+        }
+        
+        if (!myAmbDoc.exists) {
+            const newCode = 'AMB-' + uid.substring(uid.length - 8).toUpperCase();
+            const newAmbassador = {
+                userId: uid,
+                referralCode: newCode,
+                totalClicks: 0,
+                totalRegistrations: 0,
+                totalSales: 0,
+                totalRevenue: 0,
+                totalCommission: 0,
+                availableBalance: 0,
+                pendingBalance: 0,
+                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                updatedAt: admin.firestore.FieldValue.serverTimestamp()
+            };
+            transaction.set(myAmbRef, newAmbassador);
+        }
+      });
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Complete registration error:", error);
+      res.status(500).json({ success: false, message: "Server error" });
+    }
+  });
+
+  const clickRateLimitCache = new Map();
+  app.post("/api/affiliate/click", async (req: any, res: any) => {
+    try {
+        const { refCode, landingPage } = req.body;
+        if (!refCode) return res.status(400).json({ error: "Missing refCode" });
+
+        const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
+        const userAgent = req.headers['user-agent'] || 'unknown';
+        
+        const cacheKey = `${ip}_${refCode}`;
+        const now = Date.now();
+
+        const { adminDb, admin } = await import('./src/lib/firebaseAdmin.js');
+        const ambQuery = await adminDb.collection('ambassadors').where('referralCode', '==', refCode).limit(1).get();
+        
+        if (ambQuery.empty) {
+            return res.json({ success: false, message: "Ambassador not found" });
+        }
+
+        const ambDoc = ambQuery.docs[0];
+        const ambassadorId = ambDoc.data().userId;
+
+        // Get ambassador name
+        let ambassadorName = 'Ambassadeur';
+        const userDoc = await adminDb.collection('users').doc(ambassadorId).get();
+        if (userDoc.exists) {
+            ambassadorName = userDoc.data().displayName || ambassadorName;
+        }
+
+        // Anti-spam
+        if (clickRateLimitCache.has(cacheKey) && now - clickRateLimitCache.get(cacheKey) < 3600000) {
+            return res.json({ success: true, message: "Click already tracked recently", ambassadorName });
+        }
+
+        await adminDb.runTransaction(async (transaction) => {
+            const ambDocRef = adminDb.collection('ambassadors').doc(ambassadorId);
+            const ambTDoc = await transaction.get(ambDocRef);
+            
+            if (ambTDoc.exists) {
+                const clickRef = adminDb.collection('affiliate_clicks').doc();
+                transaction.set(clickRef, {
+                    ambassadorId,
+                    referralCode: refCode,
+                    ip: ip,
+                    userAgent: userAgent,
+                    landingPage: landingPage || "/",
+                    converted: false,
+                    createdAt: admin.firestore.FieldValue.serverTimestamp()
+                });
+
+                transaction.update(ambDocRef, {
+                    totalClicks: admin.firestore.FieldValue.increment(1)
+                });
+            }
+        });
+
+        clickRateLimitCache.set(cacheKey, now);
+        if (clickRateLimitCache.size > 10000) {
+            clickRateLimitCache.clear();
+        }
+
+        res.json({ success: true, ambassadorName });
+    } catch (error: any) {
+        console.error("Error tracking click", error);
+        res.status(500).json({ error: "Internal error" });
+    }
+  });
+
+  app.post("/api/user/track", isAuthenticated, async (req: any, res: any) => {
+    try {
+      const uid = req.user.uid;
+      const refCode = req.body.refCode;
+
+      const { adminDb, admin } = await import('./src/lib/firebaseAdmin.js');
+      
+      await adminDb.runTransaction(async (transaction) => {
+        const userRef = adminDb.collection('users').doc(uid);
+        const userDoc = await transaction.get(userRef);
+
+        if (userDoc.exists) {
+            transaction.update(userRef, {
+                lastLoginAt: admin.firestore.FieldValue.serverTimestamp()
+            });
+        } else {
+            let assignedReferrer = null;
+            let ambassadorDocRef = null;
+            let ambassadorDocData = null;
+
+            if (refCode) {
+                const ambQuery = await adminDb.collection('ambassadors').where('referralCode', '==', refCode).limit(1).get();
+                if (!ambQuery.empty) {
+                    ambassadorDocRef = ambQuery.docs[0].ref;
+                    ambassadorDocData = ambQuery.docs[0].data();
+                    assignedReferrer = ambassadorDocData.userId;
+                }
+            }
+
+            const authUser = req.user;
+            const newUser = {
+                uid,
+                email: authUser.email || '',
+                displayName: authUser.name || 'Utilisateur',
+                photoURL: authUser.picture || '',
+                role: 'student',
+                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                lastLoginAt: admin.firestore.FieldValue.serverTimestamp(),
+                referredBy: assignedReferrer,
+                referralCodeUsed: refCode || null,
+                walletBalance: 0,
+                preferences: {}
+            };
+            transaction.set(userRef, newUser);
+
+            if (assignedReferrer && ambassadorDocRef) {
+                transaction.update(ambassadorDocRef, {
+                    totalRegistrations: admin.firestore.FieldValue.increment(1),
+                    updatedAt: admin.firestore.FieldValue.serverTimestamp()
+                });
+                
+                const regRef = adminDb.collection('affiliate_registrations').doc();
+                transaction.set(regRef, {
+                    ambassadorId: assignedReferrer,
+                    ambassadorUid: assignedReferrer,
+                    referralCode: refCode,
+                    userId: uid,
+                    userEmail: authUser.email || '',
+                    userName: authUser.name || 'Utilisateur',
+                    status: 'completed',
+                    createdAt: admin.firestore.FieldValue.serverTimestamp()
+                });
+            }
+            
+            const myAmbRef = adminDb.collection('ambassadors').doc(uid);
+            const myAmbDoc = await transaction.get(myAmbRef);
+            if (!myAmbDoc.exists) {
+                const newCode = 'AMB-' + uid.substring(uid.length - 8).toUpperCase();
+                transaction.set(myAmbRef, {
+                    userId: uid,
+                    referralCode: newCode,
+                    totalClicks: 0,
+                    totalRegistrations: 0,
+                    totalSales: 0,
+                    totalRevenue: 0,
+                    totalCommission: 0,
+                    availableBalance: 0,
+                    pendingBalance: 0,
+                    paidCommission: 0,
+                    tier: 'bronze',
+                    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                    updatedAt: admin.firestore.FieldValue.serverTimestamp()
+                });
+            }
+        }
+      });
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error in user track", error);
+      res.status(500).json({ error: "Internal error" });
     }
   });
 
