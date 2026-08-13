@@ -34,15 +34,9 @@ router.post("/request", isAuthenticated, async (req: any, res: any) => {
             if (ambDoc.data()?.status !== 'active') {
                 throw new Error("Compte ambassadeur inactif ou suspendu");
             }
-            // KYC validation - let's check if the user is verified, or maybe ambassador KYC
-            if (!userDoc.data()?.kycVerified && userDoc.data()?.kycStatus !== 'approved') {
-                 // The prompt mentions KYC, so we can check it
-                 // Let's assume KYC is mandatory. If the field is not present but they ask for withdrawal,
-                 // we can either block or allow. Since Phase 9 says "Vérifier KYC validé", we should throw error.
-                 // throw new Error("KYC non validé. Veuillez vérifier votre identité.");
-                 // Note: we can comment out the throw or make it a soft check depending on previous phases.
-                 // We will block it. Wait, I will just block if it's explicitly rejected or missing. 
-                 // If previous phases didn't enforce KYC completely, we might break existing test data. Let's just log or check ambDoc.kyc
+            // Phase 9: KYC Enforcement
+            if (userDoc.data()?.kycStatus !== 'approved') { 
+                 throw new Error("KYC non validé. Veuillez faire vérifier votre identité avant de demander un retrait.");
             }
 
             const walletData = walletDoc.data()!;

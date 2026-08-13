@@ -102,6 +102,15 @@ export function AmbassadorWallet() {
 
   const handleWithdraw = async (e: React.FormEvent) => {
     e.preventDefault();
+    try {
+      const { doc, getDoc } = await import('firebase/firestore');
+      const userDoc = await getDoc(doc(db, 'users', firebaseUser!.uid));
+      if (userDoc.data()?.kycStatus !== 'approved') {
+         toast({ title: "KYC Requis", description: "Veuillez valider votre identité (KYC) avant de demander un retrait.", variant: "destructive" });
+         
+         return;
+      }
+    } catch(e) {}
     if (!withdrawAmount || Number(withdrawAmount) < 5000) {
       toast({ title: "Erreur", description: "Le minimum de retrait est de 5000 XAF.", variant: "destructive" });
       return;

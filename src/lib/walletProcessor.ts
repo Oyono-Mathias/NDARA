@@ -858,11 +858,35 @@ export async function reversePurchase(purchaseId: string) {
       }
       
       if (ambSnap && ambSnap.exists) {
+        const d = ambSnap.data();
+        let nextPending = d.pendingBalance || 0;
+        let nextAvailable = d.availableBalance || 0;
+        let nextDebt = d.debtBalance || 0;
+        
+        if (affData.status === 'pending') {
+           nextPending = Math.max(0, nextPending - commissionAmount);
+        } else if (affData.status === 'available') {
+           if (nextAvailable >= commissionAmount) {
+              nextAvailable -= commissionAmount;
+           } else {
+              // Not enough available, they owe us
+              const diff = commissionAmount - nextAvailable;
+              nextAvailable = 0;
+              nextDebt += diff;
+           }
+        } else if (affData.status === 'paid' || affData.status === 'withdrawn') {
+           nextDebt += commissionAmount;
+        } else {
+           nextPending = Math.max(0, nextPending - commissionAmount);
+        }
+
         transaction.update(ambRef, {
-           totalSales: Math.max(0, (ambSnap.data().totalSales || 0) - 1),
-           totalRevenue: Math.max(0, (ambSnap.data().totalRevenue || 0) - finalPrice),
-           totalCommission: Math.max(0, (ambSnap.data().totalCommission || 0) - commissionAmount),
-           pendingBalance: Math.max(0, (ambSnap.data().pendingBalance || 0) - commissionAmount)
+           totalSales: Math.max(0, (d.totalSales || 0) - 1),
+           totalRevenue: Math.max(0, (d.totalRevenue || 0) - finalPrice),
+           totalCommission: Math.max(0, (d.totalCommission || 0) - commissionAmount),
+           pendingBalance: nextPending,
+           availableBalance: nextAvailable,
+           debtBalance: nextDebt
         });
       }
       
@@ -881,4 +905,245 @@ export async function reversePurchase(purchaseId: string) {
     
     return { success: true };
   });
+}
+
+/**
+ * Phase 8: Demander un retrait ambassadeur
+ * Verrouille le solde "availableBalance" et le transfère vers "reservedBalance"
+ */
+export async function requestAmbassadorPayout(
+  userId: string,
+  amount: number,
+  method: string,
+  destination: string
+) {
+  return await serverDb.runTransaction(async (transaction) => {
+    // 1. Fetch config for min withdrawal
+    const configSnap = await transaction.get(serverDb.collection('config').doc('affiliate_rewards_config'));
+    const minWithdrawal = configSnap.exists ? (configSnap.data()?.minWithdrawal || 5000) : 5000;
+    
+    if (amount < minWithdrawal) {
+      throw new Error(`Le montant minimum de retrait est de ${minWithdrawal.toLocaleString()} FCFA.`);
+    }
+
+    // 2. Fetch ambassador profile
+    const ambRef = serverDb.collection('ambassadors').doc(userId);
+    const ambSnap = await transaction.get(ambRef);
+    if (!ambSnap.exists) {
+      throw new Error('Profil ambassadeur introuvable.');
+    }
+    
+    const ambData = ambSnap.data()!;
+    const available = ambData.availableBalance || 0;
+    
+    if (available < amount) {
+      throw new Error(`Solde disponible insuffisant. Disponible: ${available.toLocaleString()} FCFA.`);
+    }
+    
+    // 3. Create Payout Request
+    const payoutReqRef = serverDb.collection('payout_requests').doc();
+    transaction.set(payoutReqRef, {
+      id: payoutReqRef.id,
+      ambassadorId: userId,
+      requesterId: userId,
+      type: 'ambassador_payout',
+      amount,
+      method,
+      destination,
+      status: 'pending',
+      createdAt: new Date().toISOString()
+    });
+
+    // 4. Update Ambassador Balances
+    transaction.update(ambRef, {
+      availableBalance: available - amount,
+      reservedBalance: (ambData.reservedBalance || 0) + amount
+    });
+    
+    return { success: true, payoutId: payoutReqRef.id };
+  });
+}
+
+/**
+ * Phase 8: Traitement admin du retrait ambassadeur
+ */
+export async function processAmbassadorPayout(
+  requestId: string,
+  action: 'approve' | 'reject' | 'mark_paid',
+  adminId: string,
+  paymentReference?: string,
+  rejectionReason?: string
+) {
+  return await serverDb.runTransaction(async (transaction) => {
+    const reqRef = serverDb.collection('payout_requests').doc(requestId);
+    const reqSnap = await transaction.get(reqRef);
+    if (!reqSnap.exists) throw new Error('Demande introuvable.');
+    
+    const reqData = reqSnap.data()!;
+    if (reqData.status === 'paid' || reqData.status === 'rejected') {
+      throw new Error(`Demande déjà traitée (statut actuel: ${reqData.status}).`);
+    }
+    
+    const ambRef = serverDb.collection('ambassadors').doc(reqData.ambassadorId);
+    const ambSnap = await transaction.get(ambRef);
+    if (!ambSnap.exists) throw new Error('Ambassadeur introuvable.');
+    const ambData = ambSnap.data()!;
+    const reserved = ambData.reservedBalance || 0;
+    const amount = reqData.amount;
+    
+    if (action === 'reject') {
+      transaction.update(reqRef, {
+        status: 'rejected',
+        processedAt: new Date().toISOString(),
+        processedBy: adminId,
+        rejectionReason: rejectionReason || 'Rejeté par administrateur'
+      });
+      transaction.update(ambRef, {
+        reservedBalance: Math.max(0, reserved - amount),
+        availableBalance: (ambData.availableBalance || 0) + amount
+      });
+      return { success: true, status: 'rejected' };
+    }
+    
+    if (action === 'approve') {
+      transaction.update(reqRef, {
+        status: 'approved', // Or processing
+        approvedAt: new Date().toISOString(),
+        approvedBy: adminId
+      });
+      return { success: true, status: 'approved' };
+    }
+    
+    if (action === 'mark_paid') {
+      transaction.update(reqRef, {
+        status: 'paid',
+        paidAt: new Date().toISOString(),
+        paidBy: adminId,
+        paymentReference: paymentReference || null
+      });
+      
+      transaction.update(ambRef, {
+        reservedBalance: Math.max(0, reserved - amount),
+        withdrawnAmount: (ambData.withdrawnAmount || 0) + amount
+      });
+      
+      // Enregistrer dans le wallet_history de l'utilisateur pour trace (ledger)
+      const txRef = serverDb.collection('users').doc(reqData.ambassadorId).collection('transactions').doc();
+      transaction.set(txRef, {
+        id: txRef.id,
+        userId: reqData.ambassadorId,
+        type: 'ambassador_withdrawal',
+        amount: -amount,
+        status: 'completed',
+        timestamp: new Date().toISOString(),
+        description: `Retrait de commission ambassadeur (${reqData.method})`,
+        payoutRequestId: requestId
+      });
+      
+      return { success: true, status: 'paid' };
+    }
+  });
+}
+
+/**
+ * Phase 8: Rendre les commissions disponibles si le délai est passé
+ * À appeler régulièrement (cron) ou quand le user ouvre son dashboard
+ */
+export async function releaseAvailableCommissions(userId: string) {
+  return await serverDb.runTransaction(async (transaction) => {
+    // 1. Fetch config
+    const configSnap = await transaction.get(serverDb.collection('config').doc('affiliate_rewards_config'));
+    const validationDays = configSnap.exists ? (configSnap.data()?.validationDays || 7) : 7;
+    
+    // 2. Query pending transactions
+    const thresholdDate = new Date();
+    thresholdDate.setDate(thresholdDate.getDate() - validationDays);
+    
+    const txQuery = serverDb.collection('affiliate_transactions')
+        .where('ambassadorId', '==', userId)
+        .where('status', '==', 'pending')
+        .where('createdAt', '<=', thresholdDate);
+        
+    const txSnap = await transaction.get(txQuery);
+    
+    if (txSnap.empty) return { success: true, releasedCount: 0, releasedAmount: 0 };
+    
+    let totalReleased = 0;
+    const ambRef = serverDb.collection('ambassadors').doc(userId);
+    const ambSnap = await transaction.get(ambRef);
+    if (!ambSnap.exists) return { success: false, error: 'Ambassadeur non trouvé' };
+    const ambData = ambSnap.data()!;
+    
+    for (const doc of txSnap.docs) {
+       transaction.update(doc.ref, { status: 'available', validatedAt: new Date().toISOString() });
+       totalReleased += (doc.data().commissionAmount || 0);
+    }
+    
+    if (totalReleased > 0) {
+       transaction.update(ambRef, {
+          pendingBalance: Math.max(0, (ambData.pendingBalance || 0) - totalReleased),
+          availableBalance: (ambData.availableBalance || 0) + totalReleased
+       });
+    }
+    
+    return { success: true, releasedCount: txSnap.size, releasedAmount: totalReleased };
+  });
+}
+
+/**
+ * Phase 8: Rendre les commissions disponibles pour TOUS (Admin Cron)
+ */
+export async function releaseAllAvailableCommissions() {
+    // 1. Fetch config
+    const configSnap = await serverDb.collection('config').doc('affiliate_rewards_config').get();
+    const validationDays = configSnap.exists ? (configSnap.data()?.validationDays || 7) : 7;
+    
+    // 2. Query pending transactions
+    const thresholdDate = new Date();
+    thresholdDate.setDate(thresholdDate.getDate() - validationDays);
+    
+    const txSnap = await serverDb.collection('affiliate_transactions')
+        .where('status', '==', 'pending')
+        .where('createdAt', '<=', thresholdDate)
+        .get();
+        
+    if (txSnap.empty) return { success: true, releasedCount: 0, releasedAmount: 0 };
+
+    // Group by ambassador
+    const byAmbassador: Record<string, any[]> = {};
+    for (const doc of txSnap.docs) {
+       const data = doc.data();
+       if (!byAmbassador[data.ambassadorId]) byAmbassador[data.ambassadorId] = [];
+       byAmbassador[data.ambassadorId].push({ id: doc.id, amount: data.commissionAmount || 0 });
+    }
+
+    let totalReleasedAmount = 0;
+    let totalDocs = 0;
+
+    // Process each ambassador in a separate transaction to avoid locking everything
+    for (const [ambId, txs] of Object.entries(byAmbassador)) {
+       await serverDb.runTransaction(async (transaction) => {
+          const ambRef = serverDb.collection('ambassadors').doc(ambId);
+          const ambSnap = await transaction.get(ambRef);
+          if (!ambSnap.exists) return; // Skip if deleted
+          
+          let sum = 0;
+          for (const tx of txs) {
+             const txRef = serverDb.collection('affiliate_transactions').doc(tx.id);
+             transaction.update(txRef, { status: 'available', validatedAt: new Date().toISOString() });
+             sum += tx.amount;
+          }
+          
+          const d = ambSnap.data()!;
+          transaction.update(ambRef, {
+             pendingBalance: Math.max(0, (d.pendingBalance || 0) - sum),
+             availableBalance: (d.availableBalance || 0) + sum
+          });
+          
+          totalReleasedAmount += sum;
+          totalDocs += txs.length;
+       });
+    }
+
+    return { success: true, releasedCount: totalDocs, releasedAmount: totalReleasedAmount };
 }

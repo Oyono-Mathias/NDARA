@@ -19,6 +19,7 @@ dotenv.config(); // Load .env
 dotenv.config({ path: '.env.example' }); // Fallback to .env.example if missing in .env
 
 import uploadRoutes from "./src/routes/uploadRoutes.js";
+import kycRoutes from "./src/routes/kycRoutes.js";
 import paymentRoutes from "./src/routes/paymentRoutes.js";
 import withdrawalRoutes from "./src/routes/withdrawalRoutes.js";
 import gamificationRoutes from "./src/routes/gamificationRoutes.js";
@@ -165,6 +166,7 @@ app.use((req, res, next) => {
   // Import new upload routes
   console.log("uploadRoutes type:", typeof uploadRoutes, uploadRoutes);
   app.use("/api/storage", uploadRoutes);
+  app.use("/api/kyc", kycRoutes);
   app.use("/api/payment", paymentRoutes);
   app.use("/api/gamification", gamificationRoutes);
   app.use("/api/withdrawals", withdrawalRoutes);
@@ -1186,6 +1188,64 @@ Tu ne dois pas donner la réponse brute immédiatement, mais guider les étudian
     } catch (err: any) {
       console.error("release-escrows error:", err);
       res.status(500).json({ error: err.message });
+    }
+  });
+
+
+  // PHASE 8: Ambassador Payouts
+  app.post("/api/ambassador/payout/request", isAuthenticated, async (req: any, res: any) => {
+    try {
+      const { amount, method, destination } = req.body;
+      const userId = req.user.uid;
+      
+      if (!amount || !method || !destination) {
+        return res.status(400).json({ error: "Montant, méthode et destination sont requis." });
+      }
+      
+      
+      
+      
+      
+      
+      
+      
+      const { requestAmbassadorPayout } = await import('./src/lib/walletProcessor.js');
+      
+      const result = await requestAmbassadorPayout(userId, Number(amount), method, destination);
+      res.json(result);
+    } catch (err: any) {
+      console.error("Ambassador payout error:", err);
+      res.status(500).json({ error: err.message || "Erreur lors de la demande." });
+    }
+  });
+
+  app.post("/api/ambassador/payout/process", isAuthenticated, requireRole(["admin"]), async (req: any, res: any) => {
+    try {
+      const { requestId, action, paymentReference, rejectionReason } = req.body;
+      const adminId = req.user.uid;
+      
+      if (!requestId || !action) {
+        return res.status(400).json({ error: "requestId et action sont requis." });
+      }
+      
+      const { processAmbassadorPayout } = await import('./src/lib/walletProcessor.js');
+      const result = await processAmbassadorPayout(requestId, action, adminId, paymentReference, rejectionReason);
+      res.json(result);
+    } catch (err: any) {
+      console.error("Ambassador process payout error:", err);
+      res.status(500).json({ error: err.message || "Erreur de traitement." });
+    }
+  });
+
+  app.post("/api/ambassador/commissions/release", isAuthenticated, async (req: any, res: any) => {
+    try {
+      const userId = req.user.uid;
+      const { releaseAvailableCommissions } = await import('./src/lib/walletProcessor.js');
+      const result = await releaseAvailableCommissions(userId);
+      res.json(result);
+    } catch (err: any) {
+      console.error("Release commissions error:", err);
+      res.status(500).json({ error: err.message || "Erreur de libération." });
     }
   });
 

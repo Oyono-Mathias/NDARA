@@ -110,6 +110,8 @@ const AdminAmbassadorLeaderboard = React.lazy(() => import('./views/admin/AdminA
 const AdminAmbassadorsList = React.lazy(() => import('./views/admin/AdminAmbassadorsList').then(m => ({ default: m.AdminAmbassadorsList })));
 const AdminAmbassadorProfile = React.lazy(() => import('./views/admin/AdminAmbassadorProfile').then(m => ({ default: m.AdminAmbassadorProfile })));
 const AdminAmbassadorHistory = React.lazy(() => import('./views/admin/AdminAmbassadorHistory').then(m => ({ default: m.AdminAmbassadorHistory })));
+const AdminAmbassadorPayouts = React.lazy(() => import('./views/admin/AdminAmbassadorPayouts').then(m => ({ default: m.AdminAmbassadorPayouts })));
+
 const AdminMarketingAssets = React.lazy(() => import('./views/admin/AdminMarketingAssets').then(module => ({ default: module.AdminMarketingAssets })));
 
 
@@ -300,6 +302,8 @@ export default function App() {
           <Route path="ambassador/list" element={<AdminAmbassadorsList />} />
           <Route path="ambassador/profile/:uid" element={<AdminAmbassadorProfile />} />
           <Route path="ambassador/history" element={<AdminAmbassadorHistory />} />
+          <Route path="ambassador/withdrawals" element={<AdminAmbassadorPayouts />} />
+
 
 
           <Route path="marketing-assets" element={<AdminMarketingAssets />} />

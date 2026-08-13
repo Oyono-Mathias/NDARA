@@ -1,7 +1,12 @@
-import React, { useState } from 'react';
-import { Save, Check, ToggleLeft, ToggleRight } from 'lucide-react';
+
+import React, { useState, useEffect } from 'react';
+import { Save, Check, ToggleLeft, ToggleRight, Loader2 } from 'lucide-react';
+import { db } from '../../firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { useToast } from '../../hooks/use-toast';
 
 export function AdminAmbassadorSettings() {
+  const { toast } = useToast();
   const [settings, setSettings] = useState({
     active: true,
     courseCommission: 20,
@@ -12,22 +17,43 @@ export function AdminAmbassadorSettings() {
     p2pCommission: 5,
     cookieDuration: 90,
     minPayout: 5000,
-    minWithdrawal: 2500,
+    minWithdrawal: 5000,
     autoValidation: false,
     autoPayment: false,
+    validationDays: 7
   });
-
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  
+  useEffect(() => {
+     getDoc(doc(db, 'config', 'affiliate_rewards_config')).then(snap => {
+        if (snap.exists()) {
+           setSettings({ ...settings, ...snap.data() });
+        }
+        setLoading(false);
+     });
+  }, []);
 
-  const handleSave = () => {
-    // In a real app, save to Firestore
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+  const handleSave = async () => {
+    try {
+      setSaving(true);
+      await setDoc(doc(db, 'config', 'affiliate_rewards_config'), settings, { merge: true });
+      setSaved(true);
+      toast({ title: 'Succès', description: 'Configuration enregistrée.' });
+      setTimeout(() => setSaved(false), 2000);
+    } catch (err: any) {
+      toast({ title: 'Erreur', description: err.message, variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleChange = (key: string, value: any) => {
     setSettings({ ...settings, [key]: value });
   };
+  
+  if (loading) return <div className="p-8 flex justify-center"><Loader2 className="w-8 h-8 animate-spin text-pink-500"/></div>;
 
   return (
     <div className="space-y-6 max-w-4xl">
@@ -70,59 +96,11 @@ export function AdminAmbassadorSettings() {
             />
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-bold text-slate-300">Commission Certifications (%)</label>
+            <label className="text-sm font-bold text-slate-300">Délai de validation (jours)</label>
             <input 
               type="number" 
-              value={settings.certificationCommission}
-              onChange={(e) => handleChange('certificationCommission', Number(e.target.value))}
-              className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-bold text-slate-300">Commission Premium (%)</label>
-            <input 
-              type="number" 
-              value={settings.premiumCommission}
-              onChange={(e) => handleChange('premiumCommission', Number(e.target.value))}
-              className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-bold text-slate-300">Commission Marketplace (%)</label>
-            <input 
-              type="number" 
-              value={settings.marketplaceCommission}
-              onChange={(e) => handleChange('marketplaceCommission', Number(e.target.value))}
-              className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-bold text-slate-300">Commission P2P (%)</label>
-            <input 
-              type="number" 
-              value={settings.p2pCommission}
-              onChange={(e) => handleChange('p2pCommission', Number(e.target.value))}
-              className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white"
-            />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pb-6 border-b border-slate-700/50">
-          <div className="space-y-2">
-            <label className="text-sm font-bold text-slate-300">Durée du cookie (jours)</label>
-            <input 
-              type="number" 
-              value={settings.cookieDuration}
-              onChange={(e) => handleChange('cookieDuration', Number(e.target.value))}
-              className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-bold text-slate-300">Paiement minimum (FCFA)</label>
-            <input 
-              type="number" 
-              value={settings.minPayout}
-              onChange={(e) => handleChange('minPayout', Number(e.target.value))}
+              value={settings.validationDays}
+              onChange={(e) => handleChange('validationDays', Number(e.target.value))}
               className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white"
             />
           </div>
@@ -137,40 +115,13 @@ export function AdminAmbassadorSettings() {
           </div>
         </div>
 
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-lg font-bold text-white">Validation automatique</h3>
-              <p className="text-sm text-slate-400">Valider les commissions automatiquement après l'achat</p>
-            </div>
-            <button 
-              onClick={() => handleChange('autoValidation', !settings.autoValidation)}
-              className={`text-4xl ${settings.autoValidation ? 'text-emerald-500' : 'text-slate-600'}`}
-            >
-              {settings.autoValidation ? <ToggleRight className="w-10 h-10" /> : <ToggleLeft className="w-10 h-10" />}
-            </button>
-          </div>
-          
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-lg font-bold text-white">Paiement automatique</h3>
-              <p className="text-sm text-slate-400">Approuver les retraits automatiquement sous le seuil défini</p>
-            </div>
-            <button 
-              onClick={() => handleChange('autoPayment', !settings.autoPayment)}
-              className={`text-4xl ${settings.autoPayment ? 'text-emerald-500' : 'text-slate-600'}`}
-            >
-              {settings.autoPayment ? <ToggleRight className="w-10 h-10" /> : <ToggleLeft className="w-10 h-10" />}
-            </button>
-          </div>
-        </div>
-
         <div className="pt-4 flex justify-end">
           <button 
             onClick={handleSave}
-            className="px-6 py-3 bg-emerald-500 hover:bg-emerald-400 text-white font-bold rounded-xl flex items-center gap-2 transition-all"
+            disabled={saving}
+            className="px-6 py-3 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-white font-bold rounded-xl flex items-center gap-2 transition-all"
           >
-            {saved ? <Check className="w-5 h-5" /> : <Save className="w-5 h-5" />}
+            {saving ? <Loader2 className="w-5 h-5 animate-spin"/> : saved ? <Check className="w-5 h-5" /> : <Save className="w-5 h-5" />}
             {saved ? 'Enregistré' : 'Enregistrer'}
           </button>
         </div>

@@ -1,3 +1,4 @@
+import { adminDb } from '../lib/firebaseAdmin.js';
 import { logger } from '../lib/logger';
 import { Response, Request } from "express";
 import { AuthRequest } from "../middlewares/authMiddleware.js";
@@ -119,8 +120,19 @@ export const handleGetSignedUrl = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: "File key is required." });
     }
 
-    // Role check / ownership check should happen here against Firestore
-    // e.g. if key starts with "documents/kyc" verify role=="admin" or document belongs to uid.
+    if (key.startsWith("documents/kyc")) {
+      const userDoc = await adminDb.collection("users").doc(req.user!.uid).get();
+      const role = userDoc.data()?.role;
+      if (role !== "admin" && role !== "superadmin") {
+         const kycDocs = await adminDb.collection("kyc_requests")
+            .where("documentStoragePath", "==", key)
+            .where("userId", "==", req.user!.uid)
+            .get();
+         if (kycDocs.empty) {
+             return res.status(403).json({ error: "Forbidden: Access denied to this document." });
+         }
+      }
+    }
 
     const url = await storageService.getSignedReadUrl(key, 3600);
     return res.status(200).json({ success: true, signedUrl: url });
