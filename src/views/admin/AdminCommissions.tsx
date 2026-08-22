@@ -66,7 +66,7 @@ export function AdminCommissions() {
 
       setCommissions(coms);
     } catch (e) {
-      console.error(e);
+      console.error(e instanceof Error ? e.message : String(e));
       toast({ title: "Erreur", description: "Impossible de charger les commissions.", variant: "destructive" });
     } finally {
       setLoading(false);

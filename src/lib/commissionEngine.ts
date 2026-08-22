@@ -185,7 +185,7 @@ export async function cancelAmbassadorCommission(transactionId: string) {
       t.set(notificationRef, {
         userId: ambassadorUid,
         title: "Commission annulée",
-        message: `Votre commission de ${commissionAmountOut} XAF a été annulée.`,
+        message: `Votre commission de ${commissionAmount} XAF a été annulée.`, // PATCHED
         type: "commission_cancellation",
         isRead: false,
         createdAt: FieldValue.serverTimestamp()
@@ -195,7 +195,7 @@ export async function cancelAmbassadorCommission(transactionId: string) {
         const { sendEmail } = await import("./mailTransporter.js");
         const ambUser = await adminDb.collection('users').doc(ambassadorUid).get();
         if (ambUser.exists && ambUser.data()?.email) {
-           await sendEmail(ambUser.data()?.email, "Commission annulée", `Votre commission de ${commissionAmountOut} XAF a été annulée.`);
+           await sendEmail(ambUser.data()?.email, "Commission annulée", `Votre commission de ${commissionAmount} XAF a été annulée.`); // PATCHED
         }
       } catch(e) {}
       

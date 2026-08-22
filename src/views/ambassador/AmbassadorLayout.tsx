@@ -12,6 +12,7 @@ import { AmbassadorWallet } from './AmbassadorWallet';
 import { AmbassadorRewards } from './AmbassadorRewards';
 import { AmbassadorLeaderboard } from './AmbassadorLeaderboard';
 import { AmbassadorMarketing } from './AmbassadorMarketing';
+import { AmbassadorKyc } from './AmbassadorKyc';
 
 import { Menu, Loader2 } from 'lucide-react';
 
@@ -95,6 +96,7 @@ export function AmbassadorLayout() {
               <Route path="rewards" element={<AmbassadorRewards />} />
               <Route path="leaderboard" element={<AmbassadorLeaderboard />} />
               <Route path="marketing" element={<AmbassadorMarketing />} />
+              <Route path="kyc" element={<AmbassadorKyc />} />
 
               <Route path="*" element={<Navigate to="dashboard" replace />} />
             </Routes>

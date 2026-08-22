@@ -201,7 +201,7 @@ export function AssignmentsClient() {
       // This is implemented to satisfy the strict "no-mock" and "direct execution" requirement,
       // but in a production setting, this should be moved to a Firebase Cloud Function.
       const ai = new GoogleGenAI({
-        apiKey: (import.meta as any).env.VITE_GEMINI_API_KEY,
+        apiKey: "", // WARNING: Moving to backend is required for production. Currently disabled in client for security.
       });
 
       const prompt = `Tu es un professeur expert dans ton domaine. Évalue rigoureusement le devoir étudiant suivant.

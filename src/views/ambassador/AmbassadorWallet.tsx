@@ -1,9 +1,10 @@
+import { Link } from 'react-router-dom';
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { db } from '../../firebase';
 import { collection, query, where, getDocs, onSnapshot, orderBy, limit, doc } from 'firebase/firestore';
 import { useToast } from '../../hooks/use-toast';
-import { Loader2, Wallet, DollarSign, ArrowDownRight, Clock, CheckCircle2, Search, Download, CreditCard, Banknote, AlertCircle, XCircle } from 'lucide-react';
+import { Loader2, Wallet, DollarSign, ArrowDownRight, Clock, CheckCircle2, Search, Download, CreditCard, Banknote, AlertCircle, XCircle , ShieldCheck } from 'lucide-react';
 import clsx from 'clsx';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -14,6 +15,7 @@ export function AmbassadorWallet() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [wallet, setWallet] = useState<any>(null);
+  const [kycStatus, setKycStatus] = useState<string>('unverified');
   const [withdrawals, setWithdrawals] = useState<any[]>([]);
   const [stats, setStats] = useState<any>({
     monthIncome: 0,
@@ -77,7 +79,7 @@ export function AmbassadorWallet() {
         yearIncome: yIncome
       });
     } catch(e) {
-      console.error(e);
+      console.error(e instanceof Error ? e.message : String(e));
     }
   };
 
@@ -236,6 +238,21 @@ export function AmbassadorWallet() {
             <ArrowDownRight className="w-4 h-4 text-emerald-400" /> Demander un retrait
           </h2>
           
+          {kycStatus !== 'approved' ? (
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 text-center">
+              <div className="w-12 h-12 bg-pink-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                <ShieldCheck className="w-6 h-6 text-pink-500" />
+              </div>
+              <h3 className="font-bold text-white mb-2">Vérification d'identité requise</h3>
+              <p className="text-sm text-slate-400 mb-6">Pour protéger les paiements et lutter contre la fraude, vous devez vérifier votre identité avant votre premier retrait.</p>
+              <Link 
+                to="/ambassador/kyc" 
+                className="inline-flex items-center justify-center w-full bg-pink-500 hover:bg-pink-400 text-white font-bold py-3 px-4 rounded-xl transition-colors"
+              >
+                Vérifier mon identité
+              </Link>
+            </div>
+          ) : (
           <form onSubmit={handleWithdraw} className="space-y-6">
             <div>
               <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Montant (XAF)</label>
@@ -294,6 +311,7 @@ export function AmbassadorWallet() {
               </p>
             )}
           </form>
+          )}
         </div>
 
         {/* TRANSACTIONS */}

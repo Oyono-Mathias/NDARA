@@ -31,3 +31,5 @@ export const ResourcesService = new BaseService<Models.Resource>('resources');
 export const QuizzesService = new BaseService<Models.Quiz>('quizzes');
 export const ExercisesService = new BaseService<Models.Exercise>('exercises');
 export const QuizResultsService = new BaseService<Models.QuizResult>('quiz_results');
+
+export const ModerationLogsService = new BaseService<Models.ModerationLog>('moderation_logs');

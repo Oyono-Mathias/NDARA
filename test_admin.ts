@@ -1,11 +1,13 @@
-import { adminDb } from './src/lib/firebaseAdmin';
+import admin from 'firebase-admin';
 
-async function test() {
-    try {
-        const snapshot = await adminDb.collection('users').limit(1).get();
-        console.log("Success:", snapshot.size);
-    } catch (e) {
-        console.error("Error:", e.message);
-    }
+try {
+  admin.initializeApp();
+  const db = admin.firestore();
+  db.collection('users').limit(1).get().then(() => {
+    console.log("Admin initialized successfully and accessed DB");
+  }).catch((e: any) => {
+    console.log("DB access failed:", e);
+  });
+} catch(e) {
+  console.log("Admin initialization failed:", e);
 }
-test();

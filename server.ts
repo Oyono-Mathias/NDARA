@@ -67,7 +67,7 @@ app.use((req, res, next) => {
 
   // 2. STABILISATION BACKEND: Strict CORS strategy
   const corsOptions = {
-    origin: process.env.NODE_ENV === "production" ? ["https://votre-domaine-final.com"] : "*",
+    origin: process.env.NODE_ENV === "production" ? [process.env.APP_URL, "https://ndara.io", "https://www.ndara.io"] : "*",
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
   };
@@ -1524,8 +1524,8 @@ Tu ne dois pas donner la réponse brute immédiatement, mais guider les étudian
   app.post("/api/video/create", isAuthenticated, requireRole(['instructor', 'admin']), async (req: any, res: any) => {
     try {
       const { title } = req.body;
-      let apiKey = process.env.BUNNY_STREAM_API_KEY || "b89fbb62-a0ab-43d4-9ad766000a89-9651-4a36";
-      let libraryId = process.env.BUNNY_STREAM_LIBRARY_ID || "698776";
+      let apiKey = process.env.BUNNY_STREAM_API_KEY;
+      let libraryId = process.env.BUNNY_STREAM_LIBRARY_ID;
 
       try {
         const { adminDb } = await import("./src/lib/firebaseAdmin.js");
@@ -1556,7 +1556,7 @@ Tu ne dois pas donner la réponse brute immédiatement, mais guider les étudian
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.warn("Bunny API Error, falling back to dummy", response.status);
+        
         return res.json({
           success: true,
           videoId: "dummy-" + Date.now(),
@@ -1731,9 +1731,9 @@ Tu ne dois pas donner la réponse brute immédiatement, mais guider les étudian
         return res.status(400).json({ error: "videoId est requis." });
       }
 
-      const securityKey = process.env.BUNNY_STREAM_SECURITY_KEY || "6e4f82a1-72cf-4d99-a850-db8f9c0f0686";
-      const libraryId = process.env.BUNNY_STREAM_LIBRARY_ID || "698776";
-      const cdnHostname = process.env.BUNNY_STREAM_CDN_HOSTNAME || "vz-758d93f4-d56.b-cdn.net";
+      const securityKey = process.env.BUNNY_STREAM_SECURITY_KEY;
+      const libraryId = process.env.BUNNY_STREAM_LIBRARY_ID;
+      const cdnHostname = process.env.BUNNY_STREAM_CDN_HOSTNAME;
 
       if (!securityKey || !libraryId) {
         return res.status(500).json({ error: "Configuration Bunny Stream manquante sur le serveur." });
@@ -2013,6 +2013,10 @@ Tu ne dois pas donner la réponse brute immédiatement, mais guider les étudian
             if (!ambSnapshot.empty) {
                 ambassadorDocRef = ambSnapshot.docs[0].ref;
                 assignedReferrer = ambSnapshot.docs[0].data().userId;
+                if (assignedReferrer === uid) {
+                    assignedReferrer = null;
+                    ambassadorDocRef = null;
+                }
             }
         }
         
@@ -2108,7 +2112,13 @@ Tu ne dois pas donner la réponse brute immédiatement, mais guider les étudian
             if (!ambSnapshot.empty) {
                 ambassadorDocRef = ambSnapshot.docs[0].ref;
                 assignedReferrer = ambSnapshot.docs[0].data().userId;
-                actualRefCodeUsed = refCode;
+                if (assignedReferrer === uid) {
+                    assignedReferrer = null;
+                    ambassadorDocRef = null;
+                    actualRefCodeUsed = null;
+                } else {
+                    actualRefCodeUsed = refCode;
+                }
             }
         }
         
@@ -2320,6 +2330,10 @@ Tu ne dois pas donner la réponse brute immédiatement, mais guider les étudian
                     ambassadorDocRef = ambQuery.docs[0].ref;
                     ambassadorDocData = ambQuery.docs[0].data();
                     assignedReferrer = ambassadorDocData.userId;
+                    if (assignedReferrer === uid) {
+                        assignedReferrer = null;
+                        ambassadorDocRef = null;
+                    }
                 }
             }
 

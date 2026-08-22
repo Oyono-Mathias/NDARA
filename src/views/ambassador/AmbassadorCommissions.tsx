@@ -100,7 +100,7 @@ export function AmbassadorCommissions() {
           yearIncome: yIncome
         }));
     } catch (e) {
-        console.error(e);
+        console.error(e instanceof Error ? e.message : String(e));
     }
   };
 

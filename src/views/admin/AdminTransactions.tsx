@@ -78,7 +78,7 @@ export function AdminTransactions() {
       const response = await fetch('/api/payment/refund', {
         method: 'POST',
         credentials: "include",
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${"dummy"}` },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await (await import("../../firebase")).auth.currentUser?.getIdToken()}` },
         body: JSON.stringify({ txRef, reason: 'Demande utilisateur' })
       });
       const data = await response.json();
@@ -227,7 +227,7 @@ export function AdminTransactions() {
     setIsProcessing(payout.id);
     try {
       const auth = await import('../../firebase').then(m => m.auth);
-      const token = "dummy";
+      const token = await auth.currentUser?.getIdToken();
       const res = await fetch('/api/wallet/approve-payout', {
         method: 'POST',
         credentials: "include",
@@ -254,7 +254,7 @@ export function AdminTransactions() {
     setIsProcessing(payoutId);
     try {
       const auth = await import('../../firebase').then(m => m.auth);
-      const token = "dummy";
+      const token = await auth.currentUser?.getIdToken();
       const res = await fetch('/api/wallet/approve-payout', {
         method: 'POST',
         credentials: "include",

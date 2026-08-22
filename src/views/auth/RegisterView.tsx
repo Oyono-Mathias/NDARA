@@ -51,7 +51,7 @@ export function RegisterView() {
         setRefError("Code invalide ou expiré");
       }
     } catch (err) {
-      console.error(err);
+      console.error(err instanceof Error ? err.message : String(err));
       setRefValid(false);
       setRefError("Erreur de validation");
     } finally {

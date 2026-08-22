@@ -1,10 +1,16 @@
 const fs = require('fs');
-let code = fs.readFileSync('src/App.tsx', 'utf8');
+let code = fs.readFileSync('src/views/instructor/InstructorLayout.tsx', 'utf8');
 
-if (!code.includes('<Route path="google-test"')) {
-  code = code.replace(
-    '<Route path="/student/courses/:slug" element={<CoursePlayer />} />',
-    '<Route path="/student/courses/:slug" element={<CoursePlayer />} />\n        <Route path="/google-test" element={<GoogleWorkspaceTest />} />'
-  );
-  fs.writeFileSync('src/App.tsx', code);
+if (!code.includes('InstructorCourseProgram')) {
+    code = code.replace(
+        'import { InstructorCourseEdit } from "./InstructorCourseEdit";',
+        'import { InstructorCourseEdit } from "./InstructorCourseEdit";\nimport { InstructorCourseProgram } from "./InstructorCourseProgram";'
+    );
+    
+    code = code.replace(
+        '<Route\n                  path="courses/edit/:id"\n                  element={<InstructorCourseEdit />}\n                />',
+        '<Route\n                  path="courses/edit/:id"\n                  element={<InstructorCourseEdit />}\n                />\n                <Route\n                  path="courses/:id/program"\n                  element={<InstructorCourseProgram />}\n                />'
+    );
+    
+    fs.writeFileSync('src/views/instructor/InstructorLayout.tsx', code);
 }

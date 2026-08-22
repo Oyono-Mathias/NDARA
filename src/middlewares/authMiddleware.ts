@@ -41,7 +41,7 @@ export const requireRole = (allowedRoles: string[]) => {
   return (req: AuthRequest, res: Response, next: NextFunction) => {
     const userRole = req.user?.role || "student"; // Default role
     // Check if user is an admin bypassing roles, or has specific role
-    if (userRole !== "admin" && !allowedRoles.includes(userRole)) {
+    if (userRole !== "admin" && userRole !== "superadmin" && !allowedRoles.includes(userRole)) {
       console.warn(`Access denied. User role '${userRole}' not in allowed roles: ${allowedRoles.join(", ")}`);
       return res.status(403).json({ error: "Forbidden: insufficient permissions" });
     }
@@ -58,7 +58,7 @@ export const requireOwnershipOrAdmin = (userIdField: string = "userId") => {
     
     const targetUserId = req.body[userIdField] || req.params[userIdField] || req.query[userIdField];
     const isOwner = req.user.uid === targetUserId;
-    const isAdmin = req.user.role === "admin";
+    const isAdmin = req.user.role === "admin" || req.user.role === "superadmin";
     
     if (!isOwner && !isAdmin) {
       return res.status(403).json({ error: "Forbidden: you can only modify your own data" });

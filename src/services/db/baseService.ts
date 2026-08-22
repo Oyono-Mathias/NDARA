@@ -11,6 +11,12 @@ export function createConverter<T extends BaseModel>(): FirestoreDataConverter<T
     toFirestore(modelObject: any): DocumentData {
       const data = { ...modelObject };
       delete data.id;
+      // Remove any undefined properties to prevent Firestore errors
+      Object.keys(data).forEach(key => {
+        if (data[key] === undefined) {
+          delete data[key];
+        }
+      });
       return data;
     },
     fromFirestore(snapshot: QueryDocumentSnapshot, options: SnapshotOptions): T {

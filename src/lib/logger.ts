@@ -1,16 +1,23 @@
 import { db } from "../firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 
+function safeStringify(obj: any): string {
+  if (!obj) return "";
+  if (obj instanceof Error) return obj.message;
+  if (typeof obj === 'string') return obj;
+  try {
+    return JSON.stringify(obj);
+  } catch (e) {
+    return String(obj);
+  }
+}
+
 export const logger = {
   error: (msg: string, err?: any) => {
-    const errorMessage =
-      err?.message || (typeof err === "string" ? err : "Unknown error");
-
+    const errorMessage = err?.message || (typeof err === "string" ? err : "Unknown error");
     if (process.env.NODE_ENV !== "production") {
       console.error(`[ERROR] ${msg}:`, err);
     }
-
-    // Push error to Firestore for admin monitoring
     try {
       addDoc(collection(db, "audit_logs"), {
         action: "ERROR",
@@ -27,12 +34,11 @@ export const logger = {
     if (process.env.NODE_ENV !== "production") {
       console.warn(`[WARN] ${msg}:`, obj);
     }
-
     try {
       addDoc(collection(db, "audit_logs"), {
         action: "WARN",
         message: msg,
-        details: obj ? JSON.stringify(obj) : "",
+        details: safeStringify(obj),
         timestamp: serverTimestamp(),
         severity: "medium",
       }).catch((e) => console.warn("Failed to save warn log", e));

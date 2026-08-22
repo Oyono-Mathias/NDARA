@@ -1,23 +1,23 @@
 const fs = require('fs');
-let code = fs.readFileSync('firestore.rules', 'utf8');
+let file = fs.readFileSync('firestore.rules', 'utf8');
 
-// The code currently has:
-//   }
-// }
-//     // --- Phase 10 : Ambassadeurs (Gamification & Rewards) ---
+const chaptersRule = `
+    match /chapters/{chapterId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && (isAdmin() || isOwner(get(/databases/$(database)/documents/courses/$(request.resource.data.courseId)).data.instructorId));
+      allow update, delete: if isAuthenticated() && (isAdmin() || isOwner(get(/databases/$(database)/documents/courses/$(resource.data.courseId)).data.instructorId));
+    }
+`;
 
-code = code.replace("  }\n}\n    // --- Phase 10 : Ambassadeurs (Gamification & Rewards) ---", "    // --- Phase 10 : Ambassadeurs (Gamification & Rewards) ---");
+const lessonsRule = `
+    match /lessons/{lessonId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && (isAdmin() || isOwner(get(/databases/$(database)/documents/courses/$(request.resource.data.courseId)).data.instructorId));
+      allow update, delete: if isAuthenticated() && (isAdmin() || isOwner(get(/databases/$(database)/documents/courses/$(resource.data.courseId)).data.instructorId));
+    }
+`;
 
-// Check if it's there
-let lastBracketPos = code.lastIndexOf('}');
-if (lastBracketPos !== -1) {
-    code = code.substring(0, lastBracketPos) + code.substring(lastBracketPos + 1);
-}
-lastBracketPos = code.lastIndexOf('}');
-if (lastBracketPos !== -1) {
-    code = code.substring(0, lastBracketPos) + code.substring(lastBracketPos + 1);
-}
+file = file.replace(/match \/chapters\/\{chapterId\} \{[\s\S]*?allow write:[\s\S]*?\}/, chaptersRule.trim());
+file = file.replace(/match \/lessons\/\{lessonId\} \{[\s\S]*?allow write:[\s\S]*?\}/, lessonsRule.trim());
 
-code += "\n  }\n}\n";
-
-fs.writeFileSync('firestore.rules', code);
+fs.writeFileSync('firestore.rules', file);

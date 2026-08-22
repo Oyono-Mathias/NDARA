@@ -6,6 +6,7 @@ import { EbooksManager } from './EbooksManager';
 import { CoursesManager } from './CoursesManager';
 import { CategoriesManager } from './CategoriesManager';
 import { CourseBuilder } from './CourseBuilder';
+import { CourseReviewView } from './CourseReviewView';
 
 export function AdminCatalogView() {
   const location = useLocation();
@@ -47,6 +48,7 @@ export function AdminCatalogView() {
           <Route path="/categories" element={<CategoriesManager />} />
           <Route path="/ebooks" element={<EbooksManager />} />
           <Route path="/courses/:courseId/builder" element={<CourseBuilder />} />
+          <Route path="/courses/:courseId/review" element={<CourseReviewView />} />
         </Routes>
       </div>
     </div>

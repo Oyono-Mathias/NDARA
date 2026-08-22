@@ -31,6 +31,7 @@ export function CourseDetail() {
         // Fetch Course
         const courseRef = doc(db, 'courses', slug);
         const unsub = onSnapshot(courseRef, async (docSnap) => {
+
             if (docSnap.exists()) {
                 const data = { id: docSnap.id, ...docSnap.data() } as any;
                 setCourse(data);
@@ -42,7 +43,12 @@ export function CourseDetail() {
                             userId: currentUser.uid,
                             courseId: data.id,
                             viewedAt: serverTimestamp()
-                        });
+                        
+        }, (error) => {
+            console.error("Course load error:", error);
+            setCourse(null);
+            setLoading(false);
+        });
                     } catch (e) {
                         logger.error('Failed to log course view', e);
                     }

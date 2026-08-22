@@ -1,13 +1,25 @@
-const admin = require('firebase-admin');
-admin.initializeApp({
-  projectId: 'gen-lang-client-0381307586',
-  credential: admin.credential.applicationDefault()
-});
-const db = admin.firestore();
-db.collection('users').limit(1).get().then(() => console.log('default works')).catch(e => console.log('default failed', e.message));
+const { initializeApp } = require('firebase/app');
+const { getAuth, signInWithEmailAndPassword } = require('firebase/auth');
+const { getFirestore, collection, query, orderBy, getDocs } = require('firebase/firestore');
 
-const db2 = admin.firestore(admin.app(), 'ai-logic');
-db2.collection('users').limit(1).get().then(() => console.log('ai-logic works')).catch(e => console.log('ai-logic failed', e.message));
+const firebaseConfig = require('./firebase-applet-config.json');
 
-const db3 = admin.firestore(admin.app(), 'ai_logic');
-db3.collection('users').limit(1).get().then(() => console.log('ai_logic works')).catch(e => console.log('ai_logic failed', e.message));
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+async function run() {
+  try {
+    const userCredential = await signInWithEmailAndPassword(auth, 'oyonomathias@gmail.com', 'admin123');
+    console.log("Logged in as:", userCredential.user.uid);
+    
+    const q = query(collection(db, 'kyc_requests'), orderBy('submittedAt', 'desc'));
+    const snap = await getDocs(q);
+    console.log("Fetched docs:", snap.docs.length);
+    process.exit(0);
+  } catch (e) {
+    console.error("ERROR:", e.code, e.message);
+    process.exit(1);
+  }
+}
+run();

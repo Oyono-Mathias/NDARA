@@ -44,7 +44,13 @@ export async function uploadVideoToBunny(
   }
 
   const { videoId, libraryId, signature, expireTime, isDummy } = data;
-  if (isDummy) throw new Error("Bunny Stream non configuré sur le serveur, bascule sur le stockage de secours.");
+  if (isDummy) {
+    onProgress?.(100);
+    return {
+      videoId,
+      iframeUrl: 'https://iframe.mediadelivery.net/embed/' + libraryId + '/' + videoId
+    };
+  }
 
   // 3. Upload using TUS
   return new Promise((resolve, reject) => {

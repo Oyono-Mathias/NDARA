@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { CategoriesService, CoursesService, ChaptersService, LessonsService } from '../../services/db';
+import { CategoriesService, CoursesService, ChaptersService, LessonsService, ModerationLogsService } from '../../services/db';
+import { auth } from '../../firebase';
 import { Category, Course, Chapter, Lesson } from '../../types/models';
 import { orderBy, where } from 'firebase/firestore';
 
@@ -115,8 +116,18 @@ export function useCourseBuilder(courseId: string) {
   const updateChapter = async (id: string, data: Partial<Chapter>) => ChaptersService.update(id, data);
   const updateLesson = async (id: string, data: Partial<Lesson>) => LessonsService.update(id, data);
 
-  const deleteChapter = async (id: string) => ChaptersService.update(id, { status: 'archived' });
-  const deleteLesson = async (id: string) => LessonsService.update(id, { status: 'archived' });
+  const deleteChapter = async (id: string) => {
+    await ChaptersService.update(id, { status: 'archived' });
+    if (auth.currentUser) {
+      await ModerationLogsService.create({ entityId: id, entityType: 'chapter', action: 'CHAPTER_DELETED', actorId: auth.currentUser.uid, timestamp: Date.now() });
+    }
+  };
+  const deleteLesson = async (id: string) => {
+    await LessonsService.update(id, { status: 'archived' });
+    if (auth.currentUser) {
+      await ModerationLogsService.create({ entityId: id, entityType: 'lesson', action: 'LESSON_DELETED', actorId: auth.currentUser.uid, timestamp: Date.now() });
+    }
+  };
 
   return { 
     chapters, lessons, loading, 

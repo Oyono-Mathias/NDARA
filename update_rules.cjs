@@ -1,22 +1,21 @@
 const fs = require('fs');
-const path = require('path');
-const file = path.join(__dirname, 'firestore.rules');
-let code = fs.readFileSync(file, 'utf8');
+let file = fs.readFileSync('firestore.rules', 'utf8');
 
-const newRule = `
-    match /ambassadors/{ambassadorId} {
-      allow read: if isAdmin() || (isAuthenticated() && request.auth.uid == ambassadorId);
-      allow write: if isAdmin();
+const newCoursesBlock = `
+    match /courses/{courseId} {
+      allow read: if isAdmin() || (isAuthenticated() && resource.data.instructorId == request.auth.uid) || resource.data.status == 'published';
+      allow create: if isAuthenticated() && (isAdmin() || request.auth.uid == request.resource.data.instructorId);
+      allow update: if isAuthenticated() && (
+        isAdmin() || 
+        (isOwner(resource.data.instructorId) && (
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['status']) || 
+          (request.resource.data.status in ['draft', 'pending_review', 'archived'])
+        ))
+      );
+      allow delete: if isAuthenticated() && (isAdmin() || isOwner(resource.data.instructorId));
     }
 `;
 
-if (!code.includes('match /ambassadors')) {
-    code = code.replace(
-        'match /users/{userId} {',
-        newRule + '\n    match /users/{userId} {'
-    );
-    fs.writeFileSync(file, code);
-    console.log("Firestore rules updated");
-} else {
-    console.log("Rule already exists");
-}
+file = file.replace(/match \/courses\/\{courseId\} \{[\s\S]*?allow update, delete: if isAuthenticated\(\) && \(isAdmin\(\) \|\| isOwner\(resource\.data\.instructorId\)\);\s*\}/, newCoursesBlock.trim());
+
+fs.writeFileSync('firestore.rules', file);

@@ -222,7 +222,7 @@ export function InstructorCourses() {
 }
 
 function CourseListItem({ course, onEdit, onDelete, onPreview }: any) {
-  const isDraft = course.status === "Draft";
+  const isDraft = course.status === 'draft';
 
   return (
     <div className="bg-[#1e293b] p-3 rounded-2xl border border-white/5 flex gap-4 w-full text-left mb-3 group relative">
@@ -245,7 +245,7 @@ function CourseListItem({ course, onEdit, onDelete, onPreview }: any) {
             <span
               className={`px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wider rounded backdrop-blur-md ${isDraft ? "bg-amber-500/80 text-white" : "bg-primary/80 text-slate-900"}`}
             >
-              {course.status || "Draft"}
+              {course.status === 'pending_review' ? 'En révision' : course.status === 'draft' ? 'Brouillon' : course.status === 'published' ? 'Publié' : course.status === 'rejected' ? 'Rejeté' : course.status || 'Brouillon'}
             </span>
           </div>
         </div>

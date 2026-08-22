@@ -282,7 +282,7 @@ export function AmbassadorReferrals() {
       }, 500);
 
     } catch(e) {
-      console.error(e);
+      console.error(e instanceof Error ? e.message : String(e));
       toast({ title: "Erreur d'export", description: "Impossible de générer le fichier.", variant: "destructive" });
     } finally {
       setExporting(false);

@@ -32,15 +32,15 @@ export function CourseBuilder() {
   
   useEffect(() => {
     if (currentCourse && !isNew) {
-      setTitle(currentCourse.title);
-      setSlug(currentCourse.slug);
-      setShortDesc(currentCourse.shortDescription);
-      setFullDesc(currentCourse.fullDescription);
-      setPrice(currentCourse.price);
-      setIsFree(currentCourse.isFree);
-      setLevel(currentCourse.level);
-      setLanguage(currentCourse.language);
-      setCategoryId(currentCourse.categoryId);
+      setTitle(currentCourse.title || "");
+      setSlug(currentCourse.slug || "");
+      setShortDesc(currentCourse.shortDescription || "");
+      setFullDesc(currentCourse.fullDescription || "");
+      setPrice(currentCourse.price || 0);
+      setIsFree(currentCourse.isFree || false);
+      setLevel(currentCourse.level || "beginner");
+      setLanguage(currentCourse.language || "fr");
+      setCategoryId(currentCourse.categoryId || "");
     }
   }, [currentCourse, isNew]);
 

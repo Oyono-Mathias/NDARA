@@ -3,7 +3,7 @@ import { db } from '../../firebase';
 import { doc, getDoc, collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../hooks/use-toast';
-import { Upload, FileText, CheckCircle, XCircle, Clock, AlertCircle } from 'lucide-react';
+import { Upload, FileText, CheckCircle, XCircle, Clock, AlertCircle , ShieldCheck } from 'lucide-react';
 
 export function AmbassadorKyc() {
   const { firebaseUser } = useAuth();
@@ -13,6 +13,7 @@ export function AmbassadorKyc() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [file, setFile] = useState<File | null>(null);
+  const [fileVerso, setFileVerso] = useState<File | null>(null);
   const [idType, setIdType] = useState<string>('cni');
 
   useEffect(() => {
@@ -40,7 +41,7 @@ export function AmbassadorKyc() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!file) {
+    if (!file || (idType === 'cni' && !fileVerso)) {
       toast({ title: 'Erreur', description: 'Veuillez sélectionner un document', variant: 'destructive' });
       return;
     }
@@ -48,6 +49,8 @@ export function AmbassadorKyc() {
     try {
       setUploading(true);
 
+      // 1. Upload file securely
+      
       // 1. Upload file securely
       const formData = new FormData();
       formData.append('file', file);
@@ -61,11 +64,25 @@ export function AmbassadorKyc() {
         },
         body: formData
       });
-
       const uploadData = await uploadRes.json();
-      if (!uploadRes.ok) throw new Error(uploadData.error || 'Erreur lors de l\'upload');
+      if (!uploadRes.ok) throw new Error(uploadData.error || 'Erreur lors de l\'upload recto');
+      let storagePath = uploadData.key;
+      
+      if (idType === 'cni' && fileVerso) {
+        const formDataVerso = new FormData();
+        formDataVerso.append('file', fileVerso);
+        const uploadResVerso = await fetch('/api/storage/kyc', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          },
+          body: formDataVerso
+        });
+        const uploadDataVerso = await uploadResVerso.json();
+        if (!uploadResVerso.ok) throw new Error(uploadDataVerso.error || 'Erreur lors de l\'upload verso');
+        storagePath += ',' + uploadDataVerso.key;
+      }
 
-      const storagePath = uploadData.key;
       const fileName = file.name;
 
       // 2. Submit KYC request
@@ -152,8 +169,16 @@ export function AmbassadorKyc() {
               </select>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-bold text-slate-300">Document (Photo ou Scan clair)</label>
+            <div className="space-y-4">
+              <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl mb-4">
+                <p className="text-sm text-blue-200 flex items-center gap-2">
+                  <ShieldCheck className="w-5 h-5 text-blue-400 shrink-0" />
+                  Vos documents sont stockés de manière chiffrée et privée. Ils ne seront jamais partagés publiquement.
+                </p>
+              </div>
+              <label className="text-sm font-bold text-slate-300">
+                {idType === 'cni' ? 'Document CNI (Recto)' : 'Document (Passeport)'}
+              </label>
               <div className="border-2 border-dashed border-slate-700 rounded-xl p-8 text-center hover:border-pink-500/50 transition-colors bg-slate-900/50">
                 <input 
                   type="file" 
@@ -164,16 +189,39 @@ export function AmbassadorKyc() {
                 />
                 <label htmlFor="kyc-file" className="cursor-pointer flex flex-col items-center">
                   <Upload className="w-10 h-10 text-slate-500 mb-3" />
-                  <span className="text-slate-300 font-medium">Cliquez pour choisir un fichier</span>
+                  <span className="text-slate-300 font-medium">Cliquez pour choisir le fichier {idType === 'cni' && 'recto'}</span>
                   <span className="text-slate-500 text-sm mt-1">JPEG, PNG ou PDF (Max 5MB)</span>
                   {file && <span className="mt-4 text-pink-400 font-bold bg-pink-500/10 px-3 py-1 rounded-full text-sm">{file.name}</span>}
                 </label>
               </div>
+              
+              {idType === 'cni' && (
+                <>
+                  <label className="text-sm font-bold text-slate-300 mt-4 block">
+                    Document CNI (Verso)
+                  </label>
+                  <div className="border-2 border-dashed border-slate-700 rounded-xl p-8 text-center hover:border-pink-500/50 transition-colors bg-slate-900/50">
+                    <input 
+                      type="file" 
+                      accept="image/*,.pdf" 
+                      onChange={(e) => setFileVerso(e.target.files?.[0] || null)}
+                      className="hidden" 
+                      id="kyc-file-verso" 
+                    />
+                    <label htmlFor="kyc-file-verso" className="cursor-pointer flex flex-col items-center">
+                      <Upload className="w-10 h-10 text-slate-500 mb-3" />
+                      <span className="text-slate-300 font-medium">Cliquez pour choisir le fichier verso</span>
+                      <span className="text-slate-500 text-sm mt-1">JPEG, PNG ou PDF (Max 5MB)</span>
+                      {fileVerso && <span className="mt-4 text-pink-400 font-bold bg-pink-500/10 px-3 py-1 rounded-full text-sm">{fileVerso.name}</span>}
+                    </label>
+                  </div>
+                </>
+              )}
             </div>
 
             <button 
               type="submit" 
-              disabled={uploading || !file}
+              disabled={uploading || !file || (idType === 'cni' && !fileVerso)}
               className="w-full py-4 bg-gradient-to-r from-pink-500 to-violet-500 hover:from-pink-400 hover:to-violet-400 text-white font-bold rounded-xl transition-all shadow-lg shadow-pink-500/25 disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {uploading ? (

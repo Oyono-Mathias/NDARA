@@ -18,6 +18,10 @@ import { InstructorDashboard } from "./InstructorDashboard";
 import { InstructorCourses } from "./InstructorCourses";
 import { InstructorCourseCreate } from "./InstructorCourseCreate";
 import { InstructorCourseEdit } from "./InstructorCourseEdit";
+import { InstructorCourseProgram } from "./InstructorCourseProgram";
+import { InstructorCourseMedias } from "./InstructorCourseMedias";
+import { InstructorCourseSettings } from "./InstructorCourseSettings";
+import { InstructorCourseFinalisation } from "./InstructorCourseFinalisation";
 import { InstructorCoursePreview } from "./InstructorCoursePreview";
 import { InstructorDevoirs } from "./InstructorDevoirs";
 import { InstructorWealth } from "./InstructorWealth";
@@ -68,12 +72,21 @@ export function InstructorLayout() {
 
   const isFullScreenView = [
     "/messages",
-    "/courses/create",
-    "/courses/edit",
+    
+    
     "/quiz/", // Notice trailing slash so list page isn't fullscreen
     "/devoirs/", // Notice trailing slash
     "/settings",
     "/profile"
+  ].some(path => location.pathname.includes(path));
+
+  const isWorkflowView = [
+    "/courses/create",
+    "/courses/edit",
+    "/program",
+    "/media",
+    "/parametres",
+    "/finalisation"
   ].some(path => location.pathname.includes(path));
 
   useEffect(() => {
@@ -81,11 +94,13 @@ export function InstructorLayout() {
     if (metaThemeColor) {
       if (isFullScreenView) {
         metaThemeColor.setAttribute("content", "#020617"); // slate-950 for full screen views
+      } else if (isWorkflowView) {
+        metaThemeColor.setAttribute("content", "#06080F"); // very dark for workflow
       } else {
         metaThemeColor.setAttribute("content", "#000000"); // black for main views
       }
     }
-  }, [isFullScreenView]);
+  }, [isFullScreenView, isWorkflowView]);
 
   return (
     <div className="w-full h-[100dvh] max-h-[100dvh] flex flex-col justify-between items-stretch overflow-hidden bg-black relative selection:bg-[#10B981] selection:text-black antialiased">
@@ -95,10 +110,12 @@ export function InstructorLayout() {
 
       <div className="flex-1 w-full max-w-7xl mx-auto flex flex-col md:flex-row overflow-hidden relative">
         {/* Desktop Sidebar */}
-        <Sidebar
-          isOpen={isSidebarOpen}
-          onClose={() => setIsSidebarOpen(false)}
-        />
+        {!isWorkflowView && (
+          <Sidebar
+            isOpen={isSidebarOpen}
+            onClose={() => setIsSidebarOpen(false)}
+          />
+        )}
 
         <main
           id="main-scroll-container"
@@ -111,7 +128,7 @@ export function InstructorLayout() {
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: "100%", opacity: 0 }}
               transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className={`flex-1 flex flex-col w-full hide-scrollbar ${isFullScreenView ? "overflow-hidden pb-0 pt-0" : "overflow-y-auto pb-0 md:pb-8 pt-0 md:pt-8"}`}
+              className={`flex-1 flex flex-col w-full hide-scrollbar ${isFullScreenView && !isWorkflowView ? "overflow-hidden pb-0 pt-0" : isWorkflowView ? "overflow-y-auto pb-0 pt-0" : "overflow-y-auto pb-0 md:pb-8 pt-0 md:pt-8"}`}
             >
               <Routes location={location}>
                 <Route path="/" element={<InstructorDashboard />} />
@@ -125,6 +142,22 @@ export function InstructorLayout() {
                 <Route
                   path="courses/edit/:id"
                   element={<InstructorCourseEdit />}
+                />
+                <Route
+                  path="courses/:id/program"
+                  element={<InstructorCourseProgram />}
+                />
+                <Route
+                  path="courses/:id/media"
+                  element={<InstructorCourseMedias />}
+                />
+                <Route
+                  path="courses/:id/parametres"
+                  element={<InstructorCourseSettings />}
+                />
+                <Route
+                  path="courses/:id/finalisation"
+                  element={<InstructorCourseFinalisation />}
                 />
                 <Route
                   path="courses/preview/:id"
@@ -171,7 +204,7 @@ export function InstructorLayout() {
         </main>
         <PromptCopierFAB />
         
-        {!isFullScreenView && (
+        {!isFullScreenView && !isWorkflowView && (
           <div className="shrink-0 w-full z-50 md:hidden bg-black/90 backdrop-blur-md border-t border-white/5 pb-[max(0px,env(safe-area-inset-bottom))]">
             <InstructorNavigation onMenuClick={() => setIsSidebarOpen(true)} />
           </div>

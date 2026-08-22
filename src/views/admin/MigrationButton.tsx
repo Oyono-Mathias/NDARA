@@ -29,7 +29,7 @@ export function MigrationButton() {
         setStatus(`Succès ! ${data.migrated} profils mis à jour.`);
       }
     } catch (err: any) {
-      console.error(err);
+      console.error(err instanceof Error ? err.message : String(err));
       setStatus('Erreur: ' + err.message);
     }
     setLoading(false);

@@ -1,8 +1,14 @@
 const fs = require('fs');
-let code = fs.readFileSync('src/views/instructor/InstructorCourseEdit.tsx', 'utf8');
+const file = 'src/views/instructor/InstructorCourseEdit.tsx';
+let code = fs.readFileSync(file, 'utf8');
 
-code = code.replace(/toast\(\{ variant: 'destructive', title: 'Erreur', description: String\("Erreur de sauvegarde: " \+ \(e\.message \|\| "Permissions insuffisantes\."\) \}\),\n\s*\);/g, `toast({ variant: 'destructive', title: 'Erreur', description: "Erreur de sauvegarde: " + (e.message || "Permissions insuffisantes.") });`);
+code = code.replace(
+  /const unsub = onSnapshot\(doc\(db, "courses", id\), \(docSnap\) => \{([\s\S]*?)\}\);/m,
+  `const unsub = onSnapshot(doc(db, "courses", id), (docSnap) => {
+$1
+    }, (error) => {
+        console.error("Edit load error:", error);
+    });`
+);
 
-code = code.replace(/toast\(\{ variant: 'destructive', title: 'Erreur', description: String\("Erreur lors de l'envoi pour approbation: " \+ \(e\.message \|\| "Permissions insuffisantes\."\) \}\),\n\s*\);/g, `toast({ variant: 'destructive', title: 'Erreur', description: "Erreur lors de l'envoi pour approbation: " + (e.message || "Permissions insuffisantes.") });`);
-
-fs.writeFileSync('src/views/instructor/InstructorCourseEdit.tsx', code);
+fs.writeFileSync(file, code);

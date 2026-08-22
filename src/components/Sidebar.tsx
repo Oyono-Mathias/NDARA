@@ -1,7 +1,7 @@
 import { logger } from '../lib/logger';
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { X, Search, BookOpen, Video, Wallet, Gift, Trophy, LayoutGrid, Bot, Target, TrendingUp, Users, MessageSquare, Award, Bookmark, User, Bell, LifeBuoy, LogOut, ArrowLeftRight, Heart, Medal, ShoppingBag, Folder, BadgeCheck, Tag, Megaphone, ClipboardCheck, FileQuestion, Star, Building, Settings, Terminal, DownloadCloud } from 'lucide-react';
+import { X, Search, BookOpen, Video, Wallet, Gift, Trophy, LayoutGrid, Bot, Target, TrendingUp, Users, MessageSquare, Award, Bookmark, User, Bell, LifeBuoy, LogOut, ArrowLeftRight, Heart, Medal, ShoppingBag, Folder, BadgeCheck, Tag, Megaphone, ClipboardCheck, FileQuestion, Star, Building, Settings, Terminal, DownloadCloud , ShieldCheck } from 'lucide-react';
 import { useRole } from '../context/RoleContext';
 import { cn } from '../lib/utils';
 import { signOut } from 'firebase/auth';
@@ -82,6 +82,7 @@ export function Sidebar({ isOpen, onClose }: { isOpen: boolean, onClose: () => v
                             <NavItem icon={Users} label="MES FILLEULS" to="/ambassador/referrals" current={location.pathname} onClick={onClose} />
                             <NavItem icon={TrendingUp} label="COMMISSIONS" to="/ambassador/commissions" current={location.pathname} onClick={onClose} />
                             <NavItem icon={Wallet} label="PORTEFEUILLE" to="/ambassador/wallet" current={location.pathname} onClick={onClose} />
+                            <NavItem icon={ShieldCheck} label="VÉRIFICATION KYC" to="/ambassador/kyc" current={location.pathname} onClick={onClose} />
                             <NavItem icon={Gift} label="RÉCOMPENSES" to="/ambassador/rewards" current={location.pathname} onClick={onClose} />
                             <NavItem icon={Trophy} label="CLASSEMENT" to="/ambassador/leaderboard" current={location.pathname} onClick={onClose} />
                             <NavItem icon={Target} label="CENTRE MARKETING" to="/ambassador/marketing" badge="NEW" current={location.pathname} onClick={onClose} />

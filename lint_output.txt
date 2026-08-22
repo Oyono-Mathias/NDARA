@@ -1,0 +1,194 @@
+
+> react-example@0.0.0 lint
+> tsc --noEmit
+
+audit_manual_test.ts(20,7): error TS7034: Variable 'manualTestCourse' implicitly has type 'any' in some locations where its type cannot be determined.
+audit_manual_test.ts(21,9): error TS7034: Variable 'oldCourses' implicitly has type 'any[]' in some locations where its type cannot be determined.
+audit_manual_test.ts(28,12): error TS7005: Variable 'manualTestCourse' implicitly has an 'any' type.
+audit_manual_test.ts(34,16): error TS7005: Variable 'manualTestCourse' implicitly has an 'any' type.
+audit_manual_test.ts(44,3): error TS7005: Variable 'oldCourses' implicitly has an 'any[]' type.
+audit_manual_test.ts(51,39): error TS2339: Property 'id' does not exist on type 'never'.
+audit_manual_test.ts(66,104): error TS2339: Property 'data' does not exist on type 'never'.
+audit_manual_test_2.ts(18,7): error TS7034: Variable 'targetCourse' implicitly has type 'any' in some locations where its type cannot be determined.
+audit_manual_test_2.ts(23,12): error TS7005: Variable 'targetCourse' implicitly has an 'any' type.
+audit_manual_test_2.ts(32,35): error TS2339: Property 'id' does not exist on type 'never'.
+audit_manual_test_2.ts(43,100): error TS2339: Property 'data' does not exist on type 'never'.
+check_db_admin.ts(8,62): error TS7006: Parameter 'v' implicitly has an 'any' type.
+check_db_admin.ts(11,28): error TS7006: Parameter 'mod' implicitly has an 'any' type.
+check_db_admin.ts(13,31): error TS7006: Parameter 'les' implicitly has an 'any' type.
+run_migration_local.ts(38,68): error TS2532: Object is possibly 'undefined'.
+run_migration_local.ts(64,12): error TS2532: Object is possibly 'undefined'.
+run_migration_local.ts(65,12): error TS2532: Object is possibly 'undefined'.
+run_migration_local.ts(66,11): error TS2532: Object is possibly 'undefined'.
+run_migration_local.ts(66,77): error TS2532: Object is possibly 'undefined'.
+run_migration_local.ts(67,11): error TS2532: Object is possibly 'undefined'.
+run_migration_local.ts(67,91): error TS2532: Object is possibly 'undefined'.
+run_migration_local.ts(68,11): error TS2532: Object is possibly 'undefined'.
+run_migration_local.ts(68,75): error TS2532: Object is possibly 'undefined'.
+run_migration_local.ts(69,11): error TS2532: Object is possibly 'undefined'.
+run_migration_local.ts(69,79): error TS2532: Object is possibly 'undefined'.
+run_migration_local.ts(70,11): error TS2532: Object is possibly 'undefined'.
+run_migration_local.ts(70,85): error TS2532: Object is possibly 'undefined'.
+run_migration_local.ts(71,11): error TS2532: Object is possibly 'undefined'.
+run_migration_local.ts(72,11): error TS2532: Object is possibly 'undefined'.
+run_migration_local.ts(73,11): error TS2532: Object is possibly 'undefined'.
+run_migration_local.ts(74,12): error TS2532: Object is possibly 'undefined'.
+server.ts(74,16): error TS2345: Argument of type '{ origin: string | (string | undefined)[]; methods: string[]; credentials: boolean; }' is not assignable to parameter of type 'CorsOptions | CorsOptionsDelegate<Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>> | undefined'.
+  Type '{ origin: string | (string | undefined)[]; methods: string[]; credentials: boolean; }' is not assignable to type 'CorsOptions'.
+    Types of property 'origin' are incompatible.
+      Type 'string | (string | undefined)[]' is not assignable to type 'CustomOrigin | StaticOrigin | undefined'.
+        Type '(string | undefined)[]' is not assignable to type 'CustomOrigin | StaticOrigin | undefined'.
+          Type '(string | undefined)[]' is not assignable to type '(string | boolean | RegExp)[]'.
+            Type 'string | undefined' is not assignable to type 'string | boolean | RegExp'.
+              Type 'undefined' is not assignable to type 'string | boolean | RegExp'.
+server.ts(106,5): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Type '{ origin: string | (string | undefined)[]; methods: string[]; credentials: boolean; }' is not assignable to type 'CorsOptions | CorsOptionsDelegate | undefined'.
+      Type '{ origin: string | (string | undefined)[]; methods: string[]; credentials: boolean; }' is not assignable to type 'CorsOptions'.
+        Types of property 'origin' are incompatible.
+          Type 'string | (string | undefined)[]' is not assignable to type 'CustomOrigin | StaticOrigin | undefined'.
+            Type '(string | undefined)[]' is not assignable to type 'CustomOrigin | StaticOrigin | undefined'.
+              Type '(string | undefined)[]' is not assignable to type '(string | boolean | RegExp)[]'.
+                Type 'string | undefined' is not assignable to type 'string | boolean | RegExp'.
+                  Type 'undefined' is not assignable to type 'string | boolean | RegExp'.
+server.ts(206,35): error TS18048: 'data' is possibly 'undefined'.
+server.ts(207,28): error TS18048: 'data' is possibly 'undefined'.
+server.ts(208,25): error TS18048: 'data' is possibly 'undefined'.
+server.ts(208,48): error TS18048: 'data' is possibly 'undefined'.
+server.ts(210,42): error TS18048: 'data' is possibly 'undefined'.
+server.ts(259,44): error TS18048: 'data' is possibly 'undefined'.
+server.ts(382,27): error TS18048: 'wallet' is possibly 'undefined'.
+server.ts(383,25): error TS18048: 'wallet' is possibly 'undefined'.
+server.ts(384,27): error TS18048: 'wallet' is possibly 'undefined'.
+server.ts(385,16): error TS18048: 'stats' is possibly 'undefined'.
+server.ts(386,16): error TS18048: 'stats' is possibly 'undefined'.
+server.ts(411,24): error TS18048: 'userData' is possibly 'undefined'.
+server.ts(412,21): error TS18048: 'userData' is possibly 'undefined'.
+server.ts(439,13): error TS7034: Variable 'events' implicitly has type 'any[]' in some locations where its type cannot be determined.
+server.ts(478,7): error TS7005: Variable 'events' implicitly has an 'any[]' type.
+server.ts(480,26): error TS7005: Variable 'events' implicitly has an 'any[]' type.
+server.ts(777,37): error TS18046: 'error' is of type 'unknown'.
+server.ts(945,11): error TS7034: Variable 'contents' implicitly has type 'any[]' in some locations where its type cannot be determined.
+server.ts(958,9): error TS7005: Variable 'contents' implicitly has an 'any[]' type.
+server.ts(1006,27): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+server.ts(1047,27): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+server.ts(1070,11): error TS7034: Variable 'contents' implicitly has type 'any[]' in some locations where its type cannot be determined.
+server.ts(1082,9): error TS7005: Variable 'contents' implicitly has an 'any[]' type.
+server.ts(1883,37): error TS18046: 'err' is of type 'unknown'.
+server.ts(1883,57): error TS18046: 'err' is of type 'unknown'.
+server.ts(1927,72): error TS2532: Object is possibly 'undefined'.
+server.ts(1955,16): error TS2532: Object is possibly 'undefined'.
+server.ts(1956,16): error TS2532: Object is possibly 'undefined'.
+server.ts(1957,15): error TS2532: Object is possibly 'undefined'.
+server.ts(1957,81): error TS2532: Object is possibly 'undefined'.
+server.ts(1958,15): error TS2532: Object is possibly 'undefined'.
+server.ts(1958,95): error TS2532: Object is possibly 'undefined'.
+server.ts(1959,15): error TS2532: Object is possibly 'undefined'.
+server.ts(1959,79): error TS2532: Object is possibly 'undefined'.
+server.ts(1960,15): error TS2532: Object is possibly 'undefined'.
+server.ts(1960,83): error TS2532: Object is possibly 'undefined'.
+server.ts(1961,15): error TS2532: Object is possibly 'undefined'.
+server.ts(1961,89): error TS2532: Object is possibly 'undefined'.
+server.ts(1962,15): error TS2532: Object is possibly 'undefined'.
+server.ts(1963,15): error TS2532: Object is possibly 'undefined'.
+server.ts(1964,15): error TS2532: Object is possibly 'undefined'.
+server.ts(1965,16): error TS2532: Object is possibly 'undefined'.
+server.ts(2109,45): error TS2532: Object is possibly 'undefined'.
+server.ts(2174,21): error TS2532: Object is possibly 'undefined'.
+server.ts(2194,28): error TS2532: Object is possibly 'undefined'.
+server.ts(2195,27): error TS2532: Object is possibly 'undefined'.
+server.ts(2205,52): error TS2532: Object is possibly 'undefined'.
+server.ts(2265,30): error TS2532: Object is possibly 'undefined'.
+src/components/instructor/assignments/AssignmentsClient.tsx(436,36): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'string'.
+src/components/instructor/course-content/ContentManager.tsx(59,15): error TS2304: Cannot find name 'updateLesson'.
+src/components/instructor/quiz/QuizPageClient.tsx(92,22): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'string'.
+src/components/instructor/quiz/QuizSubmissions.tsx(52,20): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'string'.
+src/components/instructor/quiz/editor/QuestionBankModal.tsx(70,24): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'string'.
+src/components/instructor/quiz/editor/QuestionBankModal.tsx(91,20): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'string'.
+src/lib/walletProcessor.ts(34,21): error TS18048: 'data' is possibly 'undefined'.
+src/lib/walletProcessor.ts(34,50): error TS18048: 'data' is possibly 'undefined'.
+src/lib/walletProcessor.ts(35,30): error TS18048: 'data' is possibly 'undefined'.
+src/lib/walletProcessor.ts(35,68): error TS18048: 'data' is possibly 'undefined'.
+src/lib/walletProcessor.ts(36,28): error TS18048: 'data' is possibly 'undefined'.
+src/lib/walletProcessor.ts(36,64): error TS18048: 'data' is possibly 'undefined'.
+src/lib/walletProcessor.ts(37,37): error TS18048: 'data' is possibly 'undefined'.
+src/lib/walletProcessor.ts(37,82): error TS18048: 'data' is possibly 'undefined'.
+src/lib/walletProcessor.ts(73,28): error TS18048: 'userData' is possibly 'undefined'.
+src/lib/walletProcessor.ts(114,27): error TS18048: 'senderData' is possibly 'undefined'.
+src/lib/walletProcessor.ts(251,28): error TS18048: 'studentData' is possibly 'undefined'.
+src/lib/walletProcessor.ts(256,24): error TS18048: 'studentData' is possibly 'undefined'.
+src/lib/walletProcessor.ts(276,34): error TS18048: 'configData' is possibly 'undefined'.
+src/lib/walletProcessor.ts(277,26): error TS18048: 'configData' is possibly 'undefined'.
+src/lib/walletProcessor.ts(277,56): error TS18048: 'configData' is possibly 'undefined'.
+src/lib/walletProcessor.ts(300,33): error TS18048: 'sellerData' is possibly 'undefined'.
+src/lib/walletProcessor.ts(310,24): error TS18048: 'referrerData' is possibly 'undefined'.
+src/lib/walletProcessor.ts(316,35): error TS18048: 'referrerData' is possibly 'undefined'.
+src/lib/walletProcessor.ts(321,24): error TS2532: Object is possibly 'undefined'.
+src/lib/walletProcessor.ts(322,26): error TS2532: Object is possibly 'undefined'.
+src/lib/walletProcessor.ts(323,29): error TS2532: Object is possibly 'undefined'.
+src/lib/walletProcessor.ts(324,28): error TS2532: Object is possibly 'undefined'.
+src/lib/walletProcessor.ts(464,43): error TS18048: 'userData' is possibly 'undefined'.
+src/lib/walletProcessor.ts(467,41): error TS18048: 'userData' is possibly 'undefined'.
+src/lib/walletProcessor.ts(469,34): error TS18048: 'userData' is possibly 'undefined'.
+src/lib/walletProcessor.ts(472,32): error TS18048: 'userData' is possibly 'undefined'.
+src/lib/walletProcessor.ts(526,28): error TS18048: 'userData' is possibly 'undefined'.
+src/lib/walletProcessor.ts(527,30): error TS18048: 'userData' is possibly 'undefined'.
+src/lib/walletProcessor.ts(615,9): error TS18048: 'payoutData' is possibly 'undefined'.
+src/lib/walletProcessor.ts(616,89): error TS18048: 'payoutData' is possibly 'undefined'.
+src/lib/walletProcessor.ts(619,13): error TS2339: Property 'instructorId' does not exist on type 'DocumentData | undefined'.
+src/lib/walletProcessor.ts(619,27): error TS2339: Property 'amount' does not exist on type 'DocumentData | undefined'.
+src/lib/walletProcessor.ts(619,35): error TS2339: Property 'transactionId' does not exist on type 'DocumentData | undefined'.
+src/lib/walletProcessor.ts(619,50): error TS2339: Property 'provider' does not exist on type 'DocumentData | undefined'.
+src/lib/walletProcessor.ts(648,33): error TS18048: 'payoutData' is possibly 'undefined'.
+src/lib/walletProcessor.ts(649,35): error TS18048: 'payoutData' is possibly 'undefined'.
+src/lib/walletProcessor.ts(652,21): error TS18048: 'userData' is possibly 'undefined'.
+src/lib/walletProcessor.ts(653,30): error TS18048: 'userData' is possibly 'undefined'.
+src/lib/walletProcessor.ts(696,26): error TS18048: 'buyerData' is possibly 'undefined'.
+src/lib/walletProcessor.ts(705,23): error TS2532: Object is possibly 'undefined'.
+src/lib/walletProcessor.ts(819,22): error TS18048: 'affData' is possibly 'undefined'.
+src/lib/walletProcessor.ts(820,26): error TS18048: 'affData' is possibly 'undefined'.
+src/lib/walletProcessor.ts(830,17): error TS2532: Object is possibly 'undefined'.
+src/lib/walletProcessor.ts(855,28): error TS2345: Argument of type 'DocumentReference<DocumentData, DocumentData> | null' is not assignable to parameter of type 'DocumentReference<DocumentData, DocumentData>'.
+  Type 'null' is not assignable to type 'DocumentReference<DocumentData, DocumentData>'.
+src/lib/walletProcessor.ts(856,49): error TS2532: Object is possibly 'undefined'.
+src/lib/walletProcessor.ts(862,27): error TS18048: 'd' is possibly 'undefined'.
+src/lib/walletProcessor.ts(863,29): error TS18048: 'd' is possibly 'undefined'.
+src/lib/walletProcessor.ts(864,24): error TS18048: 'd' is possibly 'undefined'.
+src/lib/walletProcessor.ts(883,28): error TS2345: Argument of type 'DocumentReference<DocumentData, DocumentData> | null' is not assignable to parameter of type 'DocumentReference<DocumentData, DocumentData>'.
+  Type 'null' is not assignable to type 'DocumentReference<DocumentData, DocumentData>'.
+src/lib/walletProcessor.ts(884,37): error TS18048: 'd' is possibly 'undefined'.
+src/lib/walletProcessor.ts(885,39): error TS18048: 'd' is possibly 'undefined'.
+src/lib/walletProcessor.ts(886,42): error TS18048: 'd' is possibly 'undefined'.
+src/middlewares/authMiddleware.ts(36,61): error TS18046: 'error' is of type 'unknown'.
+src/sw.ts(113,35): error TS7006: Parameter 'event' implicitly has an 'any' type.
+src/sw.ts(220,36): error TS7006: Parameter 'event' implicitly has an 'any' type.
+src/utils/trackLogin.ts(62,27): error TS2345: Argument of type 'DocumentReference<DocumentData, DocumentData> | undefined' is not assignable to parameter of type 'DocumentReference<DocumentData, DocumentData>'.
+  Type 'undefined' is not assignable to type 'DocumentReference<DocumentData, DocumentData>'.
+src/views/CourseDetail.tsx(47,12): error TS2345: Argument of type '(error: any) => void' is not assignable to parameter of type 'SetOptions'.
+src/views/CourseDetail.tsx(47,13): error TS7006: Parameter 'error' implicitly has an 'any' type.
+src/views/InviteRedirectView.tsx(27,30): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'string'.
+src/views/QuizPlayer.tsx(111,22): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'string'.
+src/views/QuizPlayer.tsx(218,20): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'string'.
+src/views/ReferralCaptureView.tsx(28,30): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'string'.
+src/views/admin/AdminAmbassadorBadges.tsx(125,86): error TS7006: Parameter 'id' implicitly has an 'any' type.
+src/views/admin/AdminAmbassadorBadges.tsx(128,71): error TS7006: Parameter 'c' implicitly has an 'any' type.
+src/views/admin/AdminAmbassadorBadges.tsx(132,34): error TS7006: Parameter 'id' implicitly has an 'any' type.
+src/views/admin/AdminMarketControl.tsx(50,20): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'string'.
+src/views/admin/AdminMarketControl.tsx(62,20): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'string'.
+src/views/admin/AdminSquads.tsx(84,20): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'string'.
+src/views/admin/AdminSquads.tsx(96,20): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'string'.
+src/views/admin/AdminTransactions.tsx(203,20): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'string'.
+src/views/admin/AdminTransactions.tsx(316,20): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'string'.
+src/views/admin/catalogue/CourseReviewView.tsx(185,116): error TS2339: Property 'toMillis' does not exist on type 'number'.
+src/views/ambassador/AmbassadorCommissions.tsx(52,22): error TS7006: Parameter 'prev' implicitly has an 'any' type.
+src/views/ambassador/AmbassadorCommissions.tsx(97,18): error TS7006: Parameter 'prev' implicitly has an 'any' type.
+src/views/ambassador/AmbassadorWallet.tsx(134,44): error TS18047: 'firebaseUser' is possibly 'null'.
+src/views/instructor/InstructorCoursePreview.tsx(40,7): error TS2554: Expected 1 arguments, but got 2.
+src/views/instructor/InstructorCoursePreview.tsx(40,8): error TS7006: Parameter 'error' implicitly has an 'any' type.
+src/views/instructor/InstructorSettings.tsx(218,34): error TS7006: Parameter 'v' implicitly has an 'any' type.
+src/views/instructor/InstructorSettings.tsx(230,34): error TS7006: Parameter 'v' implicitly has an 'any' type.
+src/views/instructor/InstructorSettings.tsx(243,34): error TS7006: Parameter 'v' implicitly has an 'any' type.
+src/views/profile/AccountSettingsView.tsx(59,20): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'string'.
+src/views/profile/ProfileHubView.tsx(25,20): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'string'.

@@ -53,7 +53,7 @@ export function AdminWithdrawals() {
       const enriched = docs.map(d => ({ ...d, user: usersData[d.userId] }));
       setRequests(enriched);
     } catch(e: any) {
-      console.error(e);
+      console.error(e instanceof Error ? e.message : String(e));
       toast({ title: "Erreur", description: "Impossible de charger les demandes", variant: "destructive" });
     } finally {
       setLoading(false);

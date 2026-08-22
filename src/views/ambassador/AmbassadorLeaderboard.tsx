@@ -37,7 +37,7 @@ export function AmbassadorLeaderboard() {
         "Taux de conversion": `${d.conversionRate}%`
       })));
     } catch (e) {
-      console.error(e);
+      console.error(e instanceof Error ? e.message : String(e));
     } finally {
       setLoading(false);
     }

@@ -9,18 +9,25 @@ export function AdminKycReviewModal({ request, onClose, onProcessed }: { request
   const [loading, setLoading] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
   const [showRejectForm, setShowRejectForm] = useState(false);
-  const [documentUrl, setDocumentUrl] = useState<string | null>(null);
+  const [documentUrls, setDocumentUrls] = useState<string[]>([]);
 
   useEffect(() => {
     const fetchSignedUrl = async () => {
       try {
         const token = await firebaseUser!.getIdToken();
-        const res = await fetch(`/api/storage/signed-url?key=${encodeURIComponent(request.documentStoragePath)}`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        const data = await res.json();
-        if (data.signedUrl) {
-          setDocumentUrl(data.signedUrl);
+        const paths = request.documentStoragePath.split(',');
+        const urls: string[] = [];
+        for (const p of paths) {
+          const res = await fetch(`/api/storage/signed-url?key=${encodeURIComponent(p)}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          const data = await res.json();
+          if (data.signedUrl) {
+            urls.push(data.signedUrl);
+          }
+        }
+        if (urls.length > 0) {
+          setDocumentUrls(urls);
         } else {
           toast({ title: 'Erreur', description: 'Impossible de charger le document.', variant: 'destructive' });
         }
@@ -80,12 +87,17 @@ export function AdminKycReviewModal({ request, onClose, onProcessed }: { request
         </div>
 
         <div className="flex-1 overflow-y-auto p-6 bg-slate-950 flex justify-center items-center">
-          {documentUrl ? (
-            <img 
-              src={documentUrl} 
-              alt="Document KYC" 
-              className="max-w-full max-h-full object-contain rounded-xl shadow-2xl border border-slate-800" 
-            />
+          {documentUrls.length > 0 ? (
+            <div className="flex flex-col gap-4 overflow-y-auto max-h-full">
+              {documentUrls.map((url, i) => (
+                <img 
+                  key={i}
+                  src={url} 
+                  alt={`Document KYC ${i + 1}`} 
+                  className="max-w-full object-contain rounded-xl shadow-2xl border border-slate-800" 
+                />
+              ))}
+            </div>
           ) : (
             <div className="flex flex-col items-center justify-center text-slate-500">
               <Loader2 className="w-10 h-10 animate-spin mb-4 text-pink-500" />

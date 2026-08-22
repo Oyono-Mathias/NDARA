@@ -113,7 +113,7 @@ router.delete(
 // Get signed URL for private files
 router.get(
   "/signed-url",
-    // Private files require auth to view
+  isAuthenticated,
   wrapAuth(handleGetSignedUrl)
 );
 

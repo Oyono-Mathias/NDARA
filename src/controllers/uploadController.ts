@@ -125,10 +125,13 @@ export const handleGetSignedUrl = async (req: AuthRequest, res: Response) => {
       const role = userDoc.data()?.role;
       if (role !== "admin" && role !== "superadmin") {
          const kycDocs = await adminDb.collection("kyc_requests")
-            .where("documentStoragePath", "==", key)
             .where("userId", "==", req.user!.uid)
             .get();
-         if (kycDocs.empty) {
+         const isOwner = kycDocs.docs.some(doc => {
+            const paths = doc.data().documentStoragePath || "";
+            return paths.includes(key);
+         });
+         if (!isOwner) {
              return res.status(403).json({ error: "Forbidden: Access denied to this document." });
          }
       }
@@ -137,6 +140,6 @@ export const handleGetSignedUrl = async (req: AuthRequest, res: Response) => {
     const url = await storageService.getSignedReadUrl(key, 3600);
     return res.status(200).json({ success: true, signedUrl: url });
   } catch (error: any) {
-    return res.status(500).json({ error: "Failed to generate signed URL." });
+    console.error("Failed to generate signed url:", error); return res.status(500).json({ error: "Failed to generate signed URL.", detail: error.message });
   }
 };

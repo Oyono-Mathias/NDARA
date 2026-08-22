@@ -56,7 +56,7 @@ export function GoogleDriveFilePicker({ onFileImported, onFilePicked, allowedTyp
       toast({ title: "Fichier importé avec succès !", description: fileName });
       if (onFileImported) onFileImported(data.publicUrl, fileName);
     } catch(err: any) {
-      console.error(err);
+      console.error(err instanceof Error ? err.message : String(err));
       toast({ title: "Erreur lors de l'import", description: err.message, variant: "destructive" });
     } finally {
       setIsLoading(false);

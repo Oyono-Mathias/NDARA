@@ -44,7 +44,7 @@ export function AdminAmbassadorBadges() {
       const cSnap = await getDocs(query(collection(db, 'affiliate_challenges')));
       setChallenges(cSnap.docs.map(d => ({ id: d.id, ...d.data() })));
     } catch(e) {
-      console.error(e);
+      console.error(e instanceof Error ? e.message : String(e));
     } finally {
       setLoading(false);
     }

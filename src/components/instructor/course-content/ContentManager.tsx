@@ -1,455 +1,192 @@
-// @ts-nocheck
-import { logger } from '../../../lib/logger';
+import { useState } from 'react';
+import { useCourseBuilder } from '../../../hooks/catalog/useCatalogAdmin';
+import { Loader2, Plus, GripVertical, Settings, Trash2, FileVideo, FileText, Dumbbell, HelpCircle, FileAudio, ArrowUp, ArrowDown, Edit2, Check } from 'lucide-react';
 import { toast } from '../../../hooks/use-toast';
-import { useState, useEffect, useRef } from "react";
-import { db, auth } from "../../../firebase";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
-import {
-  Plus,
-  Video,
-  Trash2,
-  GripVertical,
-  Loader2,
-  Upload,
-} from "lucide-react";
-import { uploadToR2 } from "../../../lib/r2Upload";
-import { useGoogleLogin } from '@react-oauth/google';
+import { LessonEditor } from './LessonEditor';
+import { Lesson } from '../../../types/models';
+import { TouchArea } from '../../ui/TouchArea';
 
 export function ContentManager({ courseId }: { courseId: string }) {
-  const [content, setContent] = useState<any[]>([]);
+  const { chapters, lessons, loading, addChapter, updateChapter, deleteChapter, addLesson, deleteLesson } = useCourseBuilder(courseId);
+  const [newChapterTitle, setNewChapterTitle] = useState('');
+  const [editingChapterId, setEditingChapterId] = useState<string | null>(null);
+  const [editingChapterTitle, setEditingChapterTitle] = useState('');
+  const [editingLesson, setEditingLesson] = useState<Lesson | null>(null);
 
-  const [isPickerLoading, setIsPickerLoading] = useState(false);
-  const [activeUploadTarget, setActiveUploadTarget] = useState<{modIdx: number, lesIdx: number, lesId: string} | null>(null);
-
-  const loadPickerScript = () => {
-    return new Promise((resolve, reject) => {
-      if ((window as any).google && (window as any).google.picker) {
-        resolve(true);
-        return;
-      }
-      const script = document.createElement('script');
-      script.src = 'https://apis.google.com/js/api.js';
-      script.onload = () => {
-        (window as any).gapi.load('picker', { callback: () => resolve(true) });
-      };
-      script.onerror = reject;
-      document.body.appendChild(script);
-    });
-  };
-
-  const handleDriveVideoPicked = async (accessToken: string, fileId: string, fileName: string, modIdx: number, lesIdx: number, lesId: string) => {
-     try {
-       setUploadingLessons((prev) => ({ ...prev, [lesId]: 0 }));
-       
-       const idToken = await auth.currentUser?.getIdToken();
-      const res = await fetch('/api/admin/video/drive-to-bunny', {
-         method: 'POST',
-         headers: { 
-           'Content-Type': 'application/json',
-           'Authorization': `Bearer ${idToken}`
-         },
-         body: JSON.stringify({ fileId, driveToken: accessToken, fileName, courseId: courseId || "new", lesId })
-       });
-       
-       if(!res.ok) throw new Error("Erreur de transfert");
-       const data = await res.json();
-       
-       const newModules = [...content];
-       newModules[modIdx].lessons[lesIdx].videoUrl = data.videoUrl;
-       newModules[modIdx].lessons[lesIdx].videoId = data.videoId;
-       newModules[modIdx].lessons[lesIdx].provider = 'bunny';
-       setContent(newModules);
-       updateDoc(doc(db, 'courses', courseId), { content: newModules });
-       
-       toast({ title: "Vidéo importée depuis Google Drive !" });
-     } catch(err) {
-       console.error(err);
-       toast({ title: "Erreur lors de l'import depuis Drive", variant: "destructive" });
-     } finally {
-       setUploadingLessons((prev) => {
-          const newState = { ...prev };
-          delete newState[lesId];
-          return newState;
-       });
-     }
-  };
-
-  const loginGoogleDrive = useGoogleLogin({
-    onSuccess: async (tokenResponse) => {
-      try {
-        await loadPickerScript();
-        const pickerOrigin = window.location.ancestorOrigins && window.location.ancestorOrigins.length > 0 
-          ? window.location.ancestorOrigins[window.location.ancestorOrigins.length - 1] 
-          : window.location.origin;
-
-        if (activeUploadTarget) {
-            const { modIdx, lesIdx, lesId } = activeUploadTarget;
-            
-            const picker = new (window as any).google.picker.PickerBuilder().setAppId('gen-lang-client-0381307586')
-              .addView((window as any).google.picker.ViewId.DOCS_VIDEOS)
-              .setOAuthToken(tokenResponse.access_token)
-              .setCallback((data: any) => {
-                if (data.action === (window as any).google.picker.Action.PICKED) {
-                  const file = data.docs[0];
-                  handleDriveVideoPicked(tokenResponse.access_token, file.id, file.name, modIdx, lesIdx, lesId);
-                }
-              })
-              .setOrigin(pickerOrigin)
-              .build();
-            picker.setVisible(true);
-        }
-      } catch (err) {
-        toast({ title: "Erreur de chargement du Picker", variant: "destructive" });
-      } finally {
-        setIsPickerLoading(false);
-      }
-    },
-    onError: () => {
-      setIsPickerLoading(false);
-      toast({ title: "Erreur de connexion à Google", variant: "destructive" });
-    },
-    scope: 'https://www.googleapis.com/auth/drive.readonly',
-  });
-
-  const openDrivePicker = (modIdx: number, lesIdx: number, lesId: string) => {
-    setActiveUploadTarget({ modIdx, lesIdx, lesId });
-    setIsPickerLoading(true);
-    loginGoogleDrive();
-  };
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [uploadingLessons, setUploadingLessons] = useState<{
-    [key: string]: number;
-  }>({});
-  const [activeVideoProvider, setActiveVideoProvider] = useState<
-    "bunny" | "cloudflare"
-  >("bunny");
-  const fileInputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
-
-  useEffect(() => {
-    // Obtenir la configuration globale
-    getDoc(doc(db, "settings", "global_config")).then((snap) => {
-      if (snap.exists() && snap.data().active_video_provider) {
-        setActiveVideoProvider(snap.data().active_video_provider);
-      }
-    });
-    // Aussi vérifier la nouvelle conf de l'admin (ai_config)
-    getDoc(doc(db, "settings", "ai_config")).then((snap) => {
-      if (snap.exists() && snap.data().defaultVideoPlayer) {
-        setActiveVideoProvider(snap.data().defaultVideoPlayer);
-      }
-    });
-
-    getDoc(doc(db, "courses", courseId)).then((snap) => {
-      if (snap.exists()) {
-        setContent(snap.data().content || []);
-      }
-      setLoading(false);
-    });
-  }, [courseId]);
-
-  const handleVideoUpload = async (
-    file: File,
-    modIdx: number,
-    lesIdx: number,
-  ) => {
-    if (!file) return;
-    const lesId = content[modIdx].lessons[lesIdx].id;
-
-    try {
-      setUploadingLessons((prev) => ({ ...prev, [lesId]: 0 }));
-
-      let result;
-      try {
-        if (activeVideoProvider === "cloudflare") {
-          const { uploadVideoToCloudflare } = await import("../../../lib/cloudflareUpload");
-          result = await uploadVideoToCloudflare(file, (p) => {
-            setUploadingLessons((prev) => ({ ...prev, [lesId]: p }));
-          });
-        } else {
-          const { uploadVideoToBunny } = await import("../../../lib/bunnyUpload");
-          result = await uploadVideoToBunny(file, (p) => {
-            setUploadingLessons((prev) => ({ ...prev, [lesId]: p }));
-          });
-        }
-      } catch (providerError: any) {
-        console.warn("External video provider failed, falling back to basic storage:", providerError);
-        toast({ 
-          variant: 'destructive', 
-          title: 'Lecteur par défaut ignoré', 
-          description: "Échec du téléversement vers " + activeVideoProvider + " (" + (providerError.message || 'Erreur API') + "). Bascule sur le stockage local Firebase." 
-        });
-        const { uploadToR2 } = await import("../../../lib/r2Upload");
-        const publicUrl = await uploadToR2(file, "course-videos", (p) => {
-          setUploadingLessons((prev) => ({ ...prev, [lesId]: p }));
-        });
-        result = { iframeUrl: publicUrl, videoId: publicUrl };
-      }
-
-      updateLesson(modIdx, lesIdx, "videoUrl", result.iframeUrl);
-      updateLesson(modIdx, lesIdx, "videoId", result.videoId);
-      updateLesson(modIdx, lesIdx, "provider", activeVideoProvider);
-    } catch (err: any) {
-      logger.error(err);
-      toast({ variant: 'destructive', title: 'Erreur', description: String(`Erreur lors du téléversement de la vidéo: ${err.message || "Vérifiez la configuration/connexion."}`,) });
-    } finally {
-      setUploadingLessons((prev) => {
-        const newUp = { ...prev };
-        delete newUp[lesId];
-        return newUp;
-      });
-    }
-  };
-
-  const handleAddModule = () => {
-    setContent([
-      ...content,
-      {
-        id: "mod_" + Date.now(),
-        title: "Nouveau Module",
-        lessons: [],
-      },
-    ]);
-  };
-
-  const handleAddLesson = (moduleIndex: number) => {
-    const newContent = [...content];
-    newContent[moduleIndex].lessons.push({
-      id: "les_" + Date.now(),
-      title: "Nouvelle Vidéo",
-      videoUrl: "",
-      duration: "00:00",
-    });
-    setContent(newContent);
-  };
-
-  const updateModuleTitle = (moduleIndex: number, title: string) => {
-    const newContent = [...content];
-    newContent[moduleIndex].title = title;
-    setContent(newContent);
-  };
-
-  const updateLesson = (
-    moduleIndex: number,
-    lessonIndex: number,
-    field: string,
-    value: string,
-  ) => {
-    setContent((prevContent) => {
-      const newContent = [...prevContent];
-      newContent[moduleIndex] = { ...newContent[moduleIndex] };
-      newContent[moduleIndex].lessons = [...newContent[moduleIndex].lessons];
-      newContent[moduleIndex].lessons[lessonIndex] = {
-        ...newContent[moduleIndex].lessons[lessonIndex],
-        [field]: value,
-      };
-      return newContent;
-    });
-  };
-
-  const removeModule = (moduleIndex: number) => {
-    const newContent = [...content];
-    newContent.splice(moduleIndex, 1);
-    setContent(newContent);
-  };
-
-  const removeLesson = (moduleIndex: number, lessonIndex: number) => {
-    const newContent = [...content];
-    newContent[moduleIndex].lessons.splice(lessonIndex, 1);
-    setContent(newContent);
-  };
-
-  const saveContent = async () => {
-    if (!courseId) {
-      logger.error("Erreur: L'ID de la formation est invalide.");
+  const handleRenameChapter = async (chapterId: string) => {
+    if (!editingChapterTitle.trim()) {
+      setEditingChapterId(null);
       return;
     }
-
-    setSaving(true);
     try {
-      await updateDoc(doc(db, "courses", courseId), { content });
-      toast({ title: 'Information', description: "Programme sauvegardé avec succès !" });
-    } catch (e: any) {
-      logger.error("Erreur lors de la sauvegarde du programme:", e);
-      toast({ variant: 'destructive', title: 'Erreur', description: "Erreur lors de la sauvegarde: " +
-          (e.message || "Permissions insuffisantes.") });
-    } finally {
-      setSaving(false);
+      await updateChapter(chapterId, { title: editingChapterTitle });
+      setEditingChapterId(null);
+      toast({ title: 'Chapitre renommé' });
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Erreur', description: "Impossible de renommer: " + err.message });
     }
   };
 
-  if (loading)
-    return (
-      <div className="p-10 flex justify-center">
-        <Loader2 className="animate-spin text-primary w-8 h-8" />
-      </div>
-    );
+  const moveChapter = async (index: number, direction: 'up' | 'down') => {
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+    if (newIndex < 0 || newIndex >= activeChapters.length) return;
+    
+    const chaptersToUpdate = [...activeChapters];
+    const temp = chaptersToUpdate[index];
+    chaptersToUpdate[index] = chaptersToUpdate[newIndex];
+    chaptersToUpdate[newIndex] = temp;
+    
+    // Update all orders sequentially
+    chaptersToUpdate.forEach(async (chap, i) => {
+      if (chap.order !== i) {
+        await updateChapter(chap.id!, { order: i });
+      }
+    });
+  };
+
+  const moveLesson = async (chapterLessons: Lesson[], index: number, direction: 'up' | 'down') => {
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+    if (newIndex < 0 || newIndex >= chapterLessons.length) return;
+    
+    const lessonsToUpdate = [...chapterLessons];
+    const temp = lessonsToUpdate[index];
+    lessonsToUpdate[index] = lessonsToUpdate[newIndex];
+    lessonsToUpdate[newIndex] = temp;
+    
+    // Update all orders sequentially
+    lessonsToUpdate.forEach(async (less, i) => {
+      if (less.order !== i) {
+        await updateLesson(less.id!, { order: i });
+      }
+    });
+  };
+
+  const handleAddChapter = async () => {
+    if (!newChapterTitle.trim()) return;
+    try {
+      await addChapter(newChapterTitle);
+      setNewChapterTitle('');
+    } catch (err: any) {
+      console.error(err instanceof Error ? err.message : String(err));
+      toast({ variant: 'destructive', title: 'Erreur', description: "Impossible d'ajouter le chapitre: " + err.message });
+    }
+  };
+
+  const activeChapters = chapters.filter(c => c.status !== 'archived').sort((a,b) => a.order - b.order);
+
+  if (loading) return <div className="py-12 flex justify-center"><Loader2 className="w-8 h-8 animate-spin text-emerald-500" /></div>;
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h2 className="font-bold text-lg text-white">
-            Programme de formation
-          </h2>
-          <p className="text-sm text-slate-400">
-            Gérez les modules et les leçons de ce cours.
-          </p>
-        </div>
-        <div className="flex flex-col items-end">
-          {Object.keys(uploadingLessons).length > 0 && (
-            <span className="text-[10px] text-amber-500 font-bold uppercase tracking-widest mb-1 animate-pulse">
-              Téléversement en cours ({Object.keys(uploadingLessons).length})...
-            </span>
-          )}
-          <button
-            onClick={saveContent}
-            disabled={saving || Object.keys(uploadingLessons).length > 0}
-            className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-black px-6 py-2.5 rounded-xl font-bold uppercase text-[10px] tracking-widest transition-colors disabled:opacity-50"
-          >
-            {saving ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              "Sauvegarder"
-            )}
-          </button>
-        </div>
+    <div className="space-y-6 max-w-4xl mx-auto">
+      {editingLesson && (
+        <LessonEditor lesson={editingLesson} onClose={() => setEditingLesson(null)} />
+      )}
+      
+      <div className="flex gap-2">
+        <input 
+          type="text" 
+          placeholder="Titre du nouveau chapitre..." 
+          value={newChapterTitle}
+          onChange={e => setNewChapterTitle(e.target.value)}
+          className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-emerald-500 outline-none" 
+        />
+        <TouchArea as="button" onClick={handleAddChapter} className="px-6 bg-white/10 text-white font-bold uppercase tracking-widest text-xs rounded-xl flex items-center gap-2 hover:bg-white/20 transition-colors">
+          <Plus className="w-4 h-4" /> Ajouter un chapitre
+        </TouchArea>
       </div>
 
       <div className="space-y-4">
-        {content.map((mod, modIdx) => (
-          <div
-            key={mod.id}
-            className="bg-[#1e293b] border border-white/5 rounded-2xl p-4"
-          >
-            <div className="flex items-center gap-3 mb-4">
-              <GripVertical className="text-slate-500 w-5 h-5 cursor-grab" />
-              <input
-                type="text"
-                value={mod.title}
-                onChange={(e) => updateModuleTitle(modIdx, e.target.value)}
-                className="bg-black/50 border border-white/10 rounded-lg px-4 py-2 text-white font-bold flex-1 focus:border-primary outline-none"
-                placeholder="Titre du module"
-              />
-              <button
-                onClick={() => removeModule(modIdx)}
-                className="p-2 text-slate-500 hover:text-red-500 transition-colors"
-              >
-                <Trash2 className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="pl-8 space-y-3">
-              {mod.lessons.map((les: any, lesIdx: number) => (
-                <div
-                  key={les.id}
-                  className="flex items-start gap-3 bg-black/30 rounded-xl p-3 border border-white/5"
-                >
-                  <Video className="w-5 h-5 text-slate-400 mt-2" />
-                  <div className="flex-1 space-y-3">
-                    <input
-                      type="text"
-                      value={les.title}
-                      onChange={(e) =>
-                        updateLesson(modIdx, lesIdx, "title", e.target.value)
-                      }
-                      className="bg-black/50 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white w-full focus:border-primary outline-none"
-                      placeholder="Titre de la leçon"
-                    />
-                    <div className="flex gap-3">
-                      <div className="flex-1 flex gap-2 relative">
-                        <input
-                          type="text"
-                          value={les.videoUrl}
-                          onChange={(e) =>
-                            updateLesson(
-                              modIdx,
-                              lesIdx,
-                              "videoUrl",
-                              e.target.value,
-                            )
-                          }
-                          className="bg-black/50 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-slate-300 w-full focus:border-primary outline-none"
-                          placeholder="Lien vidéo (ex: URL VdoCipher ou MP4)"
-                        />
-                        <input
-                          type="file"
-                          accept="video/*"
-                          className="hidden"
-                          ref={(el) => (fileInputRefs.current[les.id] = el)}
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) handleVideoUpload(file, modIdx, lesIdx);
-                          }}
-                        />
-                        <button
-                          onClick={() => fileInputRefs.current[les.id]?.click()}
-                          disabled={
-                            typeof uploadingLessons[les.id] === "number"
-                          }
-                          className="p-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-slate-300 transition shrink-0 relative"
-                          title="Téléverser une vidéo"
-                        >
-                          {typeof uploadingLessons[les.id] === "number" ? (
-                            <div className="flex items-center gap-2 px-2 text-xs font-bold text-primary">
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                              {uploadingLessons[les.id]}%
-                            </div>
-                          ) : (
-                            <Upload className="w-4 h-4" />
-                          )}
-                        </button>
-                        <button
-                          onClick={() => openDrivePicker(modIdx, lesIdx, les.id)}
-                          disabled={typeof uploadingLessons[les.id] === "number" || isPickerLoading}
-                          className="p-1.5 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 rounded-lg text-blue-400 transition shrink-0 relative flex items-center justify-center"
-                          title="Importer depuis Google Drive"
-                        >
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg>
-                        </button>
-                      </div>
-                      <input
-                        type="text"
-                        value={les.duration}
-                        onChange={(e) =>
-                          updateLesson(
-                            modIdx,
-                            lesIdx,
-                            "duration",
-                            e.target.value,
-                          )
-                        }
-                        className="bg-black/50 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-slate-300 w-24 focus:border-primary outline-none shrink-0"
-                        placeholder="Durée (12:45)"
-                      />
+        {activeChapters.map(chapter => {
+          const chapterLessons = lessons.filter(l => l.chapterId === chapter.id && l.status !== 'archived').sort((a,b) => a.order - b.order);
+          
+          return (
+            <div key={chapter.id} className="bg-white/5 border border-white/10 rounded-3xl overflow-hidden">
+              <div className="p-4 bg-white/5 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="flex flex-col gap-1">
+                    <button onClick={() => moveChapter(activeChapters.indexOf(chapter), 'up')} disabled={activeChapters.indexOf(chapter) === 0} className="text-slate-500 hover:text-white disabled:opacity-30"><ArrowUp className="w-4 h-4" /></button>
+                    <button onClick={() => moveChapter(activeChapters.indexOf(chapter), 'down')} disabled={activeChapters.indexOf(chapter) === activeChapters.length - 1} className="text-slate-500 hover:text-white disabled:opacity-30"><ArrowDown className="w-4 h-4" /></button>
+                  </div>
+                  {editingChapterId === chapter.id ? (
+                    <div className="flex items-center gap-2">
+                      <input type="text" value={editingChapterTitle} onChange={e => setEditingChapterTitle(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleRenameChapter(chapter.id!)} className="bg-slate-900 border border-white/10 rounded px-2 py-1 text-white text-sm outline-none" autoFocus />
+                      <button onClick={() => handleRenameChapter(chapter.id!)} className="text-emerald-500 hover:text-emerald-400"><Check className="w-4 h-4" /></button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 group/title">
+                      <h3 className="font-bold text-white">{chapter.title}</h3>
+                      <button onClick={() => { setEditingChapterId(chapter.id!); setEditingChapterTitle(chapter.title); }} className="text-slate-500 opacity-0 group-hover/title:opacity-100 hover:text-white transition-opacity"><Edit2 className="w-3 h-3" /></button>
+                    </div>
+                  )}
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <div className="relative group/menu">
+                    <button className="px-3 py-1.5 bg-emerald-500/10 text-emerald-500 rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-emerald-500/20">
+                      + Leçon
+                    </button>
+                    <div className="absolute right-0 top-full mt-2 w-48 bg-slate-800 rounded-xl shadow-xl border border-white/10 hidden group-hover/menu:block z-50 overflow-hidden">
+                      <button onClick={() => addLesson(chapter.id, 'Nouvelle Vidéo', 'video')} className="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-white/5 hover:text-white flex items-center gap-2"><FileVideo className="w-4 h-4"/> Vidéo</button>
+                      <button onClick={() => addLesson(chapter.id, 'Nouveau Texte', 'text')} className="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-white/5 hover:text-white flex items-center gap-2"><FileText className="w-4 h-4"/> Texte</button>
+                      <button onClick={() => addLesson(chapter.id, 'Nouveau Document', 'document')} className="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-white/5 hover:text-white flex items-center gap-2"><FileText className="w-4 h-4"/> Document / PDF</button>
+                      <button onClick={() => addLesson(chapter.id, 'Nouveau Quiz', 'quiz')} className="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-white/5 hover:text-white flex items-center gap-2"><HelpCircle className="w-4 h-4"/> Quiz</button>
                     </div>
                   </div>
-                  <button
-                    onClick={() => removeLesson(modIdx, lesIdx)}
-                    className="p-2 text-slate-500 hover:text-red-500 transition-colors"
-                  >
+                  <button onClick={() => deleteChapter(chapter.id!)} className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
-              ))}
-
-              <button
-                onClick={() => handleAddLesson(modIdx)}
-                className="flex items-center gap-2 text-primary hover:bg-primary/10 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-colors w-full border border-dashed border-primary/30"
-              >
-                <Plus className="w-4 h-4" /> Ajouter une leçon
-              </button>
+              </div>
+              
+              <div className="divide-y divide-white/5 p-2">
+                {chapterLessons.map(lesson => (
+                  <div key={lesson.id} className="flex items-center justify-between p-3 hover:bg-white/5 rounded-xl group transition-colors">
+                    <div className="flex items-center gap-4">
+                      <div className="flex flex-col gap-1">
+                        <button onClick={() => moveLesson(chapterLessons, chapterLessons.indexOf(lesson), 'up')} disabled={chapterLessons.indexOf(lesson) === 0} className="text-slate-600 hover:text-white disabled:opacity-30"><ArrowUp className="w-3 h-3" /></button>
+                        <button onClick={() => moveLesson(chapterLessons, chapterLessons.indexOf(lesson), 'down')} disabled={chapterLessons.indexOf(lesson) === chapterLessons.length - 1} className="text-slate-600 hover:text-white disabled:opacity-30"><ArrowDown className="w-3 h-3" /></button>
+                      </div>
+                      <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center">
+                        {lesson.type === 'video' ? <FileVideo className="w-4 h-4 text-blue-400" /> : 
+                         lesson.type === 'quiz' ? <HelpCircle className="w-4 h-4 text-amber-400" /> : 
+                         lesson.type === 'document' ? <FileText className="w-4 h-4 text-amber-500" /> : 
+                         lesson.type === 'exercise' ? <Dumbbell className="w-4 h-4 text-emerald-400" /> : 
+                         lesson.type === 'audio' ? <FileAudio className="w-4 h-4 text-purple-400" /> : 
+                         <FileText className="w-4 h-4 text-slate-400" />}
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="font-bold text-sm text-slate-300 group-hover:text-white transition-colors flex items-center gap-2">
+                          {lesson.title}
+                          {lesson.isFreePreview && <span className="px-1.5 py-0.5 bg-emerald-500/20 text-emerald-500 text-[9px] uppercase tracking-widest rounded">Aperçu Gratuit</span>}
+                        </span>
+                        <span className="text-[10px] text-slate-500 uppercase tracking-wider">{lesson.type}</span>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => setEditingLesson(lesson)} className="p-2 text-slate-500 hover:text-white bg-slate-900 rounded-lg">
+                        <Settings className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => deleteLesson(lesson.id!)} className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                
+                {chapterLessons.length === 0 && (
+                  <div className="p-4 text-center text-slate-500 text-sm">Aucune leçon dans ce chapitre</div>
+                )}
+              </div>
             </div>
+          );
+        })}
+        {activeChapters.length === 0 && (
+          <div className="p-12 text-center text-slate-500 border border-dashed border-white/10 rounded-3xl">
+            Commencez par ajouter un chapitre à votre formation.
           </div>
-        ))}
+        )}
       </div>
-
-      <button
-        onClick={handleAddModule}
-        className="w-full flex items-center justify-center gap-2 bg-transparent border-2 border-dashed border-white/20 hover:border-white/40 text-slate-400 hover:text-white px-6 py-8 rounded-2xl font-bold uppercase text-[10px] tracking-widest transition-colors"
-      >
-        <Plus className="w-5 h-5" /> Ajouter un Module
-      </button>
     </div>
   );
 }

@@ -33,15 +33,16 @@ export function InstructorCoursePreview() {
     const unsubscribe = onSnapshot(
       doc(db, "courses", courseId),
       (snap) => {
+
         if (snap.exists()) {
-          setCourse({ id: snap.id, ...snap.data() });
+          setCourse({ id: snap.id, ...snap.data() } as any);
         } else {
           setError(true);
         }
         setIsLoading(false);
       },
-      (err) => {
-        console.error("Erreur:", err);
+      (error: any) => {
+        console.error("Preview load error:", error.message);
         setError(true);
         setIsLoading(false);
       }
@@ -106,6 +107,16 @@ export function InstructorCoursePreview() {
               <span className="px-2 py-1 bg-emerald-500/15 text-emerald-500 text-[10px] font-semibold rounded-lg flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                 Publié
+              </span>
+            ) : course.status === 'pending_review' ? (
+              <span className="px-2 py-1 bg-blue-500/15 text-blue-500 text-[10px] font-semibold rounded-lg flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                En révision
+              </span>
+            ) : course.status === 'rejected' ? (
+              <span className="px-2 py-1 bg-red-500/15 text-red-500 text-[10px] font-semibold rounded-lg flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>
+                Rejeté
               </span>
             ) : (
               <span className="px-2 py-1 bg-orange-500/15 text-orange-500 text-[10px] font-semibold rounded-lg flex items-center gap-1">

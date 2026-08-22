@@ -256,7 +256,7 @@ export function CoursePlayer() {
       setHasSubmittedAvis(true);
       setShowAvisModal(false);
     } catch(e) {
-      console.error(e);
+      console.error(e instanceof Error ? e.message : String(e));
     } finally {
       setIsSubmittingAvis(false);
     }
@@ -283,7 +283,7 @@ export function CoursePlayer() {
       setQnaText('');
       alert("Votre question a été envoyée au formateur.");
     } catch(e) {
-      console.error(e);
+      console.error(e instanceof Error ? e.message : String(e));
     } finally {
       setIsSubmittingQna(false);
     }
@@ -336,7 +336,7 @@ export function CoursePlayer() {
       
       success = true;
     } catch (error) {
-      console.error(error);
+      console.error(error instanceof Error ? error.message : "Error");
     } finally {
       if (!success) {
         setIsClaiming(false);

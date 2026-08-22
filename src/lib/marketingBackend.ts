@@ -26,7 +26,7 @@ export const MarketingRoutes = {
       }
       res.json({ success: true });
     } catch(e) {
-      console.error(e);
+      console.error(e instanceof Error ? e.message : String(e));
       res.status(500).json({ error: "Server error" });
     }
   },

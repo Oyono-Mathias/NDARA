@@ -12,21 +12,18 @@ export function CourseForm({ mode, initialData, onSubmit, isSubmitting }: any) {
   const [thumbnailStr, setThumbnailStr] = useState("");
   const [totalModules, setTotalModules] = useState<number | "">("");
   const [totalVideos, setTotalVideos] = useState<number | "">("");
-  const [isUploading, setIsUploading] = useState(false);
+      const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Check if course is missing modern certification metadata
-  const isMissingMetadata = mode === "edit" && initialData && (!initialData.totalModules || !initialData.totalVideos);
-
+  
   useEffect(() => {
     if (initialData) {
       setTitle(initialData.title || "");
       setDescription(initialData.description || "");
       setPrice(initialData.price || 0);
       setSlug(initialData.slug || "");
-      setTotalModules(initialData.totalModules || "");
-      setTotalVideos(initialData.totalVideos || "");
-
+            
       let thumb = initialData.thumbnail || "";
       if (thumb && thumb.includes("r2.cloudflarestorage.com")) {
         try {
@@ -37,6 +34,8 @@ export function CourseForm({ mode, initialData, onSubmit, isSubmitting }: any) {
         } catch (e) { console.warn("Ignored error", e); }
       }
       setThumbnailStr(thumb);
+      setTotalModules(initialData.totalModules || "");
+      setTotalVideos(initialData.totalVideos || "");
     }
   }, [initialData]);
 
@@ -57,10 +56,9 @@ export function CourseForm({ mode, initialData, onSubmit, isSubmitting }: any) {
       price: Number(price),
       slug: finalSlug,
       thumbnail: thumbnailStr,
-      totalModules: Number(totalModules) || 0,
-      totalVideos: Number(totalVideos) || 0,
-      autoCertificate: Number(totalModules) > 0 && Number(totalVideos) > 0,
-      updatedAt: new Date().toISOString(),
+      totalModules: totalModules ? Number(totalModules) : 0,
+      totalVideos: totalVideos ? Number(totalVideos) : 0,
+            updatedAt: new Date().toISOString(),
     });
   };
 
@@ -99,11 +97,7 @@ export function CourseForm({ mode, initialData, onSubmit, isSubmitting }: any) {
           : "Informations Générales de la formation"}
       </h2>
 
-      {isMissingMetadata && (
-        <div className="bg-orange-500/10 border border-orange-500/20 text-orange-400 p-4 rounded-xl text-sm leading-relaxed">
-          <strong>Attention :</strong> Ce cours utilise l'ancien système de certification. Veuillez renseigner le nombre de modules et de vidéos pour activer la certification automatique.
-        </div>
-      )}
+      
 
       <div className="space-y-4">
         <div>
@@ -128,6 +122,7 @@ export function CourseForm({ mode, initialData, onSubmit, isSubmitting }: any) {
             rows={4}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
+            required
             className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition-colors resize-none"
             placeholder="Détaillez le contenu et l'objectif de la formation..."
           />
@@ -141,6 +136,7 @@ export function CourseForm({ mode, initialData, onSubmit, isSubmitting }: any) {
             <input
               type="number"
               min="0"
+              required
               value={price}
               onChange={(e) => setPrice(Number(e.target.value))}
               className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition-colors"
@@ -156,6 +152,36 @@ export function CourseForm({ mode, initialData, onSubmit, isSubmitting }: any) {
               onChange={(e) => setSlug(e.target.value)}
               className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition-colors"
               placeholder="trading-pro (auto-généré si vide)"
+            />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-widest text-slate-400 mb-2">
+              Nombre de modules
+            </label>
+            <input
+              type="number"
+              min="1"
+              required
+              value={totalModules}
+              onChange={(e) => setTotalModules(e.target.value === "" ? "" : Number(e.target.value))}
+              className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition-colors"
+              placeholder="Ex: 5"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-widest text-slate-400 mb-2">
+              Nombre total de vidéos
+            </label>
+            <input
+              type="number"
+              min="1"
+              required
+              value={totalVideos}
+              onChange={(e) => setTotalVideos(e.target.value === "" ? "" : Number(e.target.value))}
+              className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition-colors"
+              placeholder="Ex: 20"
             />
           </div>
         </div>
@@ -205,37 +231,7 @@ export function CourseForm({ mode, initialData, onSubmit, isSubmitting }: any) {
                 : "Cliquez pour sélectionner une image de couverture"}
             </button>
           )}
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-          <div>
-            <label className="block text-xs font-bold uppercase tracking-widest text-slate-400 mb-2">
-              Nombre de modules *
-            </label>
-            <input
-              type="number"
-              min="1"
-              required
-              value={totalModules}
-              onChange={(e) => setTotalModules(e.target.value ? Number(e.target.value) : "")}
-              className={`w-full bg-black/50 border ${totalModules === 0 ? "border-red-500" : "border-white/10"} rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition-colors`}
-              placeholder="Ex: 5"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-bold uppercase tracking-widest text-slate-400 mb-2">
-              Nombre total de vidéos *
-            </label>
-            <input
-              type="number"
-              min="1"
-              required
-              value={totalVideos}
-              onChange={(e) => setTotalVideos(e.target.value ? Number(e.target.value) : "")}
-              className={`w-full bg-black/50 border ${totalVideos === 0 ? "border-red-500" : "border-white/10"} rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition-colors`}
-              placeholder="Ex: 20"
-            />
-          </div>
-        </div>
+                </div>
       </div>
 
       <button

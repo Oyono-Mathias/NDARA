@@ -22,10 +22,13 @@ import {
 } from "lucide-react";
 import { useRole } from "../../context/RoleContext";
 import { Link, useParams } from "react-router-dom";
+import { useCourseBuilder } from "../../hooks/catalog/useCatalogAdmin";
+import { ModerationLogsService } from "../../services/db";
 
 export function InstructorCourseEdit() {
   const { id: courseId } = useParams<{ id: string }>();
   const { currentUser } = useRole();
+  const { chapters, lessons, loading: builderLoading } = useCourseBuilder(courseId!);
   const [course, setCourse] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -66,6 +69,11 @@ export function InstructorCourseEdit() {
     setIsSaving(true);
     setSaveSuccess(false);
     try {
+      const activeChapters = chapters.filter(c => c.status !== 'archived');
+      const activeLessons = lessons.filter(l => l.status !== 'archived');
+      data.totalModules = activeChapters.length;
+      data.totalVideos = activeLessons.filter(l => l.type === 'video').length;
+      data.autoCertificate = data.totalModules > 0 && data.totalVideos > 0;
       await updateDoc(doc(db, "courses", courseId), data);
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
@@ -82,13 +90,59 @@ export function InstructorCourseEdit() {
       logger.error("Erreur: Utilisateur non connecté ou ID cours manquant.");
       return;
     }
+
+    const missing = [];
+    if (!course.title) missing.push("Titre");
+    if (!course.description) missing.push("Description");
+    if (!course.thumbnail) missing.push("Image de couverture");
+    if (course.price === undefined || course.price < 0) missing.push("Prix");
+    const activeChapters = chapters.filter(c => c.status !== 'archived');
+    const activeLessons = lessons.filter(l => l.status !== 'archived');
+    
+    if (activeChapters.length === 0) missing.push("Au moins 1 chapitre");
+    if (activeLessons.length === 0) missing.push("Au moins 1 leçon");
+
+    // Check if every chapter has at least 1 lesson
+    const emptyChapters = activeChapters.filter(c => !activeLessons.some(l => l.chapterId === c.id));
+    if (emptyChapters.length > 0) missing.push("Chaque chapitre doit contenir au moins une leçon");
+
+    // Check if lessons have necessary content
+    const incompleteLessons = activeLessons.filter(l => {
+      if (!l.title) return true;
+      if (l.type === 'video' && !l.videoUrl) return true;
+      if (l.type === 'document' && !l.documentUrl) return true;
+      if (l.type === 'text' && !l.content) return true;
+      // quiz validation basic for now
+      return false;
+    });
+    if (incompleteLessons.length > 0) missing.push("Chaque leçon doit avoir un titre et un contenu/URL valide");
+
+    if (missing.length > 0) {
+        toast({
+            variant: "destructive",
+            title: "Impossible de soumettre",
+            description: "Veuillez renseigner : " + missing.join(", ")
+        });
+        return;
+    }
+
     setIsSubmittingReview(true);
 
     try {
       await updateDoc(doc(db, "courses", course.id), {
-        status: "Pending Review",
+        status: "pending_review",
+        totalModules: activeChapters.length,
+        totalVideos: activeLessons.filter(l => l.type === 'video').length,
+        autoCertificate: activeChapters.length > 0 && activeLessons.filter(l => l.type === 'video').length > 0
       });
-      setCourse({ ...course, status: "Pending Review" });
+      setCourse({ ...course, status: "pending_review", totalModules: activeChapters.length, totalVideos: activeLessons.filter(l => l.type === 'video').length });
+      await ModerationLogsService.create({
+        entityId: course.id,
+        entityType: 'course',
+        action: 'COURSE_SUBMITTED',
+        actorId: currentUser.uid,
+        timestamp: Date.now()
+      });
       toast({ title: 'Information', description: "C'est envoyé ! Votre cours est en cours d'examen par nos administrateurs." });
     } catch (e: any) {
       logger.error("Erreur lors de la soumission pour examen:", e);
@@ -142,9 +196,9 @@ export function InstructorCourseEdit() {
     );
   }
 
-  const isDraft = course.status === "Draft";
-  const isPending = course.status === "Pending Review";
-  const isPublished = course.status === "Published";
+  const isDraft = course.status === "draft";
+  const isPending = course.status === "pending_review";
+  const isPublished = course.status === "published";
   const isRequestedBuyout = course.buyoutStatus === "requested";
   const isApprovedBuyout = course.buyoutStatus === "approved";
 
@@ -169,8 +223,8 @@ export function InstructorCourseEdit() {
                 {isPublished
                   ? "Publié"
                   : isPending
-                    ? "En attente de validation"
-                    : "Brouillon"}
+                    ? "En attente"
+                    : course.status === 'rejected' ? "Rejeté" : "Brouillon"}
               </span>
               {isRequestedBuyout && (
                 <span className="px-2 py-1 bg-primary/10 text-primary text-[9px] border-none font-black uppercase rounded-md">
@@ -186,7 +240,7 @@ export function InstructorCourseEdit() {
           </div>
         </div>
 
-        {isDraft && !isRequestedBuyout && (
+        {(isDraft || course.status === 'rejected') && !isRequestedBuyout && (
           <button
             onClick={handleSubmitForReview}
             disabled={isSubmittingReview || isSaving}
@@ -197,7 +251,7 @@ export function InstructorCourseEdit() {
             ) : (
               <Send className="h-4 w-4 mr-2" />
             )}
-            {isSaving ? "Sauvegarde..." : "Soumettre pour validation"}
+            {isSaving ? "Sauvegarde..." : "SOUMETTRE POUR EXAMEN"}
           </button>
         )}
 
@@ -219,6 +273,19 @@ export function InstructorCourseEdit() {
           </div>
         )}
       </header>
+
+      {course.status === 'rejected' && course.rejectionReason && (
+        <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4 flex gap-4 items-start mb-6">
+          <div className="p-2 bg-red-500/20 text-red-500 rounded-xl">
+            <ShieldAlert className="w-5 h-5" />
+          </div>
+          <div>
+            <h3 className="text-red-500 font-bold mb-1">Formation rejetée</h3>
+            <p className="text-sm text-red-400">{course.rejectionReason}</p>
+          </div>
+        </div>
+      )}
+
 
       <div className="w-full">
         <div
@@ -248,7 +315,7 @@ export function InstructorCourseEdit() {
 
         {activeTab === "content" && (
           <div className="mt-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
-            <ContentManager courseId={courseId} />
+            <ContentManager courseId={courseId!} />
           </div>
         )}
 

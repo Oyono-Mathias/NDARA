@@ -102,6 +102,7 @@ const AdminMarketControl = React.lazy(() => import('./views/admin/AdminMarketCon
 const AdminInstructors = React.lazy(() => import('./views/admin/AdminInstructors').then(module => ({ default: module.AdminInstructors })));
 const AdminCommissions = React.lazy(() => import('./views/admin/AdminCommissions').then(module => ({ default: module.AdminCommissions })));
 const AdminWithdrawals = React.lazy(() => import('./views/admin/AdminWithdrawals').then(module => ({ default: module.AdminWithdrawals })));
+const AdminKycRequests = React.lazy(() => import('./views/admin/AdminKycRequests').then(module => ({ default: module.AdminKycRequests })));
 const AdminAmbassadorBadges = React.lazy(() => import('./views/admin/AdminAmbassadorBadges').then(m => ({ default: m.AdminAmbassadorBadges })));
 const AdminAmbassadorDashboard = React.lazy(() => import('./views/admin/AdminAmbassadorDashboard').then(m => ({ default: m.AdminAmbassadorDashboard })));
 const AdminAmbassadorSettings = React.lazy(() => import('./views/admin/AdminAmbassadorSettings').then(m => ({ default: m.AdminAmbassadorSettings })));
@@ -289,6 +290,7 @@ export default function App() {
           <Route path="settings" element={<AdminSettings />} />
           <Route path="commissions" element={<AdminCommissions />} />
           <Route path="withdrawals" element={<AdminWithdrawals />} />
+          <Route path="kyc" element={<AdminKycRequests />} />
           
           <Route path="ambassador/dashboard" element={<AdminAmbassadorDashboard />} />
           <Route path="ambassador/settings" element={<AdminAmbassadorSettings />} />

@@ -5,9 +5,9 @@ export class BunnyStreamService {
   private cdnHostname: string;
 
   constructor() {
-    this.libraryId = process.env.BUNNY_STREAM_LIBRARY_ID || "698776";
-    this.apiKey = process.env.BUNNY_STREAM_API_KEY || "b89fbb62-a0ab-43d4-9ad766000a89-9651-4a36";
-    this.cdnHostname = process.env.BUNNY_STREAM_CDN_HOSTNAME || "vz-758d93f4-d56.b-cdn.net";
+    this.libraryId = process.env.BUNNY_STREAM_LIBRARY_ID || "";
+    this.apiKey = process.env.BUNNY_STREAM_API_KEY || "";
+    this.cdnHostname = process.env.BUNNY_STREAM_CDN_HOSTNAME || "";
   }
 
   isConfigured(): boolean {
@@ -70,7 +70,7 @@ export class BunnyStreamService {
         "AccessKey": this.apiKey,
         "Content-Type": "application/octet-stream"
       },
-      body: fileBuffer
+      body: fileBuffer as any
     });
 
     if (!response.ok) {

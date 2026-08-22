@@ -73,44 +73,19 @@ const adminNavigationConfig: NavSection[] = [
   {
     title: "AMBASSADEURS",
     routes: [
-      { label: "Programme", icon: Trophy, path: "/admin/ambassador-program" },
-      { label: "Marketing", icon: Target, path: "/admin/marketing-assets" },
-      { label: "Commissions", icon: Wallet, path: "/admin/commissions" },
-      { label: "Retraits", icon: ArrowDownRight, path: "/admin/withdrawals" },
-    ],
-  },
-  
-  {
-    title: "AMBASSADEURS",
-    routes: [
-      { label: "Dashboard", icon: LayoutDashboard, path: "/admin/ambassador/dashboard" },
-      { label: "Paramètres", icon: Settings, path: "/admin/ambassador/settings" },
-      { label: "Commissions", icon: Wallet, path: "/admin/ambassador/commissions" },
-      { label: "Retraits", icon: ArrowDownRight, path: "/admin/ambassador/withdrawals" },
-      { label: "Badges & Niveaux", icon: Award, path: "/admin/ambassador/badges" },
-      { label: "Récompenses", icon: Gift, path: "/admin/ambassador/rewards" },
-      { label: "Leaderboard", icon: Trophy, path: "/admin/ambassador/leaderboard" },
-      { label: "Marketing", icon: Target, path: "/admin/ambassador/marketing" },
-      { label: "Historique", icon: History, path: "/admin/ambassador/history" },
-    ],
-  },
-
-  
-  {
-    title: "AMBASSADEURS",
-    routes: [
       { label: "Vue générale", icon: LayoutDashboard, path: "/admin/ambassador/dashboard" },
       { label: "Tous les ambassadeurs", icon: Users, path: "/admin/ambassador/list" },
       { label: "Commissions", icon: Wallet, path: "/admin/ambassador/commissions" },
       { label: "Retraits", icon: ArrowDownRight, path: "/admin/ambassador/withdrawals" },
+      { label: "Vérifications KYC", icon: ShieldCheck, path: "/admin/kyc" },
       { label: "Récompenses", icon: Gift, path: "/admin/ambassador/rewards" },
       { label: "Niveaux & Badges", icon: Award, path: "/admin/ambassador/badges" },
       { label: "Leaderboard", icon: Trophy, path: "/admin/ambassador/leaderboard" },
+      { label: "Marketing", icon: Target, path: "/admin/ambassador/marketing" },
       { label: "Historique", icon: History, path: "/admin/ambassador/history" },
       { label: "Configuration", icon: Settings, path: "/admin/ambassador/settings" },
     ],
   },
-
   { title: "FINANCES",
     routes: [
       { label: "Trésorerie", icon: Wallet, path: "/admin/treasury" },

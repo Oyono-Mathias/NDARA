@@ -22,7 +22,7 @@ export function AdminAmbassadorRewards() {
         setRewards(snap.docs.map(d => ({ id: d.id, ...(d.data() as any) })).sort((a: any, b: any) => a.salesTarget - b.salesTarget));
       }
     } catch (e) {
-      console.error(e);
+      console.error(e instanceof Error ? e.message : String(e));
     } finally {
       setLoading(false);
     }

@@ -58,13 +58,28 @@ export interface Course extends BaseModel {
   banner?: string;
   videoUrl?: string;
   price: number;
+  promoPrice?: number;
+  promoStart?: string | Date | any;
+  promoEnd?: string | Date | any;
+  certificateEnabled?: boolean;
+  certificateName?: string;
+  dripEnabled?: boolean;
+  dripIntervalDays?: number;
+  completionVideoPercent?: number;
+  completionQuizScore?: number;
   isFree: boolean;
   language: string;
   tags: string[];
   objectives: string[];
   prerequisites: string[];
   skillsAcquired: string[];
-  status: 'draft' | 'published' | 'archived';
+  status: 'draft' | 'pending_review' | 'published' | 'rejected' | 'archived';
+  rejectionReason?: string;
+  submittedAt?: string | Date | any;
+  reviewedAt?: string | Date | any;
+  reviewedBy?: string;
+  content?: any;
+  sections?: any;
   level: 'beginner' | 'intermediate' | 'advanced' | 'all';
   totalDuration: number;
   totalLessons: number;
@@ -343,4 +358,14 @@ export interface QuizResult extends BaseModel {
   passed: boolean;
   answers: Record<string, string>;
   completedAt: number;
+}
+
+
+export interface ModerationLog extends BaseModel {
+  entityId: string;
+  entityType: 'course' | 'chapter' | 'lesson';
+  action: 'COURSE_CREATED' | 'COURSE_SUBMITTED' | 'CHAPTER_DELETED' | 'LESSON_DELETED' | 'COURSE_REJECTED' | 'COURSE_PUBLISHED';
+  actorId: string; // The user who performed the action
+  details?: string;
+  timestamp: number;
 }

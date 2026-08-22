@@ -1,0 +1,87 @@
+[
+  {
+    "name": "Retrait sans KYC",
+    "status": "PASS",
+    "proof": "Blocked: {\"error\":\"KYC non validé. Veuillez faire vérifier votre identité avant de demander un retrait.\"}"
+  },
+  {
+    "name": "Upload réel",
+    "status": "PASS",
+    "proof": "Simulated upload path: documents/kyc/test_kyc_amb_A_1786738662125/test_cni.jpg"
+  },
+  {
+    "name": "kyc_requests créé",
+    "status": "PASS",
+    "proof": "Request ID: C9ChmAi5ATAVq82yOEG3"
+  },
+  {
+    "name": "Statut pending",
+    "status": "PASS",
+    "proof": "Status is pending"
+  },
+  {
+    "name": "Retrait KYC pending",
+    "status": "PASS",
+    "proof": "Blocked: {\"error\":\"KYC non validé. Veuillez faire vérifier votre identité avant de demander un retrait.\"}"
+  },
+  {
+    "name": "Admin voit la demande",
+    "status": "PASS",
+    "proof": "Doc exists"
+  },
+  {
+    "name": "Falsification kycStatus",
+    "status": "PASS",
+    "proof": "Blocked by rules: permission-denied"
+  },
+  {
+    "name": "Falsification kyc_requests",
+    "status": "PASS",
+    "proof": "Blocked by rules: permission-denied"
+  },
+  {
+    "name": "Rejet réel",
+    "status": "PASS",
+    "proof": "Status rejected"
+  },
+  {
+    "name": "Motif de rejet",
+    "status": "PASS",
+    "proof": "Reason stored: Document illisible"
+  },
+  {
+    "name": "Retrait KYC rejected",
+    "status": "PASS",
+    "proof": "Blocked: {\"error\":\"KYC non validé. Veuillez faire vérifier votre identité avant de demander un retrait.\"}"
+  },
+  {
+    "name": "Resoumission",
+    "status": "PASS",
+    "proof": "New request created: 7UqdFJlmzz2ESL1eUkA0"
+  },
+  {
+    "name": "Approbation réelle",
+    "status": "PASS",
+    "proof": "Approved request 7UqdFJlmzz2ESL1eUkA0"
+  },
+  {
+    "name": "users.kycStatus",
+    "status": "PASS",
+    "proof": "Status is approved"
+  },
+  {
+    "name": "Retrait KYC approved",
+    "status": "PASS",
+    "proof": "Success!"
+  },
+  {
+    "name": "security_audit_logs",
+    "status": "PASS",
+    "proof": "Found 2 logs"
+  },
+  {
+    "name": "Isolation document A/B",
+    "status": "FAIL",
+    "proof": "User B failed but not 403: 500"
+  }
+]

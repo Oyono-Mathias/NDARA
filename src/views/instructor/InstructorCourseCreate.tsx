@@ -1,1642 +1,727 @@
-import { useRef } from "react";
-import { logger } from '../../lib/logger';
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { useRole } from "../../context/RoleContext";
-import { db, auth } from "../../firebase";
+import { db } from "../../firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
-import { Loader2, ChevronDown } from "lucide-react";
-import { BottomSheet } from "../../components/ui/BottomSheet";
-import { TouchArea } from "../../components/ui/TouchArea";
-import { uploadToR2 } from "../../lib/r2Upload";
-import { uploadVideoToBunny } from "../../lib/bunnyUpload";
-import { GoogleDriveFilePicker } from "../../components/GoogleDriveFilePicker";
+import { ModerationLogsService } from "../../services/db";
+import { useRole } from "../../context/RoleContext";
+import { toast } from "../../hooks/use-toast";
+import { Loader2 } from "lucide-react";
 
-const CATEGORIES = [
-  { value: "marketing", label: "Marketing Digital" },
-  { value: "tech", label: "💻 Technologie & Développement" },
-  { value: "finance", label: "💰 Finance & Trading" },
-  { value: "design", label: "🎨 Design & Créativité" },
-  { value: "business", label: "📈 Business & Entrepreneuriat" },
-  { value: "agriculture", label: "🌾 Agriculture & Agrobusiness" },
-  { value: "langues", label: "Langues" },
-];
-
-const LEVELS = [
-  { value: "beginner", label: "Débutant" },
-  { value: "intermediate", label: "Intermédiaire" },
-  { value: "advanced", label: "Avancé" },
-];
-
-const LANGUAGES = [
-  { value: "fr", label: "Français" },
-  { value: "en", label: "English" },
-];
-
-const LESSON_TYPES = [
-  { value: "video", label: "Vidéo" },
-  { value: "text", label: "📄 Texte" },
-  { value: "quiz", label: "❓ Quiz" },
-  { value: "assignment", label: "📝 Exercice" },
-];
+const subcategoriesData: Record<string, string[]> = {
+    business: ['Entrepreneuriat', 'Gestion de projet', 'Leadership', 'Finance personnelle', 'Comptabilité'],
+    tech: ['Développement Web', 'Applications Mobiles', 'Intelligence Artificielle', 'Cybersécurité', 'Cloud Computing'],
+    marketing: ['Marketing Digital', 'SEO & Référencement', 'Réseaux Sociaux', 'Email Marketing', 'Publicité en ligne'],
+    finance: ['Trading Forex', 'Crypto-monnaies', 'Bourse', 'Analyse technique', 'Gestion de portefeuille'],
+    design: ['UI/UX Design', 'Graphisme', 'Motion Design', 'Design 3D', 'Photographie'],
+    agriculture: ['Agriculture moderne', 'Élevage', 'Transformation agroalimentaire', 'Irrigation', 'Bio']
+};
 
 export function InstructorCourseCreate() {
-  const { currentUser, isUserLoading } = useRole();
-  const navigate = useNavigate();
+    const navigate = useNavigate();
+    const { currentUser } = useRole();
 
-  // State
-  const [currentStep, setCurrentStep] = useState(1);
-  const totalSteps = 5;
-
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [category, setCategory] = useState("");
-  const [level, setLevel] = useState("beginner");
-  const [language, setLanguage] = useState("fr");
-
-  const [totalModules, setTotalModules] = useState<number | "">("");
-  const [totalVideos, setTotalVideos] = useState<number | "">("");
-
-  const [sections, setSections] = useState<any[]>([]);
-
-  const [images, setImages] = useState<any[]>([]);
-  const [videos, setVideos] = useState<any[]>([]);
-  const [docs, setDocs] = useState<any[]>([]);
-
-  const [accessType, setAccessType] = useState("free");
-  const [price, setPrice] = useState(0);
-
-  const [certification, setCertification] = useState(false);
-  const [requirements, setRequirements] = useState("");
-  const [targetAudience, setTargetAudience] = useState("");
-
-  // UI States
-  const [isCategorySheetOpen, setIsCategorySheetOpen] = useState(false);
-  const [isLevelSheetOpen, setIsLevelSheetOpen] = useState(false);
-  const [isLanguageSheetOpen, setIsLanguageSheetOpen] = useState(false);
-  const [lessonTypeSheetParams, setLessonTypeSheetParams] = useState<{
-    sIndex: number;
-    lIndex: number;
-  } | null>(null);
-
-  const [isUploading, setIsUploading] = useState(false);
-  const imagesInputRef = useRef<HTMLInputElement>(null);
-  const videosInputRef = useRef<HTMLInputElement>(null);
-  const docsInputRef = useRef<HTMLInputElement>(null);
-  const [uploadTitle, setUploadTitle] = useState("");
-  const [uploadProgressList, setUploadProgressList] = useState<
-    { name: string; progress: number }[]
-  >([]);
-
-  const [toastMessage, setToastMessage] = useState<{
-    msg: string;
-    type: string;
-  } | null>(null);
-
-  useEffect(() => {
-    if (toastMessage) {
-      const timer = setTimeout(() => setToastMessage(null), 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [toastMessage]);
-
-  if (isUserLoading) {
-    return (
-      <div className="h-[60vh] flex items-center justify-center bg-[#0B0F19]">
-        <Loader2 className="h-8 w-8 animate-spin text-[#22C55E]" />
-      </div>
-    );
-  }
-
-  // Bypass temporaire
-  if (
-    false &&
-    currentUser?.status !== "approved" &&
-    currentUser?.role !== "admin" &&
-    currentUser?.role !== "ceo"
-  ) {
-    return (
-      <div className="max-w-2xl mx-auto py-12 px-4 space-y-6">
-        <div className="text-center space-y-4">
-          <h1 className="text-3xl font-black text-white uppercase tracking-tight">
-            Accès restreint
-          </h1>
-        </div>
-      </div>
-    );
-  }
-
-  const showToast = (msg: string, type: string) => {
-    setToastMessage({ msg, type });
-  };
-
-  const validateStep = (step: number) => {
-    let isValid = true;
-    let message = "";
-    if (step === 1) {
-      if (!title.trim()) {
-        message = "Le titre du cours est obligatoire";
-        isValid = false;
-      } else if (!description.trim()) {
-        message = "La description est obligatoire";
-        isValid = false;
-      } else if (!category) {
-        message = "Sélectionnez une catégorie";
-        isValid = false;
-      } else if (totalModules === "" || totalModules <= 0) {
-        message = "Le nombre de modules doit être supérieur à 0";
-        isValid = false;
-      } else if (totalVideos === "" || totalVideos <= 0) {
-        message = "Le nombre de vidéos doit être supérieur à 0";
-        isValid = false;
-      }
-    } else if (step === 2) {
-      if (sections.length === 0) {
-        message = "Ajoutez au moins une section";
-        isValid = false;
-      }
-    }
-    if (!isValid) showToast(message, "warning");
-    return isValid;
-  };
-
-  const nextStep = () => {
-    if (currentStep === 5) {
-      publishCourse();
-      return;
-    }
-    if (!validateStep(currentStep)) return;
-    if (currentStep < totalSteps) {
-      setCurrentStep((c) => c + 1);
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    }
-  };
-
-  const prevStep = () => {
-    if (currentStep > 1) {
-      setCurrentStep((c) => c - 1);
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    }
-  };
-
-  // Upload Logic (R2 via API)
-  const handleDriveVideoPicked = async (accessToken: string, fileId: string, fileName: string) => {
-    try {
-      showToast("Transfert depuis Google Drive en cours...", "success");
-      const newFile = {
-        name: fileName,
-        size: 0,
-        type: "video/mp4",
-        url: "",
-        videoId: "",
-        status: "Transfert en cours...",
-        uploadedAt: new Date().toISOString()
-      };
-      setVideos(prev => [...prev, newFile]);
-
-      const idToken = await auth.currentUser?.getIdToken();
-      const res = await fetch('/api/admin/video/drive-to-bunny', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${idToken}`
-        },
-        body: JSON.stringify({ fileId, driveToken: accessToken, fileName, courseId: "new" })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Erreur de transfert");
-
-      showToast("Vidéo importée depuis Google Drive !", "success");
-      
-      const updateStatus = (list: any[]) => list.map(item => item.name === fileName ? { ...item, status: "Prêt", videoId: data.videoId, url: data.videoUrl || "" } : item);
-      setVideos(updateStatus);
-    } catch(err: any) {
-      console.error(err);
-      showToast("Erreur lors de l'import: " + err.message, "warning");
-      const updateStatus = (list: any[]) => list.map(item => item.name === fileName ? { ...item, status: "Échec" } : item);
-      setVideos(updateStatus);
-    }
-  };
-
+    const [title, setTitle] = useState('');
+    const [subtitle, setSubtitle] = useState('');
+    const [description, setDescription] = useState('');
+    const [objectives, setObjectives] = useState<string[]>(['']);
+    const [prerequisites, setPrerequisites] = useState<string[]>(['']);
+    const [audiences, setAudiences] = useState<string[]>(['']);
     
-  const executeUpload = async (file: File, bucketFolder: string) => {
-    return uploadToR2(file, bucketFolder, (progress) => {
-      setUploadProgressList((prev) => {
-        const existing = [...prev];
-        const index = existing.findIndex((p) => p.name === file.name);
-        if (index >= 0) {
-          existing[index].progress = progress;
-        } else {
-          existing.push({ name: file.name, progress });
-        }
-        return existing;
-      });
-    });
-  };
-
-
-
-  const handleFileUpload = async (
-    e: React.ChangeEvent<HTMLInputElement>,
-    type: "images" | "videos" | "docs",
-  ) => {
-    const files = Array.from(e.target.files || []) as File[];
-    if (files.length === 0) return;
-
-    const currentCount =
-      type === "images"
-        ? images.length
-        : type === "videos"
-          ? videos.length
-          : docs.length;
-    const maxFiles = type === "images" ? 20 : type === "videos" ? 10 : 15;
-
-    if (currentCount + files.length > maxFiles) {
-      showToast(`Maximum ${maxFiles} fichiers pour cette catégorie`, "warning");
-      return;
-    }
-
-    const maxSize =
-      type === "videos"
-        ? 500 * 1024 * 1024
-        : type === "docs"
-          ? 50 * 1024 * 1024
-          : 5 * 1024 * 1024;
-    const invalidFiles = files.filter((f) => f.size > maxSize);
-    if (invalidFiles.length > 0) {
-      showToast(
-        `${invalidFiles.length} fichier(s) dépassent la taille maximale`,
-        "warning",
-      );
-      return;
-    }
-
-    // UI Optimiste : Création immédiate des fiches de médias
-    const newFiles = files.map(file => ({
-      name: file.name,
-      size: file.size,
-      type: file.type,
-      url: URL.createObjectURL(file), // Aperçu immédiat
-      videoId: "",
-      status: "Traitement en cours...",
-      uploadedAt: new Date().toISOString()
-    }));
-
-    if (type === "images") setImages(prev => [...prev, ...newFiles]);
-    if (type === "videos") setVideos(prev => [...prev, ...newFiles]);
-    if (type === "docs") setDocs(prev => [...prev, ...newFiles]);
-
-    // Suivi de l'upload en tâche de fond
-    setUploadProgressList(prev => [
-      ...prev,
-      ...files.map((f) => ({ name: f.name, progress: 0 }))
-    ]);
-
+    const [category, setCategory] = useState('');
+    const [subcategory, setSubcategory] = useState('');
+    const [difficulty, setDifficulty] = useState('intermediate');
     
-  const uploadSingleFile = async (file: File) => {
-      const bucketFolder =
-        type === "images"
-          ? "course-images"
-          : type === "videos"
-            ? "course-videos"
-            : "course-docs";
+    const [tags, setTags] = useState<string[]>([]);
+    const [tagInput, setTagInput] = useState('');
+    
+    const [isFree, setIsFree] = useState(false);
+    const [price, setPrice] = useState<number | ''>('');
+    const [promoPrice, setPromoPrice] = useState<number | ''>('');
+    
+    const [coverImage, setCoverImage] = useState<File | null>(null);
+    const [coverImageUrl, setCoverImageUrl] = useState('');
+    const [isDragOver, setIsDragOver] = useState(false);
+    
+    const [slug, setSlug] = useState('');
+    const [slugTouched, setSlugTouched] = useState(false);
+    
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [lastSaved, setLastSaved] = useState<Date | null>(null);
 
-      let finalUrl = "";
-      let finalVideoId = "";
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
-      try {
-        if (type === "videos") {
-          try {
-            const result = await uploadVideoToBunny(file, (progress) => {
-              setUploadProgressList((prev) => {
-                const existing = [...prev];
-                const index = existing.findIndex((p) => p.name === file.name);
-                if (index >= 0) existing[index].progress = progress;
-                return existing;
-              });
-              
-              // Mise à jour du status local
-              const updateStatus = (list: any[]) => list.map(item => item.name === file.name ? { ...item, status: `${progress}%` } : item);
-              setVideos(updateStatus);
-            });
-            finalUrl = result.iframeUrl;
-            finalVideoId = result.videoId;
-          } catch (providerError: any) {
-            console.warn("External video provider failed, falling back to basic storage:", providerError);
-            showToast(
-              `Bunny Stream ignoré: ${providerError.message}. Bascule sur le stockage de secours. Veuillez vérifier vos clés API Bunny.`,
-              "warning"
-            );
-            finalUrl = await executeUpload(file, bucketFolder);
-            finalVideoId = finalUrl;
-          }
-        } else {
-          finalUrl = await executeUpload(file, bucketFolder);
+    // Auto-save simulation
+    useEffect(() => {
+        const interval = setInterval(() => setLastSaved(new Date()), 30000);
+        return () => clearInterval(interval);
+    }, []);
+
+    // Auto-slug
+    useEffect(() => {
+        if (!slugTouched && title) {
+            setSlug(title.toLowerCase()
+                .replace(/[àâä]/g, 'a')
+                .replace(/[éèêë]/g, 'e')
+                .replace(/[ïî]/g, 'i')
+                .replace(/[ôö]/g, 'o')
+                .replace(/[ùûü]/g, 'u')
+                .replace(/[ç]/g, 'c')
+                .replace(/[^a-z0-9]+/g, '-')
+                .replace(/^-+|-+$/g, ''));
         }
+    }, [title, slugTouched]);
 
-        // Marquer comme prêt
-        const setReady = (list: any[]) => list.map(item => item.name === file.name ? { ...item, url: finalUrl, videoId: finalVideoId, status: "Prêt" } : item);
-        if (type === "images") setImages(setReady);
-        if (type === "videos") setVideos(setReady);
-        if (type === "docs") setDocs(setReady);
-
-        showToast(`${file.name} téléversé avec succès !`, "success");
-      } catch (err: any) {
-        logger.error("UPLOAD ERROR:", err);
-        showToast(`Erreur ${file.name} : ${err?.message || ""}`, "warning");
-        
-        // Retirer le fichier échoué
-        const removeFailed = (list: any[]) => list.filter(item => item.name !== file.name);
-        if (type === "images") setImages(removeFailed);
-        if (type === "videos") setVideos(removeFailed);
-        if (type === "docs") setDocs(removeFailed);
-      } finally {
-        setUploadProgressList((prev) => prev.filter(p => p.name !== file.name));
-      }
+    // Handlers for Arrays
+    const handleArrayChange = (setter: any, array: string[], index: number, value: string) => {
+        const newArr = [...array];
+        newArr[index] = value;
+        setter(newArr);
+    };
+    const addArrayItem = (setter: any, array: string[]) => setter([...array, '']);
+    const removeArrayItem = (setter: any, array: string[], index: number) => {
+        if (array.length > 1) setter(array.filter((_, i) => i !== index));
     };
 
-    // Lancement asynchrone non-bloquant
-    files.forEach(file => uploadSingleFile(file));
-
-    e.target.value = "";
-  };
-
-  const removeFile = (type: string, index: number) => {
-    if (type === "images") setImages(images.filter((_, i) => i !== index));
-    if (type === "videos") setVideos(videos.filter((_, i) => i !== index));
-    if (type === "docs") setDocs(docs.filter((_, i) => i !== index));
-    showToast("Fichier supprimé", "info");
-  };
-
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return "0 Bytes";
-    const k = 1024;
-    const sizes = ["Bytes", "KB", "MB", "GB"];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
-  };
-
-  // Sections
-  const addSection = () => {
-    setSections([...sections, { id: Date.now(), title: "", lessons: [] }]);
-  };
-
-  const removeSection = (id: number) => {
-    setSections(sections.filter((s) => s.id !== id));
-  };
-
-  const addLesson = (sectionId: number) => {
-    setSections(
-      sections.map((s) => {
-        if (s.id === sectionId) {
-          return {
-            ...s,
-            lessons: [
-              ...s.lessons,
-              { id: Date.now(), title: "", type: "video", duration: "" },
-            ],
-          };
-        }
-        return s;
-      }),
-    );
-  };
-
-  const removeLesson = (sectionId: number, lessonId: number) => {
-    setSections(
-      sections.map((s) => {
-        if (s.id === sectionId) {
-          return {
-            ...s,
-            lessons: s.lessons.filter((l: any) => l.id !== lessonId),
-          };
-        }
-        return s;
-      }),
-    );
-  };
-
-  const saveDraft = async () => {
-    showToast("Brouillon sauvegardé", "success");
-  };
-
-  const publishCourse = async () => {
-    if (!currentUser?.uid) return;
-    try {
-      const payload = {
-        title,
-        description,
-        category,
-        level,
-        language,
-        coverUrl: images.length > 0 ? images[0].url : "",
-        accessType,
-        price: accessType === "paid" ? price : 0,
-        certification,
-        totalModules: totalModules || 0, // Source de vérité pour la structure
-        totalVideos: totalVideos || 0, // Source de vérité pour la structure
-        autoCertificate: true, // Pipeline d'automatisation: (vidéos_vues / totalVideos) * 100
-        requirements,
-        targetAudience,
-        sections,
-        files: { images, videos, docs },
-        instructorId: currentUser.uid,
-        status: "Pending Review",
-        createdAt: serverTimestamp(),
-      };
-      
-      await addDoc(collection(db, "courses"), payload);
-      
-      showToast("Votre cours a été soumis ! Il est en cours d'examen par nos administrateurs. Vous recevrez une notification dès sa publication.", "success");
-      
-      setTimeout(() => {
-        navigate("/instructor/courses");
-      }, 2500);
-    } catch (err: any) {
-      logger.error("Erreur détaillée lors de l'ajout du cours:", err);
-      showToast(
-        "Erreur lors de la publication : " +
-          (err.message || "Permissions insuffisantes."),
-        "warning",
-      );
-    }
-  };
-
-  const stepTitles: Record<number, string> = {
-    1: "Informations de base",
-    2: "Programme du cours",
-    3: "Médias & Ressources",
-    4: "Paramètres",
-    5: "Récapitulatif",
-  };
-
-  const totalLessons = sections.reduce((acc, s) => acc + s.lessons.length, 0);
-  const totalFiles = images.length + videos.length + docs.length;
-
-  return (
-    <div className="min-h-screen bg-[#0B0F19] text-[#F8FAFC] pb-36 font-sans p-4 rounded-2xl relative overflow-hidden">
-      <style
-        dangerouslySetInnerHTML={{
-          __html: `
-            .step-line { transition: width 0.5s ease; }
-            .step-circle { transition: all 0.3s ease; }
-            .step-circle.active { background: #22C55E; border-color: #22C55E; }
-            .step-circle.completed { background: #22C55E; border-color: #22C55E; }
-            .step-line.completed { background: #22C55E; }
-            .upload-zone { transition: all 0.2s ease; }
-            .upload-zone.dragover { border-color: #22C55E; background: rgba(34, 197, 94, 0.1); }
-            @keyframes slideIn { from { transform: translateX(20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-            @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-            .animate-slide-in { animation: slideIn 0.3s ease-out; }
-            .animate-fade-in { animation: fadeIn 0.3s ease-out; }
-            .switch-toggle { transition: background-color 0.2s; }
-            .switch-toggle.active { background-color: #22C55E; }
-            .switch-thumb { transition: transform 0.2s; }
-            .switch-toggle.active .switch-thumb { transform: translateX(20px); }
-            input[type="number"]::-webkit-inner-spin-button,
-            input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
-        `,
-        }}
-      />
-
-      {/* Header */}
-      <header className="sticky top-0 z-40 bg-[#0B0F19]/95 backdrop-blur-md border-b border-[#334155]">
-        <div className="flex items-center justify-between px-4 py-3">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => navigate("/instructor/dashboard")}
-              className="p-2 -ml-2 rounded-full hover:bg-[#1E293B] transition-colors"
-            >
-              <svg
-                className="w-5 h-5 text-white"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M15 19l-7-7 7-7"
-                />
-              </svg>
-            </button>
-            <div>
-              <h1 className="text-base font-bold text-white">Créer un Cours</h1>
-              <p className="text-[10px] text-gray-400">
-                Étape {currentStep}/5 : {stepTitles[currentStep]}
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={saveDraft}
-            className="px-3 py-1.5 bg-[#1E293B] border border-[#334155] rounded-lg text-xs font-medium text-gray-300 hover:text-white transition-colors"
-          >
-            Brouillon
-          </button>
-        </div>
-
-        {/* Progress Stepper */}
-        <div className="px-4 pb-3">
-          <div className="flex items-center">
-            <div className="flex items-center gap-0">
-              <div
-                className={`step-circle ${currentStep === 1 ? "active" : currentStep > 1 ? "completed text-transparent" : "text-gray-500"} w-7 h-7 rounded-full border-2 border-[#334155] bg-[#1E293B] flex items-center justify-center text-[10px] font-bold`}
-              >
-                {currentStep > 1 ? (
-                  <svg
-                    className="w-4 h-4 text-white absolute"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="3"
-                      d="M5 13l4 4L19 7"
-                    />
-                  </svg>
-                ) : (
-                  "1"
-                )}
-              </div>
-              <div
-                className={`step-line h-0.5 w-8 ${currentStep > 1 ? "completed" : "bg-[#334155]"}`}
-              ></div>
-
-              <div
-                className={`step-circle ${currentStep === 2 ? "active" : currentStep > 2 ? "completed text-transparent" : "text-gray-500"} w-7 h-7 rounded-full border-2 border-[#334155] bg-[#1E293B] flex items-center justify-center text-[10px] font-bold`}
-              >
-                {currentStep > 2 ? (
-                  <svg
-                    className="w-4 h-4 text-white absolute"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="3"
-                      d="M5 13l4 4L19 7"
-                    />
-                  </svg>
-                ) : (
-                  "2"
-                )}
-              </div>
-              <div
-                className={`step-line h-0.5 w-8 ${currentStep > 2 ? "completed" : "bg-[#334155]"}`}
-              ></div>
-
-              <div
-                className={`step-circle ${currentStep === 3 ? "active" : currentStep > 3 ? "completed text-transparent" : "text-gray-500"} w-7 h-7 rounded-full border-2 border-[#334155] bg-[#1E293B] flex items-center justify-center text-[10px] font-bold`}
-              >
-                {currentStep > 3 ? (
-                  <svg
-                    className="w-4 h-4 text-white absolute"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="3"
-                      d="M5 13l4 4L19 7"
-                    />
-                  </svg>
-                ) : (
-                  "3"
-                )}
-              </div>
-              <div
-                className={`step-line h-0.5 w-8 ${currentStep > 3 ? "completed" : "bg-[#334155]"}`}
-              ></div>
-
-              <div
-                className={`step-circle ${currentStep === 4 ? "active" : currentStep > 4 ? "completed text-transparent" : "text-gray-500"} w-7 h-7 rounded-full border-2 border-[#334155] bg-[#1E293B] flex items-center justify-center text-[10px] font-bold`}
-              >
-                {currentStep > 4 ? (
-                  <svg
-                    className="w-4 h-4 text-white absolute"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="3"
-                      d="M5 13l4 4L19 7"
-                    />
-                  </svg>
-                ) : (
-                  "4"
-                )}
-              </div>
-              <div
-                className={`step-line h-0.5 w-8 ${currentStep > 4 ? "completed" : "bg-[#334155]"}`}
-              ></div>
-
-              <div
-                className={`step-circle ${currentStep === 5 ? "active" : "text-gray-500"} w-7 h-7 rounded-full border-2 border-[#334155] bg-[#1E293B] flex items-center justify-center text-[10px] font-bold`}
-              >
-                5
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="px-4 pt-4">
-        {/* STEP 1: Informations de base */}
-        <div
-          className={`step-content space-y-4 ${currentStep === 1 ? "animate-slide-in block" : "hidden"}`}
-        >
-          <div>
-            <label className="text-sm font-semibold text-white mb-2 block">
-              Titre du cours *
-            </label>
-            <input
-              type="text"
-              placeholder="Ex: Marketing Digital pour les PME Africaines"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="w-full bg-[#111827] border border-[#334155] rounded-xl px-4 py-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#22C55E]"
-            />
-          </div>
-
-          <div>
-            <label className="text-sm font-semibold text-white mb-2 block">
-              Description *
-            </label>
-            <textarea
-              rows={4}
-              placeholder="Décrivez le contenu, les objectifs et les prérequis de votre cours..."
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="w-full bg-[#111827] border border-[#334155] rounded-xl px-4 py-3 text-sm text-white placeholder-gray-500 resize-none focus:outline-none focus:border-[#22C55E]"
-            ></textarea>
-            <p className="text-[10px] text-gray-500 mt-1">
-              {description.length} / 500 caractères
-            </p>
-          </div>
-
-          <div>
-            <label className="text-sm font-semibold text-white mb-2 block">
-              Catégorie *
-            </label>
-            <TouchArea
-              as="div"
-              onClick={() => setIsCategorySheetOpen(true)}
-              className="w-full bg-[#111827] border border-[#334155] rounded-xl px-4 py-3 text-sm text-white flex justify-between items-center"
-            >
-              <span>
-                {CATEGORIES.find((c) => c.value === category)?.label ||
-                  "Sélectionner une catégorie"}
-              </span>
-              <ChevronDown className="w-4 h-4 text-gray-500" />
-            </TouchArea>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-sm font-semibold text-white mb-2 block">
-                Modules prévus *
-              </label>
-              <input
-                type="number"
-                placeholder="Ex: 5"
-                min="1"
-                value={totalModules}
-                onChange={(e) => setTotalModules(e.target.value ? Number(e.target.value) : "")}
-                className={`w-full bg-[#111827] border ${totalModules === 0 ? "border-red-500 focus:border-red-500" : "border-[#334155] focus:border-[#22C55E]"} rounded-xl px-4 py-3 text-sm text-white placeholder-gray-500 focus:outline-none`}
-              />
-            </div>
-            <div>
-              <label className="text-sm font-semibold text-white mb-2 block">
-                Vidéos totales *
-              </label>
-              <input
-                type="number"
-                placeholder="Ex: 20"
-                min="1"
-                value={totalVideos}
-                onChange={(e) => setTotalVideos(e.target.value ? Number(e.target.value) : "")}
-                className={`w-full bg-[#111827] border ${totalVideos === 0 ? "border-red-500 focus:border-red-500" : "border-[#334155] focus:border-[#22C55E]"} rounded-xl px-4 py-3 text-sm text-white placeholder-gray-500 focus:outline-none`}
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-sm font-semibold text-white mb-2 block">
-                Niveau
-              </label>
-              <TouchArea
-                as="div"
-                onClick={() => setIsLevelSheetOpen(true)}
-                className="w-full bg-[#111827] border border-[#334155] rounded-xl px-4 py-3 text-sm text-white flex justify-between items-center"
-              >
-                <span>
-                  {LEVELS.find((l) => l.value === level)?.label || "Débutant"}
-                </span>
-                <ChevronDown className="w-4 h-4 text-gray-500" />
-              </TouchArea>
-            </div>
-            <div>
-              <label className="text-sm font-semibold text-white mb-2 block">
-                Langue
-              </label>
-              <TouchArea
-                as="div"
-                onClick={() => setIsLanguageSheetOpen(true)}
-                className="w-full bg-[#111827] border border-[#334155] rounded-xl px-4 py-3 text-sm text-white flex justify-between items-center"
-              >
-                <span>
-                  {LANGUAGES.find((l) => l.value === language)?.label ||
-                    "Français"}
-                </span>
-                <ChevronDown className="w-4 h-4 text-gray-500" />
-              </TouchArea>
-            </div>
-          </div>
-        </div>
-
-        {/* STEP 2: Programme du cours */}
-        <div
-          className={`step-content space-y-4 ${currentStep === 2 ? "animate-slide-in block" : "hidden"}`}
-        >
-          <div className="bg-[#111827]/50 rounded-xl p-3 border border-[#334155] mb-4">
-            <p className="text-xs text-gray-400">
-              📚 Organisez votre cours en sections et leçons. Ajoutez du contenu
-              vidéo, texte ou quiz.
-            </p>
-          </div>
-
-          <div className="space-y-3">
-            {sections.map((section, sIndex) => (
-              <div
-                key={section.id}
-                className="bg-[#1E293B] rounded-xl border border-[#334155] overflow-hidden animate-fade-in"
-              >
-                <div className="p-3 bg-[#111827]/50 border-b border-[#334155] flex items-center gap-3">
-                  <span className="text-xs font-bold text-[#22C55E]">
-                    Section {sIndex + 1}
-                  </span>
-                  <input
-                    type="text"
-                    placeholder="Titre de la section..."
-                    value={section.title}
-                    onChange={(e) => {
-                      const newSec = [...sections];
-                      newSec[sIndex].title = e.target.value;
-                      setSections(newSec);
-                    }}
-                    className="flex-1 bg-transparent text-sm text-white placeholder-gray-500 border-none focus:ring-0 outline-none"
-                  />
-                  <button
-                    onClick={() => removeSection(section.id)}
-                    className="p-1.5 text-gray-500 hover:text-red-400 transition-colors"
-                  >
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="2"
-                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                      />
-                    </svg>
-                  </button>
-                </div>
-
-                <div className="p-3 space-y-2">
-                  {section.lessons.map((lesson: any, lIndex: number) => (
-                    <div
-                      key={lesson.id}
-                      className="flex items-center gap-2 bg-[#111827] rounded-lg p-2"
-                    >
-                      <span className="text-[10px] text-gray-500 w-5">
-                        {lIndex + 1}.
-                      </span>
-                      <input
-                        type="text"
-                        placeholder="Titre de la leçon..."
-                        value={lesson.title}
-                        onChange={(e) => {
-                          const newSec = [...sections];
-                          newSec[sIndex].lessons[lIndex].title = e.target.value;
-                          setSections(newSec);
-                        }}
-                        className="flex-1 bg-transparent text-xs text-white placeholder-gray-600 border-none focus:ring-0 outline-none"
-                      />
-                      <TouchArea
-                        as="div"
-                        onClick={() =>
-                          setLessonTypeSheetParams({ sIndex, lIndex })
-                        }
-                        className="bg-[#1E293B] text-[10px] text-gray-400 rounded px-2 py-1 border border-[#334155] flex items-center gap-1"
-                      >
-                        <span>
-                          {LESSON_TYPES.find((t) => t.value === lesson.type)
-                            ?.label || "Vidéo"}
-                        </span>
-                        <ChevronDown className="w-3 h-3" />
-                      </TouchArea>
-                      <button
-                        onClick={() => removeLesson(section.id, lesson.id)}
-                        className="p-1 text-gray-600 hover:text-red-400"
-                      >
-                        <svg
-                          className="w-3 h-3"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="2"
-                            d="M6 18L18 6M6 6l12 12"
-                          />
-                        </svg>
-                      </button>
-                    </div>
-                  ))}
-
-                  <TouchArea
-                    as="button"
-                    onClick={() => addLesson(section.id)}
-                    className="w-full py-2 text-[10px] text-gray-500 hover:text-[#22C55E] border border-dashed border-[#334155] rounded-lg transition-colors"
-                  >
-                    + Ajouter une leçon
-                  </TouchArea>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <TouchArea
-            as="button"
-            onClick={addSection}
-            className="w-full py-3 border-2 border-dashed border-[#334155] rounded-xl text-sm font-medium text-gray-400 hover:border-[#22C55E]/50 hover:text-[#22C55E] transition-all active:scale-[0.98]"
-          >
-            + Ajouter une section
-          </TouchArea>
-        </div>
-
-        {/* STEP 3: Médias et Ressources */}
-        <div
-          className={`step-content space-y-4 ${currentStep === 3 ? "animate-slide-in block" : "hidden"}`}
-        >
-          <div className="bg-[#111827]/50 rounded-xl p-3 border border-[#334155] mb-4">
-            <p className="text-xs text-gray-400">
-              📁 Téléversez vos fichiers vers le Cloud. Les fichiers seront
-              accessibles uniquement aux étudiants inscrits.
-            </p>
-          </div>
-
-          <div className="space-y-4">
-            {/* Images */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-sm font-semibold text-white">
-                  Images du cours
-                </label>
-                <span className="text-[10px] text-gray-500">
-                  {images.length}/20
-                </span>
-              </div>
-              <TouchArea
-                as="div"
-                className="upload-zone border border-[#334155] rounded-2xl p-4 text-center cursor-pointer hover:border-[#22C55E]/50 bg-[#1e293b]"
-                onClick={() => imagesInputRef.current?.click()}
-              >
-                <svg
-                  className="w-8 h-8 text-gray-500 mx-auto mb-2"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="1.5"
-                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                  />
-                </svg>
-                <p className="text-sm text-gray-400">
-                  Touchez pour ajouter des images
-                </p>
-                <div className="flex justify-center mt-2" onClick={(e) => e.stopPropagation()}>
-                  <GoogleDriveFilePicker
-                    folder="course-images"
-                    allowedTypes="IMAGE"
-                    label="Importer depuis Drive"
-                    onFileImported={(url, fileName) => {
-                      setImages(prev => [...prev, {
-                        name: fileName, url, status: "Prêt", uploadedAt: new Date().toISOString()
-                      }]);
-                    }}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-[#1E293B] hover:bg-[#334155] text-white border border-[#334155] rounded-lg transition-all font-bold text-[10px] uppercase tracking-widest"
-                  />
-                </div>
-                <input
-                  type="file"
-                  id="imagesInput" ref={imagesInputRef}
-                  accept="image/*"
-                  multiple
-                  className="hidden"
-                  onChange={(e) => handleFileUpload(e, "images")}
-                />
-              </TouchArea>
-              <div className="mt-2 space-y-2">
-                {images.map((file, i) => (
-                  <div
-                    key={i}
-                    className="file-item flex items-center gap-3 bg-[#111827] rounded-xl p-3 border border-[#334155]"
-                  >
-                    <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-[#1E293B] flex-shrink-0 overflow-hidden">
-                      {file.url ? (
-                        <img src={file.url} alt={file.name} className="w-full h-full object-cover" />
-                      ) : (
-                        "📦"
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-white truncate">{file.name}</p>
-                      <div className="flex items-center gap-2">
-                        <p className="text-[10px] text-gray-500">
-                          {formatFileSize(file.size)} • Image
-                        </p>
-                        {file.status && (
-                          <span
-                            className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase ${file.status === "Prêt" ? "bg-[#22C55E]/20 text-[#22C55E]" : "bg-amber-500/20 text-amber-500 animate-pulse"}`}
-                          >
-                            {file.status}
-                          </span>
-                        )}
-                      </div>
-                      {uploadProgressList.find(p => p.name === file.name) && (
-                        <div className="h-1 bg-[#1E293B] rounded-full overflow-hidden w-full mt-2">
-                          <div className="h-full bg-emerald-500 transition-all duration-300" style={{ width: `${uploadProgressList.find(p => p.name === file.name)?.progress}%` }} />
-                        </div>
-                      )}
-                    </div>
-                    <button
-                      onClick={() => removeFile("images", i)}
-                      className="p-2 text-gray-500 hover:text-red-400 transition-colors"
-                    >
-                      <svg
-                        className="w-4 h-4"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="2"
-                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                        />
-                      </svg>
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Videos */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-sm font-semibold text-white">
-                  Vidéos de cours
-                </label>
-                <span className="text-[10px] text-gray-500">
-                  {videos.length}/10
-                </span>
-              </div>
-              <TouchArea
-                as="div"
-                className="upload-zone border border-[#334155] rounded-2xl p-4 text-center cursor-pointer hover:border-[#22C55E]/50 bg-[#1e293b]"
-                onClick={() => videosInputRef.current?.click()}
-              >
-                <svg
-                  className="w-8 h-8 text-gray-500 mx-auto mb-2"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="1.5"
-                    d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
-                  />
-                </svg>
-                <p className="text-sm text-gray-400">
-                  Touchez pour ajouter des vidéos
-                </p>
-                <p className="text-[10px] text-gray-500 mt-1">
-                  MP4, MOV • Max 500MB par fichier
-                </p>
-                <div className="flex justify-center mt-2" onClick={(e) => e.stopPropagation()}>
-                  <GoogleDriveFilePicker
-                    folder="course-videos"
-                    allowedTypes="VIDEO"
-                    label="Importer depuis Drive"
-                    onFilePicked={handleDriveVideoPicked}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-[#1E293B] hover:bg-[#334155] text-white border border-[#334155] rounded-lg transition-all font-bold text-[10px] uppercase tracking-widest"
-                  />
-                </div>
-                <input
-                  type="file"
-                  id="videosInput" ref={videosInputRef}
-                  accept="video/*"
-                  multiple
-                  className="hidden"
-                  onChange={(e) => handleFileUpload(e, "videos")}
-                />
-              </TouchArea>
-              <div className="mt-2 space-y-2">
-                {videos.map((file, i) => (
-                  <div
-                    key={i}
-                    className="file-item flex items-center gap-3 bg-[#111827] rounded-xl p-3 border border-[#334155]"
-                  >
-                    <div className="w-10 h-10 rounded-lg flex items-center justify-center text-sm flex-shrink-0">
-                      🚀
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-white truncate">{file.name}</p>
-                      <div className="flex items-center gap-2">
-                        <p className="text-[10px] text-gray-500">
-                          {formatFileSize(file.size)} • Vidéo
-                        </p>
-                        {file.status && (
-                          <span
-                            className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase ${file.status === "Prêt" ? "bg-[#22C55E]/20 text-[#22C55E]" : "bg-amber-500/20 text-amber-500 animate-pulse"}`}
-                          >
-                            {file.status}
-                          </span>
-                        )}
-                      </div>
-                      {uploadProgressList.find(p => p.name === file.name) && (
-                        <div className="h-1 bg-[#1E293B] rounded-full overflow-hidden w-full mt-2">
-                          <div className="h-full bg-emerald-500 transition-all duration-300" style={{ width: `${uploadProgressList.find(p => p.name === file.name)?.progress}%` }} />
-                        </div>
-                      )}
-                    </div>
-                    <button
-                      onClick={() => removeFile("videos", i)}
-                      className="p-2 text-gray-500 hover:text-red-400 transition-colors"
-                    >
-                      <svg
-                        className="w-4 h-4"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="2"
-                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                        />
-                      </svg>
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Documents */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-sm font-semibold text-white">
-                  Documents & PDF
-                </label>
-                <span className="text-[10px] text-gray-500">
-                  {docs.length}/15
-                </span>
-              </div>
-              <TouchArea
-                as="div"
-                className="upload-zone border border-[#334155] rounded-2xl p-4 text-center cursor-pointer hover:border-[#22C55E]/50 bg-[#1e293b]"
-                onClick={() => docsInputRef.current?.click()}
-              >
-                <svg
-                  className="w-8 h-8 text-gray-500 mx-auto mb-2"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="1.5"
-                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                  />
-                </svg>
-                <p className="text-sm text-gray-400">
-                  Touchez pour ajouter des documents
-                </p>
-                <p className="text-[10px] text-gray-500 mt-1">
-                  PDF, DOCX, PPTX • Max 50MB
-                </p>
-                <div className="flex justify-center mt-2" onClick={(e) => e.stopPropagation()}>
-                  <GoogleDriveFilePicker
-                    folder="course-docs"
-                    allowedTypes="ALL"
-                    label="Importer depuis Drive"
-                    onFileImported={(url, fileName) => {
-                      setDocs(prev => [...prev, {
-                        name: fileName, url, status: "Prêt", uploadedAt: new Date().toISOString()
-                      }]);
-                    }}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-[#1E293B] hover:bg-[#334155] text-white border border-[#334155] rounded-lg transition-all font-bold text-[10px] uppercase tracking-widest"
-                  />
-                </div>
-                <input
-                  type="file"
-                  id="docsInput" ref={docsInputRef}
-                  accept=".pdf,.doc,.docx,.ppt,.pptx"
-                  multiple
-                  className="hidden"
-                  onChange={(e) => handleFileUpload(e, "docs")}
-                />
-              </TouchArea>
-              <div className="mt-2 space-y-2">
-                {docs.map((file, i) => (
-                  <div
-                    key={i}
-                    className="file-item flex items-center gap-3 bg-[#111827] rounded-xl p-3 border border-[#334155]"
-                  >
-                    <div className="w-10 h-10 rounded-lg flex items-center justify-center text-sm flex-shrink-0">
-                      📄
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-white truncate">{file.name}</p>
-                      <div className="flex items-center gap-2">
-                        <p className="text-[10px] text-gray-500">
-                          {formatFileSize(file.size)} • Document
-                        </p>
-                        {file.status && (
-                          <span
-                            className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase ${file.status === "Prêt" ? "bg-[#22C55E]/20 text-[#22C55E]" : "bg-amber-500/20 text-amber-500 animate-pulse"}`}
-                          >
-                            {file.status}
-                          </span>
-                        )}
-                      </div>
-                      {uploadProgressList.find(p => p.name === file.name) && (
-                        <div className="h-1 bg-[#1E293B] rounded-full overflow-hidden w-full mt-2">
-                          <div className="h-full bg-emerald-500 transition-all duration-300" style={{ width: `${uploadProgressList.find(p => p.name === file.name)?.progress}%` }} />
-                        </div>
-                      )}
-                    </div>
-                    <button
-                      onClick={() => removeFile("docs", i)}
-                      className="p-2 text-gray-500 hover:text-red-400 transition-colors"
-                    >
-                      <svg
-                        className="w-4 h-4"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="2"
-                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                        />
-                      </svg>
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* STEP 4: Paramètres */}
-        <div
-          className={`step-content space-y-4 ${currentStep === 4 ? "animate-slide-in block" : "hidden"}`}
-        >
-          <div className="bg-[#1E293B] rounded-xl p-4 border border-[#334155]">
-            <h3 className="text-sm font-bold text-white mb-3">
-              💰 Prix & Accès
-            </h3>
-
-            <div className="mb-4">
-              <label className="text-sm font-semibold text-white mb-2 block">
-                Type d'accès
-              </label>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={() => setAccessType("free")}
-                  className={`access-type-btn p-3 rounded-xl border-2 text-center ${accessType === "free" ? "border-[#22C55E] bg-[#22C55E]/10" : "border-[#334155]"}`}
-                >
-                  <div className="text-xl mb-1">🆓</div>
-                  <div
-                    className={`text-sm font-semibold ${accessType === "free" ? "text-[#22C55E]" : "text-gray-400"}`}
-                  >
-                    Gratuit
-                  </div>
-                </button>
-                <button
-                  onClick={() => setAccessType("paid")}
-                  className={`access-type-btn p-3 rounded-xl border-2 text-center ${accessType === "paid" ? "border-[#22C55E] bg-[#22C55E]/10" : "border-[#334155]"}`}
-                >
-                  <div className="text-xl mb-1">💎</div>
-                  <div
-                    className={`text-sm font-semibold ${accessType === "paid" ? "text-[#22C55E]" : "text-gray-400"}`}
-                  >
-                    Payant
-                  </div>
-                </button>
-              </div>
-            </div>
-
-            {accessType === "paid" && (
-              <div>
-                <label className="text-sm font-semibold text-white mb-2 block">
-                  Prix en FCFA *
-                </label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    placeholder="15000"
-                    min="500"
-                    step="500"
-                    value={price || ""}
-                    onChange={(e) => setPrice(parseInt(e.target.value) || 0)}
-                    className="w-full bg-[#111827] border border-[#334155] rounded-xl px-4 py-3 pr-12 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#22C55E]"
-                  />
-                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-semibold">
-                    F
-                  </span>
-                </div>
-                <div className="mt-3 p-3 bg-[#111827]/50 rounded-lg">
-                  <p className="text-[10px] text-gray-400">
-                    📊 Vous recevrez{" "}
-                    <span className="text-[#22C55E] font-bold">70%</span> des
-                    ventes. Commission NDARA : 30%
-                  </p>
-                  <p className="text-[10px] text-gray-500 mt-1">
-                    Prix estimé par étudiant :{" "}
-                    <span className="text-[#22C55E] font-bold">
-                      {Math.round(price * 0.7).toLocaleString()} F
-                    </span>
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="bg-[#1E293B] rounded-xl p-4 border border-[#334155]">
-            <h3 className="text-sm font-bold text-white mb-3">
-              🏆 Certification
-            </h3>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-white font-medium">
-                  Délivrer un certificat
-                </p>
-                <p className="text-[10px] text-gray-400 mt-1">
-                  Les étudiants reçoivent un certificat NDARA vérifiable
-                </p>
-              </div>
-              <div
-                className={`switch-toggle w-11 h-6 rounded-full relative cursor-pointer ${certification ? "bg-[#22C55E] active" : "bg-[#334155]"}`}
-                onClick={() => setCertification(!certification)}
-              >
-                <div className="switch-thumb absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform"></div>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-[#1E293B] rounded-xl p-4 border border-[#334155]">
-            <h3 className="text-sm font-bold text-white mb-3">📋 Prérequis</h3>
-            <textarea
-              rows={3}
-              placeholder="Ex: Aucun prérequis, ou Connaissances de base en..."
-              value={requirements}
-              onChange={(e) => setRequirements(e.target.value)}
-              className="w-full bg-[#111827] border border-[#334155] rounded-xl px-4 py-3 text-sm text-white placeholder-gray-500 resize-none focus:outline-none focus:border-[#22C55E]"
-            ></textarea>
-          </div>
-
-          <div className="bg-[#1E293B] rounded-xl p-4 border border-[#334155]">
-            <h3 className="text-sm font-bold text-white mb-3">
-              🎯 Public cible
-            </h3>
-            <textarea
-              rows={3}
-              placeholder="Ex: Entrepreneurs, étudiants en marketing, professionnels..."
-              value={targetAudience}
-              onChange={(e) => setTargetAudience(e.target.value)}
-              className="w-full bg-[#111827] border border-[#334155] rounded-xl px-4 py-3 text-sm text-white placeholder-gray-500 resize-none focus:outline-none focus:border-[#22C55E]"
-            ></textarea>
-          </div>
-        </div>
-
-        {/* STEP 5: Récapitulatif & Publication */}
-        <div
-          className={`step-content space-y-4 ${currentStep === 5 ? "animate-slide-in block" : "hidden"}`}
-        >
-          <div className="bg-[#1E293B] rounded-xl overflow-hidden border border-[#334155]">
-            {images.length > 0 ? (
-              <div
-                className="h-32 bg-cover bg-center"
-                style={{ backgroundImage: `url(${images[0].url})` }}
-              ></div>
-            ) : (
-              <div className="h-32 bg-gradient-to-br from-[#22C55E]/20 to-[#3B82F6]/20 flex items-center justify-center">
-                <span className="text-4xl">📚</span>
-              </div>
-            )}
-            <div className="p-4">
-              <h3 className="text-lg font-bold text-white">
-                {title || "Titre du cours"}
-              </h3>
-              <p className="text-sm text-gray-400 mt-1 line-clamp-2">
-                {description || "Description du cours..."}
-              </p>
-              <div className="flex items-center gap-3 mt-3">
-                <span className="px-2 py-1 bg-[#22C55E]/10 text-[#22C55E] text-[10px] font-semibold rounded-md">
-                  {category || "Catégorie"}
-                </span>
-                <span className="px-2 py-1 bg-[#3B82F6]/10 text-[#3B82F6] text-[10px] font-semibold rounded-md">
-                  {level}
-                </span>
-                <span className="px-2 py-1 bg-orange-500/10 text-orange-500 text-[10px] font-semibold rounded-md">
-                  {accessType === "free" ? "Gratuit" : `${price} F`}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-3 gap-3">
-            <div className="bg-[#1E293B] rounded-xl p-3 border border-[#334155] text-center">
-              <div className="text-xl font-bold text-[#22C55E]">
-                {sections.length}
-              </div>
-              <div className="text-[10px] text-gray-400">Sections</div>
-            </div>
-            <div className="bg-[#1E293B] rounded-xl p-3 border border-[#334155] text-center">
-              <div className="text-xl font-bold text-[#3B82F6]">
-                {totalLessons}
-              </div>
-              <div className="text-[10px] text-gray-400">Leçons</div>
-            </div>
-            <div className="bg-[#1E293B] rounded-xl p-3 border border-[#334155] text-center">
-              <div className="text-xl font-bold text-orange-500">
-                {totalFiles}
-              </div>
-              <div className="text-[10px] text-gray-400">Fichiers</div>
-            </div>
-          </div>
-
-          <div className="bg-[#1E293B] rounded-xl p-4 border border-[#334155]">
-            <h3 className="text-sm font-bold text-white mb-3">
-              ✅ Vérification finale
-            </h3>
-            <div className="space-y-2">
-              {[
-                { label: "Titre du cours défini", done: !!title },
-                { label: "Description complétée", done: !!description },
-                { label: "Catégorie sélectionnée", done: !!category },
-                { label: "Au moins une section", done: sections.length > 0 },
-                { label: "Image de couverture (depuis l'étape 3)", done: images.length > 0 },
-                {
-                  label: "Prix défini (si payant)",
-                  done: accessType === "free" || price > 0,
-                },
-              ].map((item, idx) => (
-                <div key={idx} className="flex items-center gap-3">
-                  <div
-                    className={`w-5 h-5 rounded-full ${item.done ? "bg-[#22C55E]" : "bg-[#334155]"} flex items-center justify-center flex-shrink-0`}
-                  >
-                    {item.done && (
-                      <svg
-                        className="w-3 h-3 text-white"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="3"
-                          d="M5 13l4 4L19 7"
-                        />
-                      </svg>
-                    )}
-                  </div>
-                  <span
-                    className={`text-xs ${item.done ? "text-white" : "text-gray-500"}`}
-                  >
-                    {item.label}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <button
-            onClick={publishCourse}
-            className="w-full py-4 bg-[#22C55E] hover:bg-emerald-600 text-white text-base font-bold rounded-xl active:scale-[0.98] transition-all shadow-lg shadow-[#22C55E]/20"
-          >
-            🚀 Publier le cours
-          </button>
-
-          <p className="text-center text-[10px] text-gray-500">
-            En publiant, vous acceptez les conditions d'utilisation de NDARA
-            pour les instructeurs.
-          </p>
-        </div>
-      </main>
-
-      {/* Bottom Navigation */}
-      <div className="flex flex-col w-full fixed bottom-0 left-0 right-0 bg-[#0B0F19]/95 backdrop-blur-md border-t border-[#334155] z-30">
-        {uploadProgressList.length > 0 && (
-          <div className="w-full bg-emerald-500/10 py-1.5 px-4 text-center border-b border-emerald-500/20">
-            <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest animate-pulse">
-              Téléversement en arrière-plan en cours... ({uploadProgressList.length} fichier(s))
-            </p>
-          </div>
-        )}
-        <nav className="flex items-center justify-between px-4 py-3 pb-[env(safe-area-inset-bottom)]">
-          <button
-            onClick={prevStep}
-            disabled={currentStep === 1}
-            className="px-4 py-2.5 bg-[#1E293B] border border-[#334155] rounded-xl text-sm font-medium text-gray-300 hover:text-white transition-all disabled:opacity-30 disabled:pointer-events-none"
-          >
-            ← Précédent
-          </button>
-          <button
-            onClick={nextStep}
-            disabled={
-              uploadProgressList.length > 0 ||
-              (currentStep === 1 && 
-              (!title.trim() || !description.trim() || !category || totalModules === "" || totalModules <= 0 || totalVideos === "" || totalVideos <= 0))
+    // Tags
+    const handleTagKeyDown = (e: React.KeyboardEvent) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const val = tagInput.trim();
+            if (val && !tags.includes(val)) {
+                setTags([...tags, val]);
+                setTagInput('');
             }
-            className="flex-1 ml-3 py-2.5 bg-[#22C55E] hover:bg-emerald-600 text-white text-sm font-bold rounded-xl transition-all active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none"
-          >
-            {currentStep === 5 ? "🚀 Publier" : "Suivant →"}
-          </button>
-        </nav>
-      </div>
+        }
+    };
+    const removeTag = (t: string) => setTags(tags.filter(tag => tag !== t));
 
-      {/* Categories Sheet */}
-      <BottomSheet
-        isOpen={isCategorySheetOpen}
-        onClose={() => setIsCategorySheetOpen(false)}
-        title="Catégorie"
-      >
-        <div className="space-y-2 mt-4 pb-4">
-          {CATEGORIES.map((cat) => (
-            <TouchArea
-              key={cat.value}
-              as="button"
-              onClick={() => {
-                setCategory(cat.value);
-                setIsCategorySheetOpen(false);
-              }}
-              className={`w-full p-4 rounded-xl text-left font-medium flex items-center justify-between transition-colors ${category === cat.value ? "bg-primary/20 text-primary border border-primary/30" : "bg-[#1e293b] text-white border border-transparent"}`}
-            >
-              <span>{cat.label}</span>
-              {category === cat.value && (
-                <Loader2 className="w-4 h-4 text-primary" />
-              )}
-            </TouchArea>
-          ))}
-        </div>
-      </BottomSheet>
+    // Images
+    
+    const handleDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragOver(false);
+        const file = e.dataTransfer.files?.[0];
+        if (file && file.type.startsWith('image/')) {
+            handleFile(file);
+        }
+    };
 
-      {/* Levels Sheet */}
-      <BottomSheet
-        isOpen={isLevelSheetOpen}
-        onClose={() => setIsLevelSheetOpen(false)}
-        title="Niveau"
-      >
-        <div className="space-y-2 mt-4 pb-4">
-          {LEVELS.map((lvl) => (
-            <TouchArea
-              key={lvl.value}
-              as="button"
-              onClick={() => {
-                setLevel(lvl.value);
-                setIsLevelSheetOpen(false);
-              }}
-              className={`w-full p-4 rounded-xl text-left font-medium flex items-center justify-between transition-colors ${level === lvl.value ? "bg-primary/20 text-primary border border-primary/30" : "bg-[#1e293b] text-white border border-transparent"}`}
-            >
-              <span>{lvl.label}</span>
-              {level === lvl.value && (
-                <Loader2 className="w-4 h-4 text-primary" />
-              )}
-            </TouchArea>
-          ))}
-        </div>
-      </BottomSheet>
+    const handleFile = (file: File) => {
+        setCoverImage(file);
+        const reader = new FileReader();
+        reader.onload = (e) => setCoverImageUrl(e.target?.result as string);
+        reader.readAsDataURL(file);
+    };
 
-      {/* Languages Sheet */}
-      <BottomSheet
-        isOpen={isLanguageSheetOpen}
-        onClose={() => setIsLanguageSheetOpen(false)}
-        title="Langue"
-      >
-        <div className="space-y-2 mt-4 pb-4">
-          {LANGUAGES.map((lang) => (
-            <TouchArea
-              key={lang.value}
-              as="button"
-              onClick={() => {
-                setLanguage(lang.value);
-                setIsLanguageSheetOpen(false);
-              }}
-              className={`w-full p-4 rounded-xl text-left font-medium flex items-center justify-between transition-colors ${language === lang.value ? "bg-primary/20 text-primary border border-primary/30" : "bg-[#1e293b] text-white border border-transparent"}`}
-            >
-              <span>{lang.label}</span>
-              {language === lang.value && (
-                <Loader2 className="w-4 h-4 text-primary" />
-              )}
-            </TouchArea>
-          ))}
-        </div>
-      </BottomSheet>
+    // AI Mock
 
-      {/* Lesson Types Sheet */}
-      <BottomSheet
-        isOpen={!!lessonTypeSheetParams}
-        onClose={() => setLessonTypeSheetParams(null)}
-        title="Type de leçon"
-      >
-        <div className="space-y-2 mt-4 pb-4">
-          {LESSON_TYPES.map((type) => (
-            <TouchArea
-              key={type.value}
-              as="button"
-              onClick={() => {
-                if (lessonTypeSheetParams) {
-                  const newSec = [...sections];
-                  newSec[lessonTypeSheetParams.sIndex].lessons[
-                    lessonTypeSheetParams.lIndex
-                  ].type = type.value;
-                  setSections(newSec);
+    // Form Submission
+    const createDraft = async () => {
+        if (!title.trim()) {
+            toast({ variant: 'destructive', title: 'Erreur', description: 'Veuillez entrer un titre pour le cours' });
+            return;
+        }
+        
+        setIsSubmitting(true);
+        try {
+            let finalImageUrl = '';
+            if (coverImage) {
+                const { uploadToR2 } = await import("../../lib/r2Upload");
+                finalImageUrl = await uploadToR2(coverImage, "course-covers");
+            }
+
+            const payload = {
+                title: title.trim(),
+                subtitle: subtitle.trim(),
+                description: description.trim(),
+                objectives: objectives.filter(o => o.trim() !== ''),
+                prerequisites: prerequisites.filter(p => p.trim() !== ''),
+                targetAudience: audiences.filter(a => a.trim() !== ''),
+                category,
+                subcategory,
+                difficulty,
+                tags,
+                isFree,
+                price: isFree ? 0 : Number(price || 0),
+                promoPrice: promoPrice ? Number(promoPrice) : null,
+                thumbnail: finalImageUrl,
+                slug: slug || title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, ''),
+                instructorId: currentUser?.uid,
+                status: "draft",
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+            };
+
+            const docRef = await addDoc(collection(db, "courses"), payload);
+            
+            if (currentUser) {
+                await ModerationLogsService.create({
+                    entityId: docRef.id,
+                    entityType: 'course',
+                    action: 'COURSE_CREATED',
+                    actorId: currentUser.uid,
+                    timestamp: Date.now()
+                });
+            }
+
+            toast({ title: '✅ Brouillon créé avec succès !', description: 'Redirection vers l\'éditeur de programme...' });
+            setTimeout(() => {
+                navigate(`/instructor/courses/${docRef.id}/program`);
+            }, 1500);
+
+        } catch (error: any) {
+            toast({ variant: 'destructive', title: 'Erreur', description: error.message || 'Impossible de créer le brouillon' });
+            setIsSubmitting(false);
+        }
+    };
+
+    // Checklists & Computed
+    const validObjectives = objectives.filter(o => o.trim()).length;
+    
+    const isTitleValid = title.trim().length > 0;
+    const isDescValid = description.trim().length > 50;
+
+    const isObjectivesValid = validObjectives >= 3;
+    const isImageValid = !!coverImageUrl;
+    const isPriceValid = isFree || (price && price > 0);
+    const isCategoryValid = !!category;
+
+    const CheckIcon = () => <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>;
+
+    return (
+        <div className="pb-24 font-sans min-h-screen text-[#F8FAFC]">
+            <style>{`
+                ::-webkit-scrollbar { width: 4px; }
+                ::-webkit-scrollbar-track { background: #0D1117; }
+                ::-webkit-scrollbar-thumb { background: #30363D; border-radius: 2px; }
+                
+                .glass-card {
+                    background: rgba(22, 27, 34, 0.6);
+                    backdrop-filter: blur(20px);
+                    border: 1px solid rgba(48, 54, 61, 0.5);
                 }
-                setLessonTypeSheetParams(null);
-              }}
-              className={`w-full p-4 rounded-xl text-left font-medium flex items-center justify-between transition-colors ${
-                lessonTypeSheetParams &&
-                sections[lessonTypeSheetParams.sIndex]?.lessons[
-                  lessonTypeSheetParams.lIndex
-                ]?.type === type.value
-                  ? "bg-primary/20 text-primary border border-primary/30"
-                  : "bg-[#1e293b] text-white border border-transparent"
-              }`}
-            >
-              <span>{type.label}</span>
-              {lessonTypeSheetParams &&
-                sections[lessonTypeSheetParams.sIndex]?.lessons[
-                  lessonTypeSheetParams.lIndex
-                ]?.type === type.value && (
-                  <Loader2 className="w-4 h-4 text-primary" />
-                )}
-            </TouchArea>
-          ))}
+                
+                .input-field {
+                    background: #0D1117;
+                    border: 1px solid #30363D;
+                    color: #F8FAFC;
+                    transition: all 0.2s;
+                }
+                .input-field:focus {
+                    border-color: #10B981;
+                    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+                    outline: none;
+                }
+                .input-field::placeholder { color: #6B7280; }
+                
+                .drop-zone {
+                    background: repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(48,54,61,0.1) 10px, rgba(48,54,61,0.1) 20px);
+                    border: 2px dashed #30363D;
+                    transition: all 0.3s;
+                }
+                .drop-zone:hover, .drop-zone.dragover {
+                    border-color: #10B981;
+                    background: rgba(16, 185, 129, 0.05);
+                }
+                
+                .toggle-checkbox:checked + .toggle-label { background-color: #10B981; }
+                .toggle-checkbox:checked + .toggle-label .toggle-dot { transform: translateX(100%); }
+                
+                .tag-item { animation: fadeIn 0.2s ease-out; }
+                @keyframes fadeIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+                
+                .objective-item, .prerequisite-item { animation: slideIn 0.2s ease-out; }
+                @keyframes slideIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
+                
+                .step-active { background: #10B981; color: #fff; border-color: #10B981; }
+                .step-completed { background: #10B981; color: #fff; border-color: #10B981; }
+                .step-inactive { background: transparent; color: #6B7280; border-color: #30363D; }
+                
+                
+                .sticky-bottom {
+                    position: sticky;
+                    bottom: 0;
+                    background: linear-gradient(to top, #06080F 80%, transparent);
+                    padding-top: 20px;
+                }
+                
+                textarea { resize: none; }
+                
+                .char-counter { transition: color 0.2s; }
+                .char-counter.warning { color: #F59E0B; }
+                .char-counter.error { color: #EF4444; }
+            `}</style>
+
+            {/* Top Navigation */}
+            <nav className="fixed top-0 left-0 right-0 z-50 bg-[#06080F]/95 backdrop-blur-xl border-b border-[#30363D]/50">
+                <div className="max-w-5xl mx-auto px-4">
+                    <div className="flex items-center justify-between h-14">
+                        <div className="flex items-center gap-3">
+                            <button onClick={() => navigate(-1)} className="p-2 rounded-lg hover:bg-[#161B22] transition-colors">
+                                <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"/></svg>
+                            </button>
+                            <div className="flex items-center gap-2">
+                                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center font-bold text-xs">N</div>
+                                <span className="text-sm font-bold text-white">NDARA</span>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs text-gray-500 hidden sm:inline">
+                                {lastSaved ? `Sauvegardé à ${lastSaved.toLocaleTimeString('fr-FR', {hour: '2-digit', minute:'2-digit'})}` : 'Brouillon'}
+                            </span>
+                            <button className="px-3 py-1.5 bg-[#161B22] border border-[#30363D] text-gray-300 text-xs rounded-lg hover:bg-[#1E2530] transition-colors">Sauvegarder</button>
+                        </div>
+                    </div>
+                </div>
+            </nav>
+
+            {/* Stepper Progress */}
+            <div className="max-w-5xl mx-auto px-4 pt-20 pb-6">
+                <div className="flex items-center justify-between mb-6">
+                    <div>
+                        <h1 className="text-xl sm:text-2xl font-black text-white">NOUVELLE FORMATION</h1>
+                        <p className="text-xs sm:text-sm text-gray-400 mt-1">Définissez les informations générales pour commencer</p>
+                    </div>
+                </div>
+
+                {/* Progress Steps */}
+                <div className="flex items-center gap-2 mb-8 overflow-x-auto pb-2">
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                        <div className="w-8 h-8 rounded-full step-active flex items-center justify-center text-xs font-bold flex-shrink-0">1</div>
+                        <span className="text-xs font-semibold text-emerald-400 hidden sm:inline">Infos</span>
+                    </div>
+                    <div className="w-6 sm:w-10 h-0.5 bg-[#30363D] rounded-full flex-shrink-0"></div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                        <div className="w-8 h-8 rounded-full step-inactive flex items-center justify-center text-xs font-bold flex-shrink-0">2</div>
+                        <span className="text-xs font-semibold text-gray-500 hidden sm:inline">Programme</span>
+                    </div>
+                    <div className="w-6 sm:w-10 h-0.5 bg-[#30363D] rounded-full flex-shrink-0"></div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                        <div className="w-8 h-8 rounded-full step-inactive flex items-center justify-center text-xs font-bold flex-shrink-0">3</div>
+                        <span className="text-xs font-semibold text-gray-500 hidden sm:inline">Médias</span>
+                    </div>
+                    <div className="w-6 sm:w-10 h-0.5 bg-[#30363D] rounded-full flex-shrink-0"></div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                        <div className="w-8 h-8 rounded-full step-inactive flex items-center justify-center text-xs font-bold flex-shrink-0">4</div>
+                        <span className="text-xs font-semibold text-gray-500 hidden sm:inline">Prix</span>
+                    </div>
+                    <div className="w-6 sm:w-10 h-0.5 bg-[#30363D] rounded-full flex-shrink-0"></div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                        <div className="w-8 h-8 rounded-full step-inactive flex items-center justify-center text-xs font-bold flex-shrink-0">5</div>
+                        <span className="text-xs font-semibold text-gray-500 hidden sm:inline">Publier</span>
+                    </div>
+                </div>
+
+                {/* Main Form */}
+                <div className="grid lg:grid-cols-3 gap-6">
+                    
+                    {/* Left: Form */}
+                    <div className="lg:col-span-2 space-y-6">
+                        
+                        {/* Course Title */}
+                        <div className="glass-card rounded-2xl p-5 sm:p-6">
+                            <label className="block text-sm font-semibold text-gray-300 mb-2">TITRE DU COURS <span className="text-red-400">*</span></label>
+                            <div className="relative">
+                                <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Ex: Devenir un pro du Trading" maxLength={80}
+                                       className="input-field w-full px-4 py-3 rounded-xl text-sm sm:text-base" />
+                            </div>
+                            <div className="flex items-center justify-between mt-1.5">
+                                <span className="text-xs text-gray-500">Conseil : Soyez précis et accrocheur</span>
+                                <span className={`char-counter text-xs ${title.length > 72 ? 'error' : title.length > 60 ? 'warning' : 'text-gray-500'}`}>{title.length}/80</span>
+                            </div>
+                        </div>
+
+                        {/* Subtitle */}
+                        <div className="glass-card rounded-2xl p-5 sm:p-6">
+                            <label className="block text-sm font-semibold text-gray-300 mb-2">SOUS-TITRE (ACCROCHE)</label>
+                            <div className="relative">
+                                <input type="text" value={subtitle} onChange={(e) => setSubtitle(e.target.value)} placeholder="Ex: La méthode complète pour maîtriser les marchés financiers en 30 jours" maxLength={120}
+                                       className="input-field w-full px-4 py-3 rounded-xl text-sm" />
+                            </div>
+                            <div className="flex items-center justify-between mt-1.5">
+                                <span className="text-xs text-gray-500">Cette phrase apparaît sous le titre sur la marketplace</span>
+                                <span className={`char-counter text-xs ${subtitle.length > 108 ? 'error' : subtitle.length > 90 ? 'warning' : 'text-gray-500'}`}>{subtitle.length}/120</span>
+                            </div>
+                        </div>
+
+                        {/* Description */}
+                        <div className="glass-card rounded-2xl p-5 sm:p-6">
+                            <label className="block text-sm font-semibold text-gray-300 mb-2">DESCRIPTION <span className="text-red-400">*</span></label>
+                            <div className="relative">
+                                <textarea rows={5} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Détaillez le contenu et l'objectif de la formation..." maxLength={2000}
+                                          className="input-field w-full px-4 py-3 rounded-xl text-sm"></textarea>
+                            </div>
+                            <div className="flex items-center justify-between mt-1.5">
+                                <span className="text-xs text-gray-500">Décrivez ce que les étudiants vont apprendre</span>
+                                <span className={`char-counter text-xs ${description.length > 1800 ? 'error' : description.length > 1500 ? 'warning' : 'text-gray-500'}`}>{description.length}/2000</span>
+                            </div>
+                        </div>
+
+                        {/* Learning Objectives */}
+                        <div className="glass-card rounded-2xl p-5 sm:p-6">
+                            <div className="flex items-center justify-between mb-4">
+                                <label className="block text-sm font-semibold text-gray-300">OBJECTIFS D'APPRENTISSAGE <span className="text-red-400">*</span></label>
+                                <span className="text-xs text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-lg">Min. 3 objectifs</span>
+                            </div>
+                            <p className="text-xs text-gray-500 mb-3">Les étudiants seront capables de...</p>
+                            <div className="space-y-2 mb-3">
+                                {objectives.map((obj, idx) => (
+                                    <div key={idx} className="objective-item flex items-center gap-2">
+                                        <div className="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
+                                            <span className="text-emerald-400 text-xs">✓</span>
+                                        </div>
+                                        <input type="text" value={obj} onChange={(e) => handleArrayChange(setObjectives, objectives, idx, e.target.value)} placeholder="Ex: Analyser les graphiques boursiers" className="input-field flex-1 px-3 py-2 rounded-lg text-xs sm:text-sm" />
+                                        <button onClick={() => removeArrayItem(setObjectives, objectives, idx)} className="p-1 text-gray-500 hover:text-red-400 transition-colors flex-shrink-0">
+                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                            <button onClick={() => addArrayItem(setObjectives, objectives)} className="w-full py-2 border border-dashed border-[#30363D] rounded-lg text-xs text-gray-400 hover:text-emerald-400 hover:border-emerald-500/30 transition-colors flex items-center justify-center gap-1">
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"/></svg>
+                                Ajouter un objectif
+                            </button>
+                        </div>
+
+                        {/* Prerequisites */}
+                        <div className="glass-card rounded-2xl p-5 sm:p-6">
+                            <label className="block text-sm font-semibold text-gray-300 mb-4">PRÉREQUIS</label>
+                            <p className="text-xs text-gray-500 mb-3">Ce que les étudiants doivent avoir avant de commencer</p>
+                            <div className="space-y-2 mb-3">
+                                {prerequisites.map((req, idx) => (
+                                    <div key={idx} className="prerequisite-item flex items-center gap-2">
+                                        <div className="w-5 h-5 rounded-full bg-orange-500/20 flex items-center justify-center flex-shrink-0">
+                                            <span className="text-orange-400 text-xs">!</span>
+                                        </div>
+                                        <input type="text" value={req} onChange={(e) => handleArrayChange(setPrerequisites, prerequisites, idx, e.target.value)} placeholder="Ex: Un ordinateur avec connexion internet" className="input-field flex-1 px-3 py-2 rounded-lg text-xs sm:text-sm" />
+                                        <button onClick={() => removeArrayItem(setPrerequisites, prerequisites, idx)} className="p-1 text-gray-500 hover:text-red-400 transition-colors flex-shrink-0">
+                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                            <button onClick={() => addArrayItem(setPrerequisites, prerequisites)} className="w-full py-2 border border-dashed border-[#30363D] rounded-lg text-xs text-gray-400 hover:text-orange-400 hover:border-orange-500/30 transition-colors flex items-center justify-center gap-1">
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"/></svg>
+                                Ajouter un prérequis
+                            </button>
+                        </div>
+
+                        {/* Target Audience */}
+                        <div className="glass-card rounded-2xl p-5 sm:p-6">
+                            <label className="block text-sm font-semibold text-gray-300 mb-4">PUBLIC CIBLE</label>
+                            <p className="text-xs text-gray-500 mb-3">À qui s'adresse ce cours ?</p>
+                            <div className="space-y-2 mb-3">
+                                {audiences.map((aud, idx) => (
+                                    <div key={idx} className="objective-item flex items-center gap-2">
+                                        <div className="w-5 h-5 rounded-full bg-blue-500/20 flex items-center justify-center flex-shrink-0">
+                                            <span className="text-blue-400 text-xs">👤</span>
+                                        </div>
+                                        <input type="text" value={aud} onChange={(e) => handleArrayChange(setAudiences, audiences, idx, e.target.value)} placeholder="Ex: Débutants en trading" className="input-field flex-1 px-3 py-2 rounded-lg text-xs sm:text-sm" />
+                                        <button onClick={() => removeArrayItem(setAudiences, audiences, idx)} className="p-1 text-gray-500 hover:text-red-400 transition-colors flex-shrink-0">
+                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                            <button onClick={() => addArrayItem(setAudiences, audiences)} className="w-full py-2 border border-dashed border-[#30363D] rounded-lg text-xs text-gray-400 hover:text-blue-400 hover:border-blue-500/30 transition-colors flex items-center justify-center gap-1">
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"/></svg>
+                                Ajouter un public cible
+                            </button>
+                        </div>
+
+                        {/* Category & Level */}
+                        <div className="grid sm:grid-cols-2 gap-4">
+                            <div className="glass-card rounded-2xl p-5">
+                                <label className="block text-sm font-semibold text-gray-300 mb-2">CATÉGORIE <span className="text-red-400">*</span></label>
+                                <select value={category} onChange={e => {setCategory(e.target.value); setSubcategory('');}} className="input-field w-full px-4 py-3 rounded-xl text-sm">
+                                    <option value="">Sélectionner...</option>
+                                    <option value="business">💼 Business & Entrepreneuriat</option>
+                                    <option value="tech">💻 Technologie</option>
+                                    <option value="marketing">📢 Marketing Digital</option>
+                                    <option value="finance">💰 Finance & Trading</option>
+                                    <option value="design">🎨 Design</option>
+                                    <option value="agriculture">🌾 Agriculture</option>
+                                </select>
+                            </div>
+                            <div className="glass-card rounded-2xl p-5">
+                                <label className="block text-sm font-semibold text-gray-300 mb-2">SOUS-CATÉGORIE</label>
+                                <select value={subcategory} onChange={e => setSubcategory(e.target.value)} className="input-field w-full px-4 py-3 rounded-xl text-sm">
+                                    <option value="">Sélectionner...</option>
+                                    {category && subcategoriesData[category]?.map(sub => (
+                                        <option key={sub} value={sub.toLowerCase().replace(/\s+/g, '-')}>{sub}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+
+                        {/* Difficulty Level */}
+                        <div className="glass-card rounded-2xl p-5 sm:p-6">
+                            <label className="block text-sm font-semibold text-gray-300 mb-3">NIVEAU DE DIFFICULTÉ <span className="text-red-400">*</span></label>
+                            <div className="grid grid-cols-3 gap-3">
+                                <label className="difficulty-option cursor-pointer">
+                                    <input type="radio" name="difficulty" value="beginner" checked={difficulty === 'beginner'} onChange={() => setDifficulty('beginner')} className="hidden peer" />
+                                    <div className="peer-checked:bg-emerald-500/20 peer-checked:border-emerald-500 border border-[#30363D] rounded-xl p-3 text-center transition-all">
+                                        <span className="text-xl block mb-1">🌱</span>
+                                        <span className="text-xs font-semibold text-gray-300 peer-checked:text-emerald-400">Débutant</span>
+                                    </div>
+                                </label>
+                                <label className="difficulty-option cursor-pointer">
+                                    <input type="radio" name="difficulty" value="intermediate" checked={difficulty === 'intermediate'} onChange={() => setDifficulty('intermediate')} className="hidden peer" />
+                                    <div className="peer-checked:bg-blue-500/20 peer-checked:border-blue-500 border border-[#30363D] rounded-xl p-3 text-center transition-all">
+                                        <span className="text-xl block mb-1">⭐</span>
+                                        <span className="text-xs font-semibold text-gray-300 peer-checked:text-blue-400">Intermédiaire</span>
+                                    </div>
+                                </label>
+                                <label className="difficulty-option cursor-pointer">
+                                    <input type="radio" name="difficulty" value="advanced" checked={difficulty === 'advanced'} onChange={() => setDifficulty('advanced')} className="hidden peer" />
+                                    <div className="peer-checked:bg-purple-500/20 peer-checked:border-purple-500 border border-[#30363D] rounded-xl p-3 text-center transition-all">
+                                        <span className="text-xl block mb-1">🚀</span>
+                                        <span className="text-xs font-semibold text-gray-300 peer-checked:text-purple-400">Expert</span>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+
+                        {/* Tags */}
+                        <div className="glass-card rounded-2xl p-5 sm:p-6">
+                            <label className="block text-sm font-semibold text-gray-300 mb-2">TAGS (MOTS-CLÉS)</label>
+                            <p className="text-xs text-gray-500 mb-3">Appuyez sur Entrée pour ajouter un tag</p>
+                            <div className="input-field rounded-xl px-4 py-3 flex flex-wrap gap-2 items-center cursor-text" onClick={() => document.getElementById('tagInput')?.focus()}>
+                                <div className="flex flex-wrap gap-2">
+                                    {tags.map(t => (
+                                        <span key={t} className="tag-item inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-500/10 text-emerald-400 text-xs rounded-lg border border-emerald-500/20">
+                                            {t}
+                                            <button onClick={() => removeTag(t)} className="hover:text-red-400 transition-colors">×</button>
+                                        </span>
+                                    ))}
+                                </div>
+                                <input type="text" id="tagInput" value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={handleTagKeyDown} placeholder="Ajouter un tag..." className="bg-transparent text-sm flex-1 min-w-[100px] outline-none" />
+                            </div>
+                        </div>
+
+                        {/* Pricing Section */}
+                        <div className="glass-card rounded-2xl p-5 sm:p-6">
+                            <div className="flex items-center justify-between mb-4">
+                                <label className="block text-sm font-semibold text-gray-300">PRIX DU COURS</label>
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                    <input type="checkbox" checked={isFree} onChange={(e) => setIsFree(e.target.checked)} className="toggle-checkbox hidden" />
+                                    <div className="toggle-label w-10 h-5 bg-[#30363D] rounded-full relative transition-colors">
+                                        <div className="toggle-dot w-4 h-4 bg-white rounded-full absolute top-0.5 left-0.5 transition-transform"></div>
+                                    </div>
+                                    <span className="text-xs text-gray-400">Gratuit</span>
+                                </label>
+                            </div>
+
+                            {!isFree && (
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-xs text-gray-400 mb-1.5">PRIX (XAF) <span className="text-red-400">*</span></label>
+                                        <input type="number" value={price} onChange={e => setPrice(e.target.value ? Number(e.target.value) : '')} placeholder="0" min="0" className="input-field w-full px-4 py-3 rounded-xl text-lg font-bold" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs text-gray-400 mb-1.5">PRIX PROMOTIONNEL (optionnel)</label>
+                                        <input type="number" value={promoPrice} onChange={e => setPromoPrice(e.target.value ? Number(e.target.value) : '')} placeholder="Ex: 10000" min="0" className="input-field w-full px-4 py-3 rounded-xl text-sm" />
+                                        <p className="text-xs text-gray-500 mt-1">Le prix original sera barré sur la marketplace</p>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Cover Image Upload */}
+                        <div className="glass-card rounded-2xl p-5 sm:p-6">
+                            <label className="block text-sm font-semibold text-gray-300 mb-2">IMAGE DE COUVERTURE <span className="text-red-400">*</span></label>
+                            <p className="text-xs text-gray-500 mb-4">Dimensions recommandées : 1280 x 720px (Ratio 16:9)</p>
+                            
+                            <div className={`drop-zone rounded-xl p-8 text-center cursor-pointer ${isDragOver ? 'dragover' : ''}`} onClick={() => fileInputRef.current?.click()} onDrop={handleDrop} onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }} onDragLeave={() => setIsDragOver(false)}>
+                                {!coverImageUrl ? (
+                                    <div>
+                                        <div className="w-16 h-16 rounded-2xl bg-[#30363D] flex items-center justify-center mx-auto mb-4">
+                                            <svg className="w-8 h-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                                        </div>
+                                        <p className="text-sm text-gray-300 font-medium mb-1">Cliquez pour sélectionner une image</p>
+                                        <p className="text-xs text-gray-500">ou glissez-déposez ici</p>
+                                        <p className="text-xs text-gray-600 mt-2">PNG, JPG ou WEBP • Max 5MB</p>
+                                    </div>
+                                ) : (
+                                    <div>
+                                        <img src={coverImageUrl} alt="Preview" className="w-full h-48 object-cover rounded-lg mb-3" />
+                                        <div className="flex items-center justify-center gap-3">
+                                            <button onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }} className="px-4 py-2 bg-[#30363D] rounded-lg text-xs text-gray-300 hover:bg-[#30363D]/80 transition-colors">Changer</button>
+                                            <button onClick={(e) => { e.stopPropagation(); setCoverImage(null); setCoverImageUrl(''); }} className="px-4 py-2 bg-red-500/10 rounded-lg text-xs text-red-400 hover:bg-red-500/20 transition-colors">Supprimer</button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                            <input type="file" ref={fileInputRef} accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])} />
+                            
+                            <div className="mt-4 p-3 bg-[#111827] rounded-lg flex items-center gap-3">
+                                <div className="w-16 h-9 bg-[#30363D] rounded flex items-center justify-center flex-shrink-0">
+                                    <div className="w-12 h-7 bg-emerald-500/20 rounded border border-emerald-500/30"></div>
+                                </div>
+                                <div>
+                                    <p className="text-xs text-gray-300">Ratio 16:9 recommandé</p>
+                                    <p className="text-[10px] text-gray-500">1280 × 720 pixels minimum</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Slug */}
+                        <div className="glass-card rounded-2xl p-5 sm:p-6">
+                            <label className="block text-sm font-semibold text-gray-300 mb-2">URL SIMPLIFIÉE (SLUG)</label>
+                            <div className="relative">
+                                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xs text-gray-500">ndara.io/courses/</span>
+                                <input type="text" value={slug} onChange={(e) => { setSlug(e.target.value); setSlugTouched(true); }} placeholder="trading-pro (auto-généré si vide)" className="input-field w-full pl-36 pr-4 py-3 rounded-xl text-sm" />
+                            </div>
+                            <p className="text-xs text-gray-500 mt-1.5">Généré automatiquement à partir du titre. Peut être modifié.</p>
+                        </div>
+
+                    </div>
+
+                    {/* Right: Live Preview */}
+                    <div className="lg:col-span-1">
+                        <div className="sticky top-20 space-y-6">
+                            
+                            {/* Preview Card */}
+                            <div className="glass-card rounded-2xl overflow-hidden">
+                                <div className="px-5 py-4 border-b border-[#30363D]">
+                                    <h3 className="text-sm font-bold text-white">👁️ Aperçu en direct</h3>
+                                    <p className="text-xs text-gray-500">Voici à quoi ressemblera votre cours</p>
+                                </div>
+                                
+                                <div className="p-5">
+                                    <div className="w-full h-32 bg-[#30363D] rounded-xl mb-4 overflow-hidden relative">
+                                        {coverImageUrl ? (
+                                            <img src={coverImageUrl} alt="Preview" className="w-full h-full object-cover" />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center">
+                                                <span className="text-3xl">📚</span>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div className="space-y-3">
+                                        <div>
+                                            <h4 className="text-sm font-bold text-white line-clamp-2">{title || 'Titre du cours'}</h4>
+                                            <p className="text-xs text-gray-400 mt-1 line-clamp-2">{subtitle || 'Sous-titre du cours'}</p>
+                                        </div>
+
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-rose-500 to-rose-700 flex items-center justify-center text-[8px] font-bold">MO</div>
+                                            <span className="text-xs text-gray-400">{currentUser?.displayName || "Formateur Anonyme"}</span>
+                                        </div>
+
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-amber-400 text-xs">⭐</span>
+                                            <span className="text-xs text-white font-semibold">Nouveau</span>
+                                            <span className="text-xs text-gray-500">(0 avis)</span>
+                                        </div>
+
+                                        <div className="flex items-center gap-2">
+                                            <span className="px-2 py-0.5 bg-blue-500/10 text-blue-400 text-[10px] rounded-lg font-semibold">
+                                                {difficulty === 'beginner' ? 'Débutant' : difficulty === 'advanced' ? 'Expert' : 'Intermédiaire'}
+                                            </span>
+                                            {category && (
+                                                <span className="px-2 py-0.5 bg-purple-500/10 text-purple-400 text-[10px] rounded-lg font-semibold">
+                                                    {category}
+                                                </span>
+                                            )}
+                                        </div>
+
+                                        {validObjectives > 0 && (
+                                            <div>
+                                                <p className="text-xs text-gray-400 mb-1.5">Les étudiants apprendront à :</p>
+                                                <div className="space-y-1">
+                                                    {objectives.filter(o => o.trim()).slice(0, 2).map((obj, i) => (
+                                                        <div key={i} className="flex items-center gap-2">
+                                                            <span className="text-emerald-400 text-[10px]">✓</span>
+                                                            <span className="text-[10px] text-gray-300 line-clamp-1">{obj}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        <div className="pt-3 border-t border-[#30363D]">
+                                            <div className="flex items-center justify-between">
+                                                <div>
+                                                    <span className="text-lg font-black text-emerald-400">
+                                                        {isFree || !price ? 'Gratuit' : `${Number(promoPrice || price).toLocaleString()} F`}
+                                                    </span>
+                                                    {promoPrice && price && promoPrice < price && (
+                                                        <span className="text-xs text-gray-500 line-through ml-2">{Number(price).toLocaleString()} F</span>
+                                                    )}
+                                                </div>
+                                                <span className="px-3 py-1.5 bg-emerald-500 text-white text-xs font-semibold rounded-lg">S'inscrire</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Completion Checklist */}
+                            <div className="glass-card rounded-2xl p-5">
+                                <h3 className="text-sm font-bold text-white mb-3">✅ Checklist de publication</h3>
+                                <div className="space-y-2">
+                                    <div className="flex items-center gap-2">
+                                        <div className={`w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 ${isTitleValid ? 'bg-emerald-500' : 'bg-[#30363D]'}`}>
+                                            {isTitleValid && <CheckIcon />}
+                                        </div>
+                                        <span className="text-xs text-gray-300">Titre du cours</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <div className={`w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 ${isDescValid ? 'bg-emerald-500' : 'bg-[#30363D]'}`}>
+                                            {isDescValid && <CheckIcon />}
+                                        </div>
+                                        <span className="text-xs text-gray-400">Description</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <div className={`w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 ${isObjectivesValid ? 'bg-emerald-500' : 'bg-[#30363D]'}`}>
+                                            {isObjectivesValid && <CheckIcon />}
+                                        </div>
+                                        <span className="text-xs text-gray-400">Objectifs (min. 3)</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <div className={`w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 ${isImageValid ? 'bg-emerald-500' : 'bg-[#30363D]'}`}>
+                                            {isImageValid && <CheckIcon />}
+                                        </div>
+                                        <span className="text-xs text-gray-400">Image de couverture</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <div className={`w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 ${isPriceValid ? 'bg-emerald-500' : 'bg-[#30363D]'}`}>
+                                            {isPriceValid && <CheckIcon />}
+                                        </div>
+                                        <span className="text-xs text-gray-400">Prix défini</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <div className={`w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 ${isCategoryValid ? 'bg-emerald-500' : 'bg-[#30363D]'}`}>
+                                            {isCategoryValid && <CheckIcon />}
+                                        </div>
+                                        <span className="text-xs text-gray-400">Catégorie sélectionnée</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+
+                </div>
+
+                {/* Sticky Bottom Action */}
+                <div className="sticky-bottom">
+                    <div className="max-w-5xl mx-auto px-4 pb-6">
+                        <div className="flex gap-3">
+                            <button className="flex-1 py-3.5 bg-[#161B22] border border-[#30363D] text-white text-sm font-semibold rounded-xl hover:bg-[#1E2530] transition-colors">
+                                Sauvegarder le brouillon
+                            </button>
+                            <button onClick={createDraft} disabled={isSubmitting} className="flex-1 py-3.5 bg-gradient-to-r from-emerald-500 to-emerald-700 text-white text-sm font-bold rounded-xl hover:shadow-lg hover:shadow-emerald-500/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50">
+                                {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"/></svg>}
+                                Créer le brouillon
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
         </div>
-      </BottomSheet>
-
-
-
-      {/* Toast */}
-      {toastMessage && (
-        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-top-2">
-          <div
-            className={`flex items-center gap-2 px-4 py-3 rounded-xl shadow-2xl border bg-[#1E293B] ${toastMessage.type === "warning" ? "border-red-500" : "border-[#334155]"}`}
-          >
-            <span
-              className={`text-lg ${toastMessage.type === "warning" ? "text-red-500" : "text-[#22C55E]"}`}
-            >
-              {toastMessage.type === "warning" ? "⚠️" : "✅"}
-            </span>
-            <span className="text-sm font-medium text-white">
-              {toastMessage.msg}
-            </span>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+    );
 }
