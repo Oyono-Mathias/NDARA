@@ -1,0 +1,46 @@
+@import "tailwindcss";
+
+/* Android First / Mobile First Foundations */
+:root {
+  --safe-area-inset-top: env(safe-area-inset-top, 0px);
+  --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-inset-left: env(safe-area-inset-left, 0px);
+  --safe-area-inset-right: env(safe-area-inset-right, 0px);
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  /* Prevent tap highlight on Android */
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  /* Prevent pull-to-refresh and bounce on mobile */
+  overscroll-behavior-y: none;
+  /* Native smooth scrolling */
+  scroll-behavior: smooth;
+}
+
+body {
+  /* Setup for a native app feel */
+  display: flex;
+  flex-direction: column;
+  /* Respect safe areas (notches, home indicators) */
+  padding-top: var(--safe-area-inset-top);
+  padding-bottom: var(--safe-area-inset-bottom);
+  padding-left: var(--safe-area-inset-left);
+  padding-right: var(--safe-area-inset-right);
+}
+
+#root {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}

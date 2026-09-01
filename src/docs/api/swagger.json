@@ -1,0 +1,88 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "API Ndara Afrique",
+    "description": "Documentation des services backend (Cloud Functions) pour l'application Ndara Afrique. NOTE: Ces endpoints sont planifiés et seront implémentés dans les phases futures.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://api-placeholder.ndara.app/v1",
+      "description": "Serveur de Production (Placeholder)"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Token Firebase ID"
+      }
+    },
+    "schemas": {
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "example": "error"
+          },
+          "code": {
+            "type": "string",
+            "example": "UNAUTHORIZED"
+          },
+          "message": {
+            "type": "string",
+            "example": "Token invalide ou manquant."
+          }
+        }
+      }
+    }
+  },
+  "security": [
+    {
+      "BearerAuth": []
+    }
+  ],
+  "paths": {
+    "/wallet/transfer": {
+      "post": {
+        "summary": "Transfert P2P (Planifié)",
+        "description": "Initie un transfert d'argent entre deux utilisateurs.",
+        "tags": ["Wallet"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "recipientPhone": { "type": "string", "example": "+2376XXXXXXXX" },
+                  "amount": { "type": "integer", "example": 5000 },
+                  "pin": { "type": "string", "example": "1234" }
+                },
+                "required": ["recipientPhone", "amount", "pin"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Transfert réussi"
+          },
+          "400": {
+            "description": "Fonds insuffisants ou PIN invalide",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

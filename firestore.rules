@@ -1,0 +1,68 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Règle de base : Interdire tout accès par défaut
+    match /{document=**} {
+      allow read, write: if false;
+    }
+    
+    // Fonction utilitaire pour vérifier si l'utilisateur est authentifié
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Fonction pour vérifier si l'utilisateur est le propriétaire du document
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Fonction pour vérifier si l'utilisateur est admin
+    function isAdmin() {
+      return isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // 1. Collection USERS
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      // On interdit la mise à jour directe du rôle ou du pinHash depuis le client
+      allow update: if isOwner(userId) && 
+                    !request.resource.data.keys().hasAny(['role', 'pinHash', 'kycStatus']);
+      allow delete: if false;
+    }
+
+    // 2. Collection WALLETS
+    match /wallets/{walletId} {
+      allow read: if isOwner(resource.data.userId) || isAdmin();
+      allow create: if false; // Création par Cloud Function recommandée
+      // Le solde ne peut JAMAIS être modifié directement par le client, seulement via Cloud Functions
+      allow update: if false; 
+      allow delete: if false;
+    }
+
+    // 3. Collection TRANSACTIONS
+    match /transactions/{transactionId} {
+      allow read: if isOwner(resource.data.userId) || isAdmin();
+      allow create: if false; // Les transactions doivent être initiées via Cloud Functions
+      // Une fois créée, une transaction ne peut être modifiée que par le système
+      allow update: if false; 
+      allow delete: if false;
+    }
+
+    // 4. Collection KYC_RECORDS
+    match /kyc_records/{recordId} {
+      allow read: if isOwner(resource.data.userId) || isAdmin();
+      allow create: if isOwner(request.resource.data.userId);
+      allow update: if isAdmin(); // Seul l'admin valide le KYC
+      allow delete: if false;
+    }
+
+    // 5. Collection AUDIT_LOGS (Lecture seule pour admins)
+    match /audit_logs/{logId} {
+      allow read: if isAdmin();
+      allow write: if false; // Seules les Cloud Functions écrivent ici
+    }
+  }
+}
+

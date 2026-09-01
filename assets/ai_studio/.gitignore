@@ -1,0 +1,14 @@
+# AI Studio & Firebase Temporary Artifacts
+node_modules/
+dist/
+.vite/
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+.env.local
+.env.*.local
+backups/
+coverage/
+playwright-report/
+test-results/
