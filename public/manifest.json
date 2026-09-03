@@ -1,12 +1,27 @@
 {
-  "name": "NDARA",
+  "name": "NDARA E-Learning",
   "short_name": "NDARA",
-  "description": "Application NDARA",
+  "description": "Plateforme d'apprentissage et de marketplace numérique NDARA.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#ffffff",
+  "theme_color": "#0F172A",
   "lang": "fr",
-  "orientation": "portrait-primary",
-  "scope": "/"
+  "orientation": "portrait",
+  "scope": "/",
+  "categories": ["education", "business", "lifestyle"],
+  "icons": [
+    {
+      "src": "/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "prefer_related_applications": false
 }

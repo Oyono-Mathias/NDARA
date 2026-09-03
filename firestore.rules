@@ -2,67 +2,63 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Règle de base : Interdire tout accès par défaut
+    // Global Safety Net
     match /{document=**} {
       allow read, write: if false;
     }
-    
-    // Fonction utilitaire pour vérifier si l'utilisateur est authentifié
-    function isAuthenticated() {
-      return request.auth != null;
-    }
-    
-    // Fonction pour vérifier si l'utilisateur est le propriétaire du document
-    function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
-    }
-    
-    // Fonction pour vérifier si l'utilisateur est admin
-    function isAdmin() {
-      return isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+
+    // Helpers
+    function isSignedIn() { return request.auth != null; }
+    function existing() { return resource.data; }
+    function incoming() { return request.resource.data; }
+    function isAdmin() { 
+      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // 1. Collection USERS
+    // Entity validation
+    function isValidUser(data) {
+      return data.keys().hasAll(['email', 'role']) && 
+             data.email is string && data.email.size() <= 100 &&
+             data.role is string && (data.role == 'user' || data.role == 'instructor' || data.role == 'admin' || data.role == 'agent' || data.role == 'super_admin');
+    }
+
+    match /statistiques/{statId} {
+      allow read: if true;
+    }
+    
     match /users/{userId} {
-      allow read: if isOwner(userId) || isAdmin();
-      allow create: if isAuthenticated() && request.auth.uid == userId;
-      // On interdit la mise à jour directe du rôle ou du pinHash depuis le client
-      allow update: if isOwner(userId) && 
-                    !request.resource.data.keys().hasAny(['role', 'pinHash', 'kycStatus']);
-      allow delete: if false;
+      // Users can read their own profile. Admins can read all. Instructors are public.
+      allow read: if (isSignedIn() && (request.auth.uid == userId || isAdmin())) || (existing().role == 'instructor');
+      
+      // Users can create their own profile, but must default to 'user' role
+      allow create: if isSignedIn() && request.auth.uid == userId && 
+                       isValidUser(incoming()) && incoming().role == 'user';
+      
+      // Users can update their own profile, but cannot change their role. Admins can do anything.
+      allow update: if isSignedIn() && isValidUser(incoming()) && (
+        isAdmin() ||
+        (request.auth.uid == userId && incoming().diff(existing()).affectedKeys().hasOnly(['email']))
+      );
     }
-
-    // 2. Collection WALLETS
-    match /wallets/{walletId} {
-      allow read: if isOwner(resource.data.userId) || isAdmin();
-      allow create: if false; // Création par Cloud Function recommandée
-      // Le solde ne peut JAMAIS être modifié directement par le client, seulement via Cloud Functions
-      allow update: if false; 
-      allow delete: if false;
+    
+    match /courses/{courseId} {
+      // Public can read published courses
+      allow read: if (existing().isPublished == true) || (isSignedIn() && request.auth.uid == existing().instructorId) || isAdmin();
+      allow write: if isAdmin() || (isSignedIn() && request.auth.uid == existing().instructorId);
     }
-
-    // 3. Collection TRANSACTIONS
-    match /transactions/{transactionId} {
-      allow read: if isOwner(resource.data.userId) || isAdmin();
-      allow create: if false; // Les transactions doivent être initiées via Cloud Functions
-      // Une fois créée, une transaction ne peut être modifiée que par le système
-      allow update: if false; 
-      allow delete: if false;
+    
+    match /categories/{categoryId} {
+      allow read: if true;
     }
-
-    // 4. Collection KYC_RECORDS
-    match /kyc_records/{recordId} {
-      allow read: if isOwner(resource.data.userId) || isAdmin();
-      allow create: if isOwner(request.resource.data.userId);
-      allow update: if isAdmin(); // Seul l'admin valide le KYC
-      allow delete: if false;
+    
+    match /reviews/{reviewId} {
+      allow read: if existing().isApproved == true;
+      allow write: if isSignedIn();
     }
-
-    // 5. Collection AUDIT_LOGS (Lecture seule pour admins)
-    match /audit_logs/{logId} {
-      allow read: if isAdmin();
-      allow write: if false; // Seules les Cloud Functions écrivent ici
+    
+    match /testimonials/{testimonialId} {
+      allow read: if existing().isApproved == true;
+      allow write: if isAdmin();
     }
   }
 }
-

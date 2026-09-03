@@ -19,8 +19,8 @@ const safeLazy = (importFunc: () => Promise<any>, exportName: string) => {
 
 // Public
 const Landing = safeLazy(() => import('./views/Landing'), 'Landing');
-const LoginView = safeLazy(() => import('./views/auth/LoginView'), 'LoginView');
-const RegisterView = safeLazy(() => import('./views/auth/RegisterView'), 'RegisterView');
+const AuthView = safeLazy(() => import('./views/auth/AuthView').then(m => ({ default: m.AuthView })), 'AuthView');
+const RegisterView = safeLazy(() => import('./views/auth/RegisterView').then(m => ({ default: m.RegisterView })), 'RegisterView');
 const ForgotPasswordView = safeLazy(() => import('./views/auth/ForgotPasswordView'), 'ForgotPasswordView');
 const VerifyEmailView = safeLazy(() => import('./views/auth/VerifyEmailView'), 'VerifyEmailView');
 const TwoFactorSetup = safeLazy(() => import('./views/auth/TwoFactorSetup'), 'TwoFactorSetup');
@@ -86,6 +86,7 @@ const InstructorProfile = safeLazy(() => import('./views/instructor/InstructorPr
 const InstructorQuiz = safeLazy(() => import('./views/instructor/InstructorQuiz'), 'InstructorQuiz');
 const InstructorResources = safeLazy(() => import('./views/instructor/InstructorResources'), 'InstructorResources');
 
+const MainLayout = safeLazy(() => import('./layouts/MainLayout').then(m => ({ default: m.MainLayout })), 'MainLayout');
 // Ambassador
 const AmbassadorDashboard = safeLazy(() => import('./views/ambassador/AmbassadorDashboard'), 'AmbassadorDashboard');
 const AmbassadorMarketing = safeLazy(() => import('./views/ambassador/AmbassadorMarketing'), 'AmbassadorMarketing');
@@ -105,30 +106,38 @@ const LoadingFallback = () => (
 function App() {
   return (
     <Suspense fallback={<LoadingFallback />}>
+      
       <Routes>
         <Route path="/" element={<Landing />} />
-        <Route path="/leaderboard" element={<LeaderboardView />} />
-        <Route path="/legal" element={<LegalView />} />
         <Route path="/instructor/profile/:id" element={<InstructorPublicProfile />} />
         <Route path="/invite" element={<InviteRedirectView />} />
-        <Route path="/catalog" element={<CatalogView />} />
-        <Route path="/course/:id" element={<CourseDetailView />} />
         
-        <Route path="/login" element={<GuestGuard><LoginView /></GuestGuard>} />
+        {/* Public & Student Global Layout */}
+        <Route element={<MainLayout />}>
+          <Route path="/catalog" element={<CatalogView />} />
+          <Route path="/course/:id" element={<CourseDetailView />} />
+          <Route path="/leaderboard" element={<LeaderboardView />} />
+          <Route path="/legal" element={<LegalView />} />
+          <Route path="/account" element={<AuthGuard><Account /></AuthGuard>} />
+          <Route path="/notifications" element={<AuthGuard><Notifications /></AuthGuard>} />
+          <Route path="/messages" element={<AuthGuard><Messages /></AuthGuard>} />
+          <Route path="/offline-downloads" element={<AuthGuard><OfflineDownloads /></AuthGuard>} />
+          <Route path="/wallet" element={<AuthGuard><div className="p-8 text-center"><h2 className="text-2xl font-bold">Wallet Ndara/OmPay (Bientôt disponible)</h2></div></AuthGuard>} />
+        </Route>
+
+        <Route path="/login" element={<GuestGuard><AuthView /></GuestGuard>} />
         <Route path="/register" element={<GuestGuard><RegisterView /></GuestGuard>} />
         <Route path="/forgot-password" element={<GuestGuard><ForgotPasswordView /></GuestGuard>} />
         <Route path="/verify-email" element={<VerifyEmailView />} />
         
         <Route path="/2fa-setup" element={<AuthGuard><TwoFactorSetup /></AuthGuard>} />
         <Route path="/2fa-verify" element={<AuthGuard><TwoFactorVerify /></AuthGuard>} />
-        <Route path="/account" element={<AuthGuard><Account /></AuthGuard>} />
-        <Route path="/notifications" element={<AuthGuard><Notifications /></AuthGuard>} />
-        <Route path="/messages" element={<AuthGuard><Messages /></AuthGuard>} />
-        <Route path="/offline-downloads" element={<AuthGuard><OfflineDownloads /></AuthGuard>} />
+        
         <Route path="/profile" element={<AuthGuard><ProfileRedirect /></AuthGuard>} />
         <Route path="/dashboard" element={<AuthGuard><ProfileRedirect /></AuthGuard>} />
 
         <Route path="/admin" element={<AuthGuard><RoleGuard allowedRoles={['admin']}><AdminLayout /></RoleGuard></AuthGuard>}>
+
           <Route index element={<AdminMonitoring />} />
           <Route path="members" element={<AdminMembers />} />
           <Route path="members/:id" element={<AdminMemberProfileView />} />

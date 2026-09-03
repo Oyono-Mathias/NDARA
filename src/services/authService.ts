@@ -1,4 +1,5 @@
-import { auth } from '../firebase';
+import { auth, db } from '../firebase';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { 
   onAuthStateChanged, 
   signInWithPopup, 
@@ -29,7 +30,20 @@ export class AuthService {
       provider.addScope('profile');
       
       const result = await signInWithPopup(auth, provider);
-      return result.user;
+      const user = result.user;
+
+      // Sauvegarder l'utilisateur dans Firestore
+      const userRef = doc(db, 'users', user.uid);
+      const userSnap = await getDoc(userRef);
+      if (!userSnap.exists()) {
+        await setDoc(userRef, {
+          email: user.email,
+          role: 'user',
+          createdAt: serverTimestamp()
+        });
+      }
+
+      return user;
     } catch (error) {
       throw normalizeFirebaseError(error);
     }

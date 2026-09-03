@@ -26,7 +26,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const signOut = async () => {
-    await AuthService.signOutUser();
+    try { await AuthService.signOutUser(); } catch (e) {}
+    setCurrentUser(null);
     // Le listener onAuthStateChanged mettra à jour l'état currentUser à null
   };
 
