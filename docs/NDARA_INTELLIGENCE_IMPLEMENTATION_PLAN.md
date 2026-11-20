@@ -179,8 +179,9 @@ Toutes les entrées doivent être validées par schéma (Zod côté serveur ou �
 - `src/firebase.ts` : Firebase App, Auth, Firestore et Storage déjà initialisés.
 - `src/App.tsx` : routage React existant avec layouts apprenant/formateur/admin.
 - `DATABASE.md` : collections utilisateurs, wallets, transactions, audit logs ; collections pédagogiques encore décrites comme futures.
-- `functions/src/paymentWebhook.ts` existe, mais aucun `functions/package.json`, `functions/tsconfig.json` ni point d’entrée `functions/src/index.ts` n’a été trouvé dans les chemins audités. Il faut compléter et tester le projet Functions avant déploiement.
-- Pas de `firebase.json` trouvé à la racine dans l’audit. La configuration Firebase CLI devra être créée après confirmation du projet et de ses règles existantes.
+- `functions/src/paymentWebhook.ts` existait ; la branche de travail ajoute maintenant un premier squelette Functions v2 avec `functions/package.json`, `tsconfig.json`, `src/index.ts`, un fournisseur Gemini et une callable `aiChat` authentifiée avec quota quotidien.
+- La callable est un prototype de tuteur générique : elle n'est pas encore reliée au schéma réel des inscriptions/cours et n'est donc pas encore l'assistant sécurisé du lecteur vidéo. App Check, les règles d'accès aux cours, tests et revue de sécurité restent à terminer.
+- Aucun `firebase.json` n’a été trouvé à la racine. Ne pas déployer avant d’avoir vérifié les règles Firestore/Storage et ajouté la configuration CLI correspondant au projet confirmé.
 
 Structure proposée :
 
@@ -239,9 +240,9 @@ Intégration UI recommandée : ajouter les composants dans la page de lecture de
 **Critère de sortie :** appel de test Gemini depuis un script backend local, sans clé dans le navigateur ni dans Git.
 
 ### Phase B — Fondations backend
-- Ajouter la configuration Firebase Functions v2 et le point d’entrée.
-- Ajouter le middleware de vérification Auth/App Check et les validateurs.
-- Ajouter le routeur IA avec timeouts, retry borné, gestion 429 et journalisation.
+- [En cours dans la branche] Squelette Firebase Functions v2, TypeScript, point d’entrée, secret Gemini, fournisseur Gemini et callable `aiChat`.
+- Compléter App Check, validation stricte, droits d’accès aux cours, gestion des erreurs/quota fournisseur et tests automatisés.
+- Ajouter le routeur IA multi-fournisseurs avec timeouts, retry borné et fallback contrôlé.
 - Ajouter quotas et limites de taille/durée.
 
 **Critère de sortie :** endpoint de test authentifié et testable avec l’émulateur.
