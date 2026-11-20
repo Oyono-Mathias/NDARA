@@ -181,7 +181,7 @@ Toutes les entrées doivent être validées par schéma (Zod côté serveur ou �
 - `DATABASE.md` : collections utilisateurs, wallets, transactions, audit logs ; collections pédagogiques encore décrites comme futures.
 - `functions/src/paymentWebhook.ts` existait ; la branche de travail ajoute maintenant un premier squelette Functions v2 avec `functions/package.json`, `tsconfig.json`, `src/index.ts`, un fournisseur Gemini et une callable `aiChat` authentifiée avec quota quotidien.
 - La callable est un prototype de tuteur générique : elle n'est pas encore reliée au schéma réel des inscriptions/cours et n'est donc pas encore l'assistant sécurisé du lecteur vidéo. App Check, les règles d'accès aux cours, tests et revue de sécurité restent à terminer.
-- Aucun `firebase.json` n’a été trouvé à la racine. Ne pas déployer avant d’avoir vérifié les règles Firestore/Storage et ajouté la configuration CLI correspondant au projet confirmé.
+- La branche ajoute maintenant un `firebase.json` limité au codebase Functions (sans modifier les règles Firestore/Storage). Le projet cible doit être sélectionné explicitement avec `--project`. Ne pas déployer avant revue des règles et compilation locale.
 
 Structure proposée :
 
