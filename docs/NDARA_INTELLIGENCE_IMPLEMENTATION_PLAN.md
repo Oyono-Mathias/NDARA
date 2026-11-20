@@ -9,8 +9,8 @@
 NDARA reste une application React + Vite + TypeScript. Le client ne contacte jamais directement les fournisseurs IA avec une clé secrète. Tous les appels passent par un backend Firebase Admin / Cloud Functions.
 
 - **Gemini API (Google AI Studio)** : moteur multimodal principal pour analyser une vidéo avec sa piste audio et ses images, répondre avec des timecodes, résumer et générer des quiz.
-- **Groq** : transcription audio de secours ou spécialisée (Whisper multilingue) ; optionnel au MVP, activée seulement si le quota gratuit est disponible.
-- **Mistral** : fournisseur secondaire pour les tâches texte (reformulation, résumé, quiz) ; ne pas le considérer comme remplaçant multimodal vidéo.
+- **Groq** : connecteur de transcription de secours (Whisper multilingue), mais ne pas l’activer dans le parcours à 0 FCFA sans vérifier dans la console que l’usage est effectivement gratuit ; la documentation affiche des tarifs à l’heure pour la transcription.
+- **Mistral** : fournisseur secondaire pour les tâches texte (reformulation, résumé, quiz) ; son mode Free est destiné à l’évaluation/prototypage et ses limites sont faibles. Ne pas le considérer comme remplaçant multimodal vidéo.
 - **OpenRouter** : banc d’essai/fallback de modèles texte gratuits uniquement. Son offre gratuite est limitée (50 requêtes/jour selon la page de tarification consultée) ; ne pas en faire une dépendance de production.
 - **Firebase existant** : Auth, Firestore, Storage. Réutiliser l’application Firebase existante et vérifier les règles/quotas avant tout déploiement.
 - **Traitement asynchrone** : création d’un job Firestore, worker backend, progression persistée dans Firestore. Ne pas analyser une vidéo pendant une requête HTTP longue.
@@ -231,7 +231,7 @@ Intégration UI recommandée : ajouter les composants dans la page de lecture de
 ## 9. Ordre d’exécution
 
 ### Phase A — Préparer les comptes et l’environnement
-- Créer Gemini et Groq ; Mistral/OpenRouter restent facultatifs.
+- Créer Gemini ; Mistral/OpenRouter restent facultatifs. Ne créer/activer Groq que si son tarif affiché est nul pour le modèle et le quota visés.
 - Confirmer le projet Firebase réellement associé au dépôt.
 - Vérifier Storage, Firestore Rules, Auth, App Check et région.
 - Configurer les secrets uniquement en local/Secret Manager.
