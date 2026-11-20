@@ -77,6 +77,14 @@ export const aiChat = onCall(
       };
     } catch (error) {
       // Do not log prompts, learner content, or provider credentials.
+      await getFirestore().runTransaction(async (transaction) => {
+        const snapshot = await transaction.get(usageRef);
+        const currentCount = Number(snapshot.data()?.questionCount ?? 0);
+        transaction.set(usageRef, {
+          questionCount: Math.max(0, currentCount - 1),
+          updatedAt: FieldValue.serverTimestamp(),
+        }, { merge: true });
+      });
       console.error("NDARA AI provider request failed", {
         uid,
         errorName: error instanceof Error ? error.name : "UnknownError",
